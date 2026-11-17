@@ -434,12 +434,14 @@ function renderStats(){
  $('sAccuracy').textContent=state.answered?Math.round(state.correct/state.answered*100)+'%':'—';
 }
 function renderSkills(){
- const q=$('search').value.toLowerCase(),f=$('filter').value;$('skills').innerHTML='';
- skills.forEach((s,i)=>{const done=state.done.includes(i);
- if(!s.toLowerCase().includes(q)||(f==='done'&&!done)||(f==='todo'&&done))return;
- const b=document.createElement('button');b.className='skill'+(done?' done':'');
- b.innerHTML=`<span class="num">${String(i+1).padStart(2,'0')}</span><span class="skill-title">${s}</span><span class="status">${done?'✓':'Вивчити'}</span>`;
- b.onclick=()=>start('cards',[i]);$('skills').appendChild(b);
+ const q=$('search').value.toLowerCase(),f=$('filter').value,root=$('skills');root.innerHTML='';
+ skills.forEach((label,i)=>{const done=state.done.includes(i);
+ if(!label.toLowerCase().includes(q)||(f==='done'&&!done)||(f==='todo'&&done))return;
+ const b=document.createElement('button');b.type='button';b.className='skill'+(done?' done':'');b.dataset.skillIndex=String(i);
+ const n=document.createElement('span');n.className='num';n.textContent=String(i+1).padStart(2,'0');
+ const t=document.createElement('span');t.className='skill-title';t.textContent=label;
+ const st=document.createElement('span');st.className='status';st.textContent=done?'✓':'Вивчити';
+ b.append(n,t,st);root.appendChild(b);
  });
 }
 function shuffle(a){return [...a].sort(()=>Math.random()-.5)}
@@ -591,6 +593,14 @@ function finish(){
 }
 document.querySelectorAll('.mode').forEach(b=>b.onclick=()=>start(b.dataset.mode));
 $('search').addEventListener('input',renderSkills);$('filter').addEventListener('change',renderSkills);
+$('skills').addEventListener('click',e=>{
+ const card=e.target.closest('[data-skill-index]');
+ if(!card)return;
+ const i=Number(card.dataset.skillIndex);
+ if(!Number.isInteger(i)||i<0||i>=skills.length)return;
+ try{start('cards',[i]);}
+ catch(error){console.error(error);$('studyPanel').classList.remove('hidden');$('studyContent').innerHTML='<div class="study-card"><h2>Не вдалося відкрити картку</h2><p>'+String(error.message||error)+'</p></div>';}
+});
 renderStats();renderSkills();
 document.querySelectorAll('[data-skill-index]').forEach(button=>button.addEventListener('click',()=>start('cards',[Number(button.dataset.skillIndex)])));
 
