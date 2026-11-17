@@ -469,8 +469,32 @@ $('emailLogin').addEventListener('click',async()=>{
  catch(err){setAuthStatus(err.message||'Не вдалося увійти.',true);}
 });
 $('googleLogin').addEventListener('click',async()=>{
- try{setAuthStatus('Переходимо до входу через Google…');const provider=new firebase.auth.GoogleAuthProvider();await auth.signInWithRedirect(provider);}
- catch(err){setAuthStatus(err.message||'Не вдалося увійти через Google.',true);}
+ try{
+  setAuthStatus('Відкриваємо вхід через Google…');
+  const provider=new firebase.auth.GoogleAuthProvider();
+  provider.setCustomParameters({prompt:'select_account'});
+  await auth.signInWithPopup(provider);
+ }catch(err){
+  console.error('Google sign-in failed:',err);
+  if(err.code==='auth/popup-blocked'||err.code==='auth/operation-not-supported-in-this-environment'){
+   try{setAuthStatus('Відкриваємо сторінку Google для входу…');await auth.signInWithRedirect(new firebase.auth.GoogleAuthProvider());return;}
+   catch(redirectError){console.error('Google redirect failed:',redirectError);err=redirectError;}
+  }
+  const messages={
+   'auth/unauthorized-domain':'Домен сайту не дозволений у Firebase. Додай practice52.onrender.com у Authentication → Settings → Authorized domains.',
+   'auth/operation-not-allowed':'У Firebase не ввімкнено Google: Authentication → Sign-in method → Google → Enable.',
+   'auth/popup-closed-by-user':'Вікно входу Google було закрито до завершення.',
+   'auth/cancelled-popup-request':'Попередній запит входу скасовано. Спробуй ще раз.',
+   'auth/network-request-failed':'Помилка мережі під час входу Google. Перевір з’єднання та повтори.'
+  };
+  setAuthStatus(messages[err.code]||('Помилка Google ('+(err.code||'невідома')+'): '+(err.message||'Не вдалося увійти.')),true);
+ }
+});
+auth.getRedirectResult().then(result=>{
+ if(result&&result.user)setAuthStatus('Вхід через Google успішний. Завантажуємо профіль…');
+}).catch(err=>{
+ console.error('Google redirect result failed:',err);
+ setAuthStatus('Помилка повернення з Google ('+(err.code||'невідома')+'): '+(err.message||''),true);
 });
 $('logoutBtn').addEventListener('click',async()=>{try{await auth.signOut();}catch(err){setAuthStatus(err.message,true);}});
 auth.onAuthStateChanged(async user=>{
