@@ -868,10 +868,15 @@ function renderStudy(){
 function showCompletionCelebration(skillIndex){
  const old=$('completionCelebration');if(old)old.remove();
  const nextIndex=(skillIndex+1)%skills.length;
- const wrap=document.createElement('div');wrap.id='completionCelebration';wrap.className='celebration-backdrop';wrap.innerHTML='<div class="celebration-card" role="dialog" aria-modal="true" aria-labelledby="celebrationTitle"><span class="firework f1">🎆</span><span class="firework f2">✨</span><span class="firework f3">🎉</span><span class="firework f4">🎇</span><div class="celebration-icon">🏆</div><h2 id="celebrationTitle">Ти молодець!</h2><p>Навичку <b></b> позначено як вивчену. Чудова робота — продовжуй у тому ж дусі!</p><div class="celebration-actions"><button type="button" class="btn primary" id="nextSkillCelebrate">Перейти до іншої навички →</button><button type="button" class="btn" id="registerCelebrate">Зареєструватися та зберегти прогрес</button><button type="button" class="btn" id="closeCelebrate">Залишитися тут</button></div></div>';
+ const isRegistered=!!firebaseUser;
+ const saveAction=isRegistered
+  ? '<button type="button" class="btn saved-confirmation" id="progressSaved" disabled>✓ Твій прогрес збережено</button>'
+  : '<button type="button" class="btn" id="registerCelebrate">Зареєструватися та зберегти прогрес</button>';
+ const wrap=document.createElement('div');wrap.id='completionCelebration';wrap.className='celebration-backdrop';wrap.innerHTML='<div class="celebration-card" role="dialog" aria-modal="true" aria-labelledby="celebrationTitle"><span class="firework f1">🎆</span><span class="firework f2">✨</span><span class="firework f3">🎉</span><span class="firework f4">🎇</span><div class="celebration-icon">🏆</div><h2 id="celebrationTitle">Ти молодець!</h2><p>Навичку <b></b> позначено як вивчену. Чудова робота — продовжуй у тому ж дусі!</p><div class="celebration-actions"><button type="button" class="btn primary" id="nextSkillCelebrate">Перейти до іншої навички →</button>'+saveAction+'<button type="button" class="btn" id="closeCelebrate">Залишитися тут</button></div></div>';
  wrap.querySelector('p b').textContent=skills[skillIndex];document.body.appendChild(wrap);
  wrap.querySelector('#nextSkillCelebrate').onclick=()=>{wrap.remove();start('cards',[nextIndex]);};
- wrap.querySelector('#registerCelebrate').onclick=()=>{wrap.remove();const panel=$('accountPanel');panel.classList.remove('hidden');$('profileTabBtn').setAttribute('aria-expanded','true');$('profileTabBtn').textContent='Закрити профіль';panel.scrollIntoView({behavior:'smooth',block:'start'});};
+ const registerButton=wrap.querySelector('#registerCelebrate');
+ if(registerButton)registerButton.onclick=()=>{wrap.remove();const panel=$('accountPanel');panel.classList.remove('hidden');$('profileTabBtn').setAttribute('aria-expanded','true');$('profileTabBtn').textContent='Закрити профіль';panel.scrollIntoView({behavior:'smooth',block:'start'});};
  wrap.querySelector('#closeCelebrate').onclick=()=>wrap.remove();
  wrap.addEventListener('click',e=>{if(e.target===wrap)wrap.remove();});
 }
