@@ -489,7 +489,7 @@ function renderStudy(){
    }else if(checked){
     const correct=order.filter((x,i)=>x.originalIndex===i).length;
     $('sequenceResult').innerHTML='<div class="sequence-result"><b>'+ (correct===order.length?'Чудово! Усі кроки на своїх місцях 🎉':'Правильно розміщено: '+correct+' із '+order.length) +'</b><br>'+(correct===order.length?'Алгоритм відновлено правильно.':'Зеленим позначено правильні позиції, червоним — кроки, які потрібно переставити.')+'</div>';
-    $('reshuffle').onclick=()=>{order=shuffle(L.steps.map((text,i)=>({text,originalIndex:i}));checked=false;draw();};
+    $('reshuffle').onclick=()=>{order=shuffle(L.steps.map((text,i)=>({text,originalIndex:i})));checked=false;draw();};
     $('next').onclick=next;return;
    }
    $('reshuffle').onclick=()=>{order=shuffle(L.steps.map((text,i)=>({text,originalIndex:i})));checked=false;draw();};
