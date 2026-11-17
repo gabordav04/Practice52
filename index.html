@@ -62,6 +62,8 @@ select{border:1px solid var(--line);background:#fff;border-radius:11px;padding:1
 .avatar-area{display:flex;align-items:center;gap:14px;margin:12px 0 16px;padding:12px;background:#f7fafc;border:1px solid var(--line);border-radius:14px}
 .avatar-preview{width:76px;height:76px;flex:0 0 76px;border-radius:50%;display:grid;place-items:center;overflow:hidden;background:#e8f3f9;border:3px solid #fff;box-shadow:0 2px 10px #18324718;font-size:38px}
 .avatar-preview img{width:100%;height:100%;object-fit:cover}.avatar-tools{min-width:0}.avatar-tools b{display:block;margin-bottom:6px}.avatar-options{display:flex;align-items:center;gap:7px;flex-wrap:wrap}.avatar-choice{appearance:none;-webkit-appearance:none;box-sizing:border-box;display:grid;place-items:center;flex:0 0 38px;width:38px;height:38px;padding:0;margin:0;border-radius:11px;background:#fff;border:1px solid var(--line);font-family:system-ui,sans-serif;font-size:23px;line-height:1;text-align:center;vertical-align:middle;cursor:pointer;overflow:hidden}.avatar-choice.selected{border:2px solid var(--blue);background:#e8f3f9}.avatar-upload{display:inline-block;margin-top:8px;padding:7px 10px;border-radius:9px;background:#edf3f6;font-size:12px;font-weight:650;cursor:pointer}.avatar-upload input{display:none}
+
+#profileTabBtn{cursor:pointer;border:1px solid var(--line);font:inherit;font-weight:650}#accountPanel{scroll-margin-top:16px}#accountPanel.hidden{display:none}.reg-field input:disabled{background:#edf1f4;color:#64748b;cursor:not-allowed}.nickname-note{font-size:11px;color:var(--muted);margin-top:4px}
 </style>
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
@@ -71,14 +73,15 @@ select{border:1px solid var(--line);background:#fff;border-radius:11px;padding:1
 <div class="app">
 <header>
  <div class="brand"><div class="logo">＋</div><div><h1>PRACTICE 52</h1><p>Навчальний тренажер практичних навичок</p></div></div>
- <div class="header-right"><span class="pill">Українська</span><span class="pill" id="savedLabel">Прогрес зберігається</span></div>
+ <div class="header-right"><button type="button" class="pill" id="profileTabBtn" aria-expanded="false">Профіль / Вхід</button><span class="pill">Українська</span><span class="pill" id="savedLabel">Прогрес зберігається</span></div>
 </header>
-<section class="registration" aria-labelledby="regTitle">
+<section class="registration hidden" id="accountPanel" aria-labelledby="regTitle">
  <h3 id="regTitle">Обліковий запис PRACTICE 52</h3>
  <p>Створи акаунт або увійди, щоб синхронізувати профіль і навчальний прогрес між пристроями.</p>
  <div class="avatar-area"><div class="avatar-preview" id="avatarPreview">🦊</div><div class="avatar-tools"><b>Твій аватар</b><div class="avatar-options" id="avatarOptions"><button type="button" class="avatar-choice" data-avatar="🦊">🦊</button><button type="button" class="avatar-choice" data-avatar="🐼">🐼</button><button type="button" class="avatar-choice" data-avatar="🦁">🦁</button><button type="button" class="avatar-choice" data-avatar="🐺">🐺</button><button type="button" class="avatar-choice" data-avatar="🐉">🐉</button><button type="button" class="avatar-choice" data-avatar="🦸">🦸</button><button type="button" class="avatar-choice" data-avatar="🦹">🦹</button><button type="button" class="avatar-choice" data-avatar="🧙">🧙</button><button type="button" class="avatar-choice" data-avatar="🤖">🤖</button><button type="button" class="avatar-choice" data-avatar="👨‍⚕️">👨‍⚕️</button><button type="button" class="avatar-choice" data-avatar="⭐">⭐</button><button type="button" class="avatar-choice" data-avatar="🌌">🌌</button></div><label class="avatar-upload">＋ Завантажити своє фото<input id="avatarFile" type="file" accept="image/*"></label></div></div>
  <form id="registrationForm">
   <div class="reg-grid">
+   <div class="reg-field"><label for="regNickname">Нікнейм (після створення не змінюється)</label><input id="regNickname" name="nickname" type="text" autocomplete="nickname" placeholder="Наприклад, david_pt" minlength="3" maxlength="20" pattern="[A-Za-z0-9_]+" title="3–20 символів: латинські літери, цифри або _"></div>
    <div class="reg-field"><label for="regName">ПІБ</label><input id="regName" name="name" type="text" autocomplete="name" placeholder="Прізвище, ім’я та по батькові" minlength="5"></div>
    <div class="reg-field"><label for="regPhone">Номер телефону</label><input id="regPhone" name="phone" type="tel" autocomplete="tel" inputmode="tel" placeholder="+380..."></div>
    <div class="reg-field"><label for="regEmail">Електронна пошта</label><input id="regEmail" name="email" type="email" autocomplete="email" placeholder="name@example.com" required></div>
@@ -440,9 +443,11 @@ function queueCloudSave(){
 function validateProfile(){
  const name=$('regName').value.trim().replace(/\\s+/g,' ');
  const phone=$('regPhone').value.trim(),digits=phone.replace(/\\D/g,'');
+ const nickname=$('regNickname').value.trim();
+ if(nickname&&!/^[A-Za-z0-9_]{3,20}$/.test(nickname))throw new Error('Нікнейм: 3–20 символів, лише латинські літери, цифри або _ .');
  if(name&&name.split(' ').length<2)throw new Error('Вкажи щонайменше прізвище та ім’я.');
  if(phone&&(digits.length<10||digits.length>15))throw new Error('Перевір номер телефону: має бути від 10 до 15 цифр.');
- return {name,phone};
+ return {name,phone,nickname};
 }
 async function saveAccountProfile(user){
  const profile=validateProfile();
@@ -451,12 +456,20 @@ async function saveAccountProfile(user){
   await db.collection('users').doc(user.uid).set({profile,updatedAt:firebase.firestore.FieldValue.serverTimestamp()},{merge:true});
  }
 }
+
+$('profileTabBtn').addEventListener('click',()=>{
+ const panel=$('accountPanel'),opening=panel.classList.contains('hidden');
+ panel.classList.toggle('hidden',!opening);$('profileTabBtn').setAttribute('aria-expanded',String(opening));
+ $('profileTabBtn').textContent=opening?'Закрити профіль':'Профіль / Вхід';
+ if(opening)panel.scrollIntoView({behavior:'smooth',block:'start'});
+});
 $('registrationForm').addEventListener('submit',async e=>{
  e.preventDefault();
  try{
   const email=$('regEmail').value.trim(),password=$('regPassword').value;
   const profile=validateProfile();
   if(!profile.name||!profile.phone)throw new Error('Для створення акаунта заповни ПІБ і номер телефону.');
+  if(!profile.nickname)throw new Error('Придумай нікнейм. Після створення акаунта його не можна буде змінити.');
   setAuthStatus('Створюємо акаунт…');
   const credential=await auth.createUserWithEmailAndPassword(email,password);
   localStorage.setItem(PROFILE_KEY,JSON.stringify(profile));
@@ -509,7 +522,7 @@ auth.onAuthStateChanged(async user=>{
   const ref=db.collection('users').doc(user.uid),snap=await ref.get();
   if(snap.exists){
    const data=snap.data()||{};
-   if(data.profile){localStorage.setItem(PROFILE_KEY,JSON.stringify(data.profile));$('regName').value=data.profile.name||'';$('regPhone').value=data.profile.phone||'';renderAvatar(data.profile.avatar||DEFAULT_AVATAR);}
+   if(data.profile){localStorage.setItem(PROFILE_KEY,JSON.stringify(data.profile));$('regName').value=data.profile.name||'';$('regPhone').value=data.profile.phone||'';$('regNickname').value=data.profile.nickname||'';$('regNickname').disabled=!!data.profile.nickname;renderAvatar(data.profile.avatar||DEFAULT_AVATAR);}
    if(data.progress&&typeof data.progress==='object'){
     state={...state,...data.progress};
     if(!Array.isArray(state.done))state.done=[];
@@ -520,10 +533,12 @@ auth.onAuthStateChanged(async user=>{
   }else{
    const profile=readLocalProfile()||{name:user.displayName||'',phone:''};
    if(user.displayName&&!profile.name)profile.name=user.displayName;
+   if(!profile.nickname){profile.nickname=(user.displayName||user.email||'student').toLowerCase().replace(/[^a-z0-9_]/g,'').slice(0,20)||'student';if(profile.nickname.length<3)profile.nickname='student';}
+   $('regNickname').value=profile.nickname;$('regNickname').disabled=true;
    localStorage.setItem(PROFILE_KEY,JSON.stringify(profile));
    await ref.set({profile,progress:state,createdAt:firebase.firestore.FieldValue.serverTimestamp()},{merge:true});
   }
-  if(user.email)$('regEmail').value=user.email;renderAvatar((readLocalProfile()||{}).avatar||DEFAULT_AVATAR);
+  if(user.email)$('regEmail').value=user.email;$('regNickname').value=(readLocalProfile()||{}).nickname||'';$('regNickname').disabled=!!(readLocalProfile()||{}).nickname;renderAvatar((readLocalProfile()||{}).avatar||DEFAULT_AVATAR);
   $('regPassword').value='';
   cloudReady=true;renderStats();renderSkills();
   setAuthStatus('Вхід виконано: '+(user.email||user.displayName||'користувач')+'. Хмарна синхронізація активна.');
