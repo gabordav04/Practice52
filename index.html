@@ -645,9 +645,45 @@ function rememberMistake(skillIndex,q){
  if(!state.mistakes.some(m=>m.id===id))state.mistakes.push({id:id,skillIndex:skillIndex,q:{q:q.q,o:q.o.slice(),a:q.a,e:q.e||''}});
  save();
 }
-function setRating(skillIndex,vote){const id='skill-'+skillIndex,old=state.ratings[id];if(old&&old.vote===vote)delete state.ratings[id];else state.ratings[id]={vote:vote};save();}
-function ratingMarkup(skillIndex){const vote=state.ratings['skill-'+skillIndex]&&state.ratings['skill-'+skillIndex].vote;const likes=vote==='like'?1:0,dislikes=vote==='dislike'?1:0;return '<div class="rating"><button class="'+(vote==='like'?'selected':'')+'" data-vote="like">👍 Подобається</button><button class="'+(vote==='dislike'?'selected':'')+'" data-vote="dislike">👎 Не подобається</button><small>Локально на цьому пристрої: 👍 '+likes+' · 👎 '+dislikes+' (не загальна статистика)</small></div>';}
-function bindRating(root,skillIndex){root.querySelectorAll('[data-vote]').forEach(b=>b.onclick=()=>{setRating(skillIndex,b.dataset.vote);renderStudy();});}
+const globalSkillRatings={};
+async function loadGlobalSkillRating(skillIndex){
+ const id='skill-'+skillIndex;
+ try{
+  const snap=await db.collection('skillRatings').doc(id).collection('votes').get();
+  let likes=0,dislikes=0,myVote=null;
+  snap.forEach(doc=>{const v=doc.data()||{};if(v.vote==='like')likes++;else if(v.vote==='dislike')dislikes++;if(firebaseUser&&doc.id===firebaseUser.uid)myVote=v.vote;});
+  globalSkillRatings[id]={likes,dislikes,myVote};
+  return globalSkillRatings[id];
+ }catch(err){
+  console.warn('Global skill rating unavailable:',err);
+  globalSkillRatings[id]={...(globalSkillRatings[id]||{}),error:true};
+  return globalSkillRatings[id];
+ }
+}
+async function setRating(skillIndex,vote){
+ if(!firebaseUser||!cloudReady){setAuthStatus('Щоб оцінити навичку та врахувати голос у спільному рейтингу, увійди в акаунт.',true);openRankingRegistration();return;}
+ if(!['like','dislike'].includes(vote))return;
+ const id='skill-'+skillIndex,ref=db.collection('skillRatings').doc(id).collection('votes').doc(firebaseUser.uid);
+ try{
+  const current=globalSkillRatings[id]||await loadGlobalSkillRating(skillIndex);
+  if(current.myVote===vote)await ref.delete();
+  else await ref.set({vote,updatedAt:firebase.firestore.FieldValue.serverTimestamp()});
+  await loadGlobalSkillRating(skillIndex);
+  renderStudy();
+ }catch(err){
+  console.error('Skill rating write failed:',err);
+  setAuthStatus('Не вдалося зберегти оцінку. Перевір правила доступу Firestore.',true);
+ }
+}
+function ratingMarkup(skillIndex){
+ const id='skill-'+skillIndex,r=globalSkillRatings[id]||{},vote=r.myVote;
+ const summary=r.error?'Спільний рейтинг поки недоступний':('Спільний рейтинг: 👍 '+(r.likes||0)+' · 👎 '+(r.dislikes||0));
+ return '<div class="rating"><button class="'+(vote==='like'?'selected':'')+'" data-vote="like" '+(!firebaseUser?'title="Увійди, щоб голосувати"':'')+'>👍 Подобається</button><button class="'+(vote==='dislike'?'selected':'')+'" data-vote="dislike" '+(!firebaseUser?'title="Увійди, щоб голосувати"':'')+'>👎 Не подобається</button><small>'+summary+(firebaseUser?'':' · Увійди, щоб голосувати')+'</small></div>';
+}
+function bindRating(root,skillIndex){
+ loadGlobalSkillRating(skillIndex).then(()=>{if(root.isConnected){const oldRating=root.querySelector('.rating');if(oldRating){const temp=document.createElement('div');temp.innerHTML=ratingMarkup(skillIndex);oldRating.replaceWith(temp.firstElementChild);bindRating(root,skillIndex);}}});
+ root.querySelectorAll('[data-vote]').forEach(b=>b.onclick=()=>setRating(skillIndex,b.dataset.vote));
+}
 function renderMistakes(){
  const root=$('studyContent');$('modeName').textContent='Мої помилки';$('counter').textContent=state.mistakes.length+' питань';$('bar').style.width='0%';
  if(!state.mistakes.length){root.innerHTML='<div class="study-card"><h2>Помилок поки немає 🎉</h2><p>Неправильні відповіді з тестів з’являтимуться тут.</p></div>';return;}
