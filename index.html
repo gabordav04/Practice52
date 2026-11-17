@@ -379,7 +379,7 @@ function rememberMistake(skillIndex,q){
  save();
 }
 function setRating(skillIndex,vote){const id='skill-'+skillIndex,old=state.ratings[id];if(old&&old.vote===vote)delete state.ratings[id];else state.ratings[id]={vote:vote};save();}
-function ratingMarkup(skillIndex){const vote=state.ratings['skill-'+skillIndex]&&state.ratings['skill-'+skillIndex].vote;return '<div class="rating"><button class="'+(vote==='like'?'selected':'')+'" data-vote="like">👍 Подобається</button><button class="'+(vote==='dislike'?'selected':'')+'" data-vote="dislike">👎 Не подобається</button><small>Локальна оцінка цього браузера · '+(vote==='like'?'👍':vote==='dislike'?'👎':'ще не оцінено')+'</small></div>';}
+function ratingMarkup(skillIndex){const vote=state.ratings['skill-'+skillIndex]&&state.ratings['skill-'+skillIndex].vote;const likes=vote==='like'?1:0,dislikes=vote==='dislike'?1:0;return '<div class="rating"><button class="'+(vote==='like'?'selected':'')+'" data-vote="like">👍 Подобається</button><button class="'+(vote==='dislike'?'selected':'')+'" data-vote="dislike">👎 Не подобається</button><small>Локально на цьому пристрої: 👍 '+likes+' · 👎 '+dislikes+' (не загальна статистика)</small></div>';}
 function bindRating(root,skillIndex){root.querySelectorAll('[data-vote]').forEach(b=>b.onclick=()=>{setRating(skillIndex,b.dataset.vote);renderStudy();});}
 function renderMistakes(){
  const root=$('studyContent');$('modeName').textContent='Мої помилки';$('counter').textContent=state.mistakes.length+' питань';$('bar').style.width='0%';
