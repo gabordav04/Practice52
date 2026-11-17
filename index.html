@@ -51,14 +51,17 @@ select{border:1px solid var(--line);background:#fff;border-radius:11px;padding:1
 
 .registration{background:#fff;border:1px solid var(--line);border-radius:18px;padding:18px;margin:18px 0 22px;box-shadow:var(--shadow)}
 .registration h3{margin:0 0 6px;font-size:18px}.registration p{margin:0 0 14px;color:var(--muted);font-size:13px}
-.reg-grid{display:grid;grid-template-columns:1.2fr 1fr auto;gap:10px;align-items:end}
+.reg-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;align-items:end}.reg-actions{display:flex;gap:9px;flex-wrap:wrap;margin-top:12px}.reg-btn.secondary{background:#edf3f6;color:var(--ink)}
 .reg-field label{display:block;font-size:12px;color:var(--muted);margin:0 0 6px}
 .reg-field input{width:100%;padding:12px;border:1px solid var(--line);border-radius:10px;font:inherit;color:var(--ink);background:#fff}
 .reg-btn{padding:12px 18px;border:0;border-radius:10px;background:var(--blue);color:#fff;font-weight:700;cursor:pointer}
 .reg-status{font-size:12px;color:var(--green);margin-top:10px}
-@media(max-width:760px){.reg-grid{grid-template-columns:1fr}.reg-btn{width:100%}}
+@media(max-width:760px){.reg-grid{grid-template-columns:1fr}.reg-actions .reg-btn{width:100%}}
 
 </style>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
 </head>
 <body>
 <div class="app">
@@ -67,15 +70,22 @@ select{border:1px solid var(--line);background:#fff;border-radius:11px;padding:1
  <div class="header-right"><span class="pill">Українська</span><span class="pill" id="savedLabel">Прогрес зберігається</span></div>
 </header>
 <section class="registration" aria-labelledby="regTitle">
- <h3 id="regTitle">Реєстрація користувача</h3>
- <p>Вкажи свої дані, щоб ідентифікувати навчальний профіль на цьому пристрої.</p>
+ <h3 id="regTitle">Обліковий запис PRACTICE 52</h3>
+ <p>Створи акаунт або увійди, щоб синхронізувати профіль і навчальний прогрес між пристроями.</p>
  <form id="registrationForm">
   <div class="reg-grid">
-   <div class="reg-field"><label for="regName">Прізвище, ім’я та по батькові (ПІБ)</label><input id="regName" name="name" type="text" autocomplete="name" placeholder="Наприклад, Іваненко Іван Іванович" required minlength="5"></div>
-   <div class="reg-field"><label for="regPhone">Номер телефону</label><input id="regPhone" name="phone" type="tel" autocomplete="tel" inputmode="tel" placeholder="+380..." required></div>
-   <button class="reg-btn" type="submit">Зберегти профіль</button>
+   <div class="reg-field"><label for="regName">ПІБ</label><input id="regName" name="name" type="text" autocomplete="name" placeholder="Прізвище, ім’я та по батькові" minlength="5"></div>
+   <div class="reg-field"><label for="regPhone">Номер телефону</label><input id="regPhone" name="phone" type="tel" autocomplete="tel" inputmode="tel" placeholder="+380..."></div>
+   <div class="reg-field"><label for="regEmail">Електронна пошта</label><input id="regEmail" name="email" type="email" autocomplete="email" placeholder="name@example.com" required></div>
+   <div class="reg-field"><label for="regPassword">Пароль (від 6 символів)</label><input id="regPassword" name="password" type="password" autocomplete="new-password" minlength="6" placeholder="Пароль" required></div>
   </div>
-  <div class="reg-status" id="regStatus" aria-live="polite"></div>
+  <div class="reg-actions">
+   <button class="reg-btn" type="submit">Створити акаунт</button>
+   <button class="reg-btn secondary" id="emailLogin" type="button">Увійти</button>
+   <button class="reg-btn secondary" id="googleLogin" type="button">Увійти через Google</button>
+   <button class="reg-btn secondary hidden" id="logoutBtn" type="button">Вийти</button>
+  </div>
+  <div class="reg-status" id="regStatus" aria-live="polite">Підключення до Firebase…</div>
  </form>
 </section>
 <section class="hero">
@@ -362,29 +372,111 @@ const lessons = {0:{title:"Життєві показники: АТ, ЧСС, ЧД
 
 const $=id=>document.getElementById(id);
 const PROFILE_KEY='practice52_profile_v1';
-function loadProfile(){
- try{
-  const profile=JSON.parse(localStorage.getItem(PROFILE_KEY)||'null');
-  if(profile){$('regName').value=profile.name||'';$('regPhone').value=profile.phone||'';$('regStatus').textContent='Профіль збережено на цьому пристрої.';}
- }catch(e){}
-}
-$('registrationForm').addEventListener('submit',e=>{
- e.preventDefault();
- const name=$('regName').value.trim().replace(/\\s+/g,' ');
- const phone=$('regPhone').value.trim();
- const digits=phone.replace(/\\D/g,'');
- if(name.split(' ').length<2){$('regStatus').textContent='Вкажи щонайменше прізвище та ім’я.';return;}
- if(digits.length<10||digits.length>15){$('regStatus').textContent='Перевір номер телефону: має бути від 10 до 15 цифр.';return;}
- localStorage.setItem(PROFILE_KEY,JSON.stringify({name,phone}));
- $('regStatus').textContent='Профіль успішно збережено на цьому пристрої.';
-});
 const KEY='practice52_v1';
 let state={done:[],points:0,correct:0,answered:0,mistakes:[],ratings:{}};
 try{state={...state,...JSON.parse(localStorage.getItem(KEY)||'{}')}}catch(e){}
 if(!Array.isArray(state.mistakes))state.mistakes=[];if(!state.ratings||typeof state.ratings!=='object')state.ratings={};
 let currentMode='',items=[],idx=0;
 loadProfile();
-function save(){localStorage.setItem(KEY,JSON.stringify(state));renderStats();$('savedLabel').textContent='Збережено ✓'}
+function save(){localStorage.setItem(KEY,JSON.stringify(state));renderStats();$('savedLabel').textContent='Збережено ✓';queueCloudSave()}
+const firebaseConfig = {
+ apiKey: "AIzaSyBihmwzPCaIDXGXMTxfwSjBKiWtlf2BAOA",
+ authDomain: "practice52.firebaseapp.com",
+ projectId: "practice52",
+ storageBucket: "practice52.firebasestorage.app",
+ messagingSenderId: "601161702718",
+ appId: "1:601161702718:web:9d25b24e79b2ab894c606f",
+ measurementId: "G-4D56QFNENJ"
+};
+firebase.initializeApp(firebaseConfig);
+const auth=firebase.auth(), db=firebase.firestore();
+let firebaseUser=null, cloudReady=false, cloudSaveTimer=null;
+function setAuthStatus(message,isError=false){$('regStatus').textContent=message;$('regStatus').style.color=isError?'var(--red)':'var(--green)';}
+function readLocalProfile(){try{return JSON.parse(localStorage.getItem(PROFILE_KEY)||'null')}catch(e){return null}}
+function queueCloudSave(){
+ if(!firebaseUser||!cloudReady)return;
+ clearTimeout(cloudSaveTimer);
+ cloudSaveTimer=setTimeout(async()=>{
+  try{
+   const profile=readLocalProfile()||{};
+   await db.collection('users').doc(firebaseUser.uid).set({
+    profile, progress:state,
+    updatedAt:firebase.firestore.FieldValue.serverTimestamp()
+   },{merge:true});
+   $('savedLabel').textContent='Синхронізовано ✓';
+  }catch(err){console.error('Cloud save failed:',err);$('savedLabel').textContent='Локально збережено';setAuthStatus('Дані збережено на пристрої, але хмарна синхронізація не вдалася. Перевір правила Firestore.',true);}
+ },700);
+}
+function validateProfile(){
+ const name=$('regName').value.trim().replace(/\\s+/g,' ');
+ const phone=$('regPhone').value.trim(),digits=phone.replace(/\\D/g,'');
+ if(name&&name.split(' ').length<2)throw new Error('Вкажи щонайменше прізвище та ім’я.');
+ if(phone&&(digits.length<10||digits.length>15))throw new Error('Перевір номер телефону: має бути від 10 до 15 цифр.');
+ return {name,phone};
+}
+async function saveAccountProfile(user){
+ const profile=validateProfile();
+ if(profile.name||profile.phone){
+  localStorage.setItem(PROFILE_KEY,JSON.stringify(profile));
+  await db.collection('users').doc(user.uid).set({profile,updatedAt:firebase.firestore.FieldValue.serverTimestamp()},{merge:true});
+ }
+}
+$('registrationForm').addEventListener('submit',async e=>{
+ e.preventDefault();
+ try{
+  const email=$('regEmail').value.trim(),password=$('regPassword').value;
+  const profile=validateProfile();
+  if(!profile.name||!profile.phone)throw new Error('Для створення акаунта заповни ПІБ і номер телефону.');
+  setAuthStatus('Створюємо акаунт…');
+  const credential=await auth.createUserWithEmailAndPassword(email,password);
+  localStorage.setItem(PROFILE_KEY,JSON.stringify(profile));
+  await db.collection('users').doc(credential.user.uid).set({profile,progress:state,createdAt:firebase.firestore.FieldValue.serverTimestamp(),updatedAt:firebase.firestore.FieldValue.serverTimestamp()},{merge:true});
+  setAuthStatus('Акаунт створено. Прогрес синхронізується з Firebase.');
+ }catch(err){console.error(err);setAuthStatus(err.message||'Не вдалося створити акаунт.',true);}
+});
+$('emailLogin').addEventListener('click',async()=>{
+ try{setAuthStatus('Входимо…');await auth.signInWithEmailAndPassword($('regEmail').value.trim(),$('regPassword').value);setAuthStatus('Вхід успішний.');}
+ catch(err){setAuthStatus(err.message||'Не вдалося увійти.',true);}
+});
+$('googleLogin').addEventListener('click',async()=>{
+ try{setAuthStatus('Переходимо до входу через Google…');const provider=new firebase.auth.GoogleAuthProvider();await auth.signInWithRedirect(provider);}
+ catch(err){setAuthStatus(err.message||'Не вдалося увійти через Google.',true);}
+});
+$('logoutBtn').addEventListener('click',async()=>{try{await auth.signOut();}catch(err){setAuthStatus(err.message,true);}});
+auth.onAuthStateChanged(async user=>{
+ firebaseUser=user;cloudReady=false;
+ $('logoutBtn').classList.toggle('hidden',!user);
+ $('googleLogin').classList.toggle('hidden',!!user);
+ $('emailLogin').classList.toggle('hidden',!!user);
+ $('registrationForm').querySelector('button[type="submit"]').classList.toggle('hidden',!!user);
+ if(!user){setAuthStatus('Увійди або створи акаунт, щоб увімкнути хмарну синхронізацію. Локальний режим працює безкоштовно.');return;}
+ try{
+  setAuthStatus('Завантажуємо твій профіль і прогрес…');
+  const ref=db.collection('users').doc(user.uid),snap=await ref.get();
+  if(snap.exists){
+   const data=snap.data()||{};
+   if(data.profile){localStorage.setItem(PROFILE_KEY,JSON.stringify(data.profile));$('regName').value=data.profile.name||'';$('regPhone').value=data.profile.phone||'';}
+   if(data.progress&&typeof data.progress==='object'){
+    state={...state,...data.progress};
+    if(!Array.isArray(state.done))state.done=[];
+    if(!Array.isArray(state.mistakes))state.mistakes=[];
+    if(!state.ratings||typeof state.ratings!=='object')state.ratings={};
+    localStorage.setItem(KEY,JSON.stringify(state));
+   }
+  }else{
+   const profile=readLocalProfile()||{name:user.displayName||'',phone:''};
+   if(user.displayName&&!profile.name)profile.name=user.displayName;
+   localStorage.setItem(PROFILE_KEY,JSON.stringify(profile));
+   await ref.set({profile,progress:state,createdAt:firebase.firestore.FieldValue.serverTimestamp()},{merge:true});
+  }
+  if(user.email)$('regEmail').value=user.email;
+  $('regPassword').value='';
+  cloudReady=true;renderStats();renderSkills();
+  setAuthStatus('Вхід виконано: '+(user.email||user.displayName||'користувач')+'. Хмарна синхронізація активна.');
+  $('savedLabel').textContent='Firebase ✓';
+ }catch(err){console.error('Firebase load failed:',err);setAuthStatus('Авторизація є, але не вдалося прочитати дані. Перевір правила Firestore.',true);}
+});
+
 function rememberMistake(skillIndex,q){
  const id=String(skillIndex)+'|'+q.q;
  if(!state.mistakes.some(m=>m.id===id))state.mistakes.push({id:id,skillIndex:skillIndex,q:{q:q.q,o:q.o.slice(),a:q.a,e:q.e||''}});
