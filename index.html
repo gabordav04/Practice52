@@ -660,7 +660,7 @@ function start(mode,custom=null){
  if(mode==='quiz')sessionQuestions=buildTestQuestions();
  if(mode==='exam'){sessionQuestions=buildExamQuestions();startExamTimer();}
  if(mode==='mistakes')items=[];
- $('studyPanel').classList.remove('hidden');$('studyPanel').scrollIntoView({behavior:'smooth',block:'start'});
+ $('studyPanel').classList.remove('hidden');$('backToModes').style.display=mode==='exam'?'none':'';$('studyPanel').scrollIntoView({behavior:'smooth',block:'start'});
  document.querySelectorAll('.mode').forEach(b=>b.classList.toggle('active',b.dataset.mode===mode));
  $('modeName').textContent={cards:'Флеш-картки',quiz:'Тестування · 52 питання',sequence:'Послідовність',exam:'Екзамен · 5 білетів',challenge:'Клінічні ситуації',mistakes:'Мої помилки'}[mode];
  if(mode==='mistakes'){renderMistakes();return;}
