@@ -80,6 +80,15 @@ select{border:1px solid var(--line);background:#fff;border-radius:11px;padding:1
 #profileTabBtn{cursor:pointer;border:1px solid var(--line);font:inherit;font-weight:650}#accountPanel{scroll-margin-top:16px}#accountPanel.hidden{display:none}.reg-field input:disabled{background:#edf1f4;color:#64748b;cursor:not-allowed}.nickname-note{font-size:11px;color:var(--muted);margin-top:4px}
 .profile-tools{display:flex;gap:9px;flex-wrap:wrap;margin-top:12px}.profile-tools .reg-btn{flex:1}
 .profile-visibility{display:flex;align-items:center;gap:9px;margin-top:12px;font-size:13px;color:var(--muted)}
+
+.guide-panel{background:#fff;border:1px solid #dce8ee;border-radius:18px;margin:18px 0 22px;box-shadow:var(--shadow);overflow:hidden}
+.guide-toggle{width:100%;display:flex;align-items:center;justify-content:space-between;gap:14px;padding:18px 20px;background:linear-gradient(110deg,#edf6fa,#f0f8f5);color:var(--ink);text-align:left}
+.guide-toggle>span:first-child{display:grid;gap:2px}.guide-kicker{font-size:10px;letter-spacing:.12em;color:var(--teal);font-weight:800}.guide-toggle strong{font-size:18px}.guide-toggle small{font-size:12px;color:var(--muted)}.guide-chevron{font-size:24px;color:var(--blue);transition:transform .2s}.guide-panel.collapsed .guide-chevron{transform:rotate(180deg)}.guide-panel.collapsed .guide-content{display:none}
+.guide-content{padding:18px}.guide-intro{padding:13px 15px;border-radius:12px;background:#f1f7fa;color:#486475;margin-bottom:14px;font-size:14px}
+.guide-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}.guide-item{padding:14px;border:1px solid var(--line);border-radius:13px;background:#fff}.guide-icon{font-size:21px}.guide-item h4,.guide-bottom h4{margin:5px 0 7px;font-size:15px}.guide-item p{margin:0 0 10px;color:#607586;font-size:12px;line-height:1.5}.guide-tag{display:inline-block;padding:5px 8px;border-radius:8px;font-size:11px;font-weight:750}.guide-tag.reward{background:#e8f6ee;color:#19744d}.guide-tag.neutral{background:#edf2f5;color:#637789}
+.guide-bottom{display:grid;grid-template-columns:1.3fr 1fr;gap:12px;margin-top:12px}.guide-bottom>div{padding:14px;border:1px solid var(--line);border-radius:13px;background:#f9fbfc}.guide-bottom ul{margin:0;padding-left:18px;color:#536b7b;font-size:12px}.guide-bottom li{margin:5px 0}.guide-muted{font-size:11px;color:var(--muted);margin:10px 0 0}.guide-footnote{margin-top:12px;padding:12px 14px;border-left:3px solid var(--teal);background:#f3f8f7;color:#587080;font-size:12px}
+@media(max-width:760px){.guide-content{padding:12px}.guide-grid{grid-template-columns:1fr 1fr}.guide-bottom{grid-template-columns:1fr}.guide-toggle{padding:15px}.guide-toggle strong{font-size:16px}}
+@media(max-width:460px){.guide-grid{grid-template-columns:1fr}.guide-item{padding:13px}}
 .rank-panel{background:#fff;border:1px solid var(--line);border-radius:18px;padding:18px;margin:18px 0 22px;box-shadow:var(--shadow)}
 .rank-panel h3{margin:0 0 8px}.rank-list{display:grid;gap:8px;margin-top:12px}.rank-row{display:flex;align-items:center;gap:10px;padding:10px 12px;background:#f6f9fb;border-radius:11px}
 .rank-place{font-weight:800;color:var(--blue);width:30px}.rank-name{flex:1;min-width:0;overflow-wrap:anywhere}.rank-points{font-weight:750}.rank-me{outline:2px solid #8bbbd3;background:#f0f8fc}
@@ -125,6 +134,27 @@ select{border:1px solid var(--line);background:#fff;border-radius:11px;padding:1
  <div class="stat"><strong id="sDone">0</strong><span>Опрацьовано</span></div>
  <div class="stat"><strong id="sPoints">0</strong><span>Набрано балів</span></div>
  <div class="stat"><strong id="sAccuracy">—</strong><span>Точність відповідей</span></div>
+</section>
+<section class="guide-panel" id="userGuide">
+ <button class="guide-toggle" id="guideToggle" type="button" aria-expanded="true" aria-controls="guideContent">
+  <span><span class="guide-kicker">СТАРТ ТУТ</span><strong>📘 Як користуватися PRACTICE 52</strong><small>Короткий гід по режимах, балах і рейтингу</small></span><span class="guide-chevron" id="guideChevron">⌃</span>
+ </button>
+ <div id="guideContent" class="guide-content">
+  <div class="guide-intro"><b>Почни з простого маршруту:</b> обери навичку → опрацюй картку → закріпи знання тестом → потренуй алгоритм → перевір себе на екзамені.</div>
+  <div class="guide-grid">
+   <article class="guide-item"><div class="guide-icon">▤</div><h4>Флеш-картки</h4><p>Вивчай мету навички, обладнання, покроковий алгоритм, безпеку та інтерпретацію. Наприкінці можна відповісти на контрольне питання й оцінити, наскільки добре опрацював матеріал.</p><span class="guide-tag neutral">Бали не нараховуються</span></article>
+   <article class="guide-item"><div class="guide-icon">☑</div><h4>Тестування</h4><p>Перевіряй знання за питаннями з усіх 52 навичок. Відповіді перемішуються; після вибору побачиш правильний варіант і пояснення. Помилки потрапляють у відповідний список.</p><span class="guide-tag reward">+10 балів за правильну відповідь</span></article>
+   <article class="guide-item"><div class="guide-icon">⇅</div><h4>Послідовність</h4><p>Розташуй етапи практичного алгоритму в правильному порядку. Можна перетягувати кроки або користуватися стрілками. Нагорода нараховується за повністю правильну послідовність.</p><span class="guide-tag reward">+10 балів за правильний алгоритм</span></article>
+   <article class="guide-item"><div class="guide-icon">▣</div><h4>Екзамен</h4><p>15 випадкових питань: 5 білетів по 3 питання. На виконання є 20 хвилин. Під час екзамену можна переходити між питаннями; результат і бонус побачиш після завершення.</p><span class="guide-tag reward">Бонус: 50 / 75 / 100 балів</span></article>
+   <article class="guide-item"><div class="guide-icon">🩺</div><h4>Клінічні ситуації</h4><p>Застосовуй знання у практичному контексті: обирай навичку, аналізуй ситуацію та перевіряй своє рішення. Неправильні відповіді можна повторити.</p><span class="guide-tag reward">+10 балів за правильну відповідь</span></article>
+   <article class="guide-item"><div class="guide-icon">↻</div><h4>Мої помилки</h4><p>Тут збираються питання, на які ти відповів неправильно. Повертайся до них, щоб закріпити складні теми. Коли відповіси правильно, питання зникне зі списку помилок.</p><span class="guide-tag neutral">Режим повторення без балів</span></article>
+  </div>
+  <div class="guide-bottom">
+   <div><h4>🏆 Як працюють бали та рівні?</h4><ul><li><b>Тестування:</b> 10 балів за кожну правильну відповідь.</li><li><b>Клінічні ситуації:</b> 10 балів за кожну правильну відповідь.</li><li><b>Послідовність:</b> 10 балів лише за повністю правильно складений алгоритм.</li><li><b>Екзамен:</b> 90–100% — 100 балів; 80–89% — 75; 70–79% — 50; менше 70% — без бонусу.</li><li><b>Флеш-картки та «Мої помилки»:</b> балів не дають.</li></ul></div>
+   <div><h4>🎖️ Рівні учасника</h4><ul><li>0–49 балів — Початківець</li><li>50–199 балів — Стажер</li><li>200–499 балів — Практик</li><li>500–999 балів — Майстер</li><li>1000+ балів — Експерт</li></ul><p class="guide-muted">Бали — це внутрішня мотиваційна система платформи, а не оцінка професійної компетентності чи допуск до роботи.</p></div>
+  </div>
+  <div class="guide-footnote"><b>Профіль і прогрес:</b> створи акаунт або увійди через «Профіль / Вхід», щоб користуватися профілем і доступними функціями синхронізації. Рейтинг відображає учасників, які дозволили показувати себе. Навчальні матеріали є тренажером і не замінюють клінічні протоколи, практичне навчання та нагляд викладача.</div>
+ </div>
 </section>
 <section class="rank-panel" id="rankingPanel"><h3>🏆 Рейтинг PRACTICE 52</h3><div id="myRank" class="note">Твій рівень: Початківець · 0 балів</div><div id="leaderboardStatus" class="note">Загальний рейтинг з’явиться після підключення профілю.</div><div class="rank-list" id="leaderboardList"></div></section>
 <div class="section-head"><h3>Обери режим навчання</h3><small id="modeHint">Почни з карток або тестування</small></div>
@@ -776,6 +806,8 @@ function finish(){
  $('again').onclick=()=>start(currentMode);$('close').onclick=()=>{$('studyPanel').classList.add('hidden');document.querySelectorAll('.mode').forEach(b=>b.classList.remove('active'))};
 }
 document.querySelectorAll('.mode').forEach(b=>b.onclick=()=>start(b.dataset.mode));
+const guidePanel=$('userGuide'),guideToggle=$('guideToggle');
+if(guideToggle&&guidePanel){guideToggle.addEventListener('click',()=>{const collapsed=guidePanel.classList.toggle('collapsed');guideToggle.setAttribute('aria-expanded',String(!collapsed));});}
 $('search').addEventListener('input',renderSkills);$('filter').addEventListener('change',renderSkills);
 renderStats();renderSkills();
 
