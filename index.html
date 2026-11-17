@@ -93,7 +93,7 @@ select{border:1px solid var(--line);background:#fff;border-radius:11px;padding:1
 .rank-panel h3{margin:0 0 8px}.rank-list{display:grid;gap:8px;margin-top:12px}.rank-row{display:flex;align-items:center;gap:10px;padding:10px 12px;background:#f6f9fb;border-radius:11px}
 .rank-place{font-weight:800;color:var(--blue);width:30px}.rank-name{flex:1;min-width:0;overflow-wrap:anywhere}.rank-points{font-weight:750}.rank-me{outline:2px solid #8bbbd3;background:#f0f8fc}
 .exam-tools{margin:14px 0 20px;padding:14px;border:1px solid var(--line,#dce7ee);border-radius:14px;background:var(--surface,#f8fbfd)}.exam-grid{display:grid;grid-template-columns:repeat(5,minmax(38px,1fr));gap:8px;margin-bottom:10px}.exam-jump{min-height:42px;border:1px solid #cbd5df;border-radius:9px;background:#fff;color:#263b50;font-weight:700;cursor:pointer}.exam-jump.answered{background:#d9f4e4;border-color:#55b879;color:#176638}.exam-jump.unanswered{background:#edf1f5;border-color:#cbd5df;color:#526477}.exam-jump.marked-later{background:#fff0c2;border-color:#e3ad31;color:#775300}.exam-jump.current{outline:3px solid #3689c9;outline-offset:2px}.exam-legend{display:flex;flex-wrap:wrap;gap:12px;margin:8px 0 12px;font-size:12px;color:var(--muted,#71869a)}.exam-legend span{display:inline-flex;align-items:center;gap:5px}.exam-legend i{width:10px;height:10px;border-radius:3px;display:inline-block}.answered-key{background:#55b879}.unanswered-key{background:#cbd5df}.later-key{background:#e3ad31}.btn.danger{border:1px solid #d77b7b;color:#a42e2e;background:#fff5f5}@media(max-width:520px){.exam-tools{padding:10px}.exam-grid{gap:6px}.exam-jump{min-height:40px}}
-.celebration-backdrop{position:fixed;inset:0;z-index:9999;display:grid;place-items:center;padding:18px;background:rgba(12,35,52,.62);backdrop-filter:blur(5px)}.celebration-card{position:relative;overflow:hidden;width:min(520px,100%);padding:30px 22px;text-align:center;border-radius:24px;background:linear-gradient(145deg,#fff,#f0f9ff);box-shadow:0 24px 80px #061b2b66;animation:celebrateIn .35s ease-out}.celebration-card h2{font-size:30px;margin:8px 0;color:#176b58}.celebration-card p{color:#526b7c}.celebration-icon{font-size:58px;animation:pop .7s ease-in-out infinite alternate}.celebration-actions{display:grid;gap:10px;margin-top:20px}.celebration-actions .btn{width:100%;padding:13px}.firework{position:absolute;font-size:26px;pointer-events:none;animation:firework 1.5s ease-out infinite}.firework.f1{top:12px;left:20px}.firework.f2{top:20px;right:22px;animation-delay:.4s}.firework.f3{bottom:72px;left:28px;animation-delay:.8s}.firework.f4{bottom:70px;right:25px;animation-delay:.2s}@keyframes celebrateIn{from{opacity:0;transform:translateY(18px) scale(.96)}to{opacity:1;transform:none}}@keyframes pop{to{transform:scale(1.12) rotate(5deg)}}@keyframes firework{0%{opacity:0;transform:scale(.3) rotate(0)}35%{opacity:1;transform:scale(1.2) rotate(25deg)}100%{opacity:0;transform:scale(.7) rotate(55deg)}}.skill.done .status{color:#16834f;font-weight:800}.skill .status{white-space:nowrap}
+.celebration-backdrop{position:fixed;inset:0;z-index:9999;display:grid;place-items:center;padding:18px;background:rgba(12,35,52,.62);backdrop-filter:blur(5px)}.celebration-card{position:relative;overflow:hidden;width:min(520px,100%);padding:30px 22px;text-align:center;border-radius:24px;background:linear-gradient(145deg,#fff,#f0f9ff);box-shadow:0 24px 80px #061b2b66;animation:celebrateIn .35s ease-out}.celebration-card h2{font-size:30px;margin:8px 0;color:#176b58}.celebration-card p{color:#526b7c}.celebration-icon{font-size:58px;animation:pop .7s ease-in-out infinite alternate}.celebration-actions{display:grid;gap:10px;margin-top:20px}.celebration-actions .btn{width:100%;padding:13px}.firework{position:absolute;font-size:26px;pointer-events:none;animation:firework 1.5s ease-out infinite}.firework.f1{top:12px;left:20px}.firework.f2{top:20px;right:22px;animation-delay:.4s}.firework.f3{bottom:72px;left:28px;animation-delay:.8s}.firework.f4{bottom:70px;right:25px;animation-delay:.2s}@keyframes celebrateIn{from{opacity:0;transform:translateY(18px) scale(.96)}to{opacity:1;transform:none}}@keyframes pop{to{transform:scale(1.12) rotate(5deg)}}@keyframes firework{0%{opacity:0;transform:scale(.3) rotate(0)}35%{opacity:1;transform:scale(1.2) rotate(25deg)}100%{opacity:0;transform:scale(.7) rotate(55deg)}}.skill.done .status{color:#16834f;font-weight:800}.skill.needs-review{border-color:#e5bd78;background:#fffaf0}.skill.needs-review .status{color:#a66a12;font-weight:800}.skill .status{white-space:nowrap}
 .ranking-join{margin-top:16px;padding:16px;border:1px solid #cfe5d9;border-radius:14px;background:linear-gradient(135deg,#f0fff6,#f4f9ff);text-align:center}.ranking-join b{color:#176b58}.ranking-join p{margin:7px 0 12px;color:#536b7a;font-size:13px}.ranking-join .btn{max-width:100%;white-space:normal}</style>
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
@@ -176,7 +176,7 @@ select{border:1px solid var(--line);background:#fff;border-radius:11px;padding:1
 <div class="section-head"><h3>Каталог 52 практичних навичок</h3><small>Обери навичку для опрацювання</small></div>
 <div class="toolbar">
  <input id="search" class="search" placeholder="Пошук навички…">
- <select id="filter"><option value="all">Усі навички</option><option value="done">Опрацьовані</option><option value="todo">Ще не опрацьовані</option></select>
+ <select id="filter"><option value="all">Усі навички</option><option value="done">Вивчені</option><option value="review">Потребують повторення</option><option value="todo">Ще не опрацьовані</option></select>
 </div>
 <div class="skills" id="skills"></div>
 <p class="note">Навчальна примітка: каталог містить 52 навички. Навчальні картки з алгоритмами й контрольними питаннями заповнені для навичок 1–52; решта додаватиметься поетапно. Нормативи слід звіряти з версією протоколу та популяцією.</p>
@@ -433,9 +433,9 @@ const lessons = {0:{title:"Життєві показники: АТ, ЧСС, ЧД
 const $=id=>document.getElementById(id);
 const PROFILE_KEY='practice52_profile_v1';
 const KEY='practice52_v1';
-let state={done:[],points:0,correct:0,answered:0,mistakes:[],ratings:{}};
+let state={done:[],needsReview:[],points:0,correct:0,answered:0,mistakes:[],ratings:{}};
 try{state={...state,...JSON.parse(localStorage.getItem(KEY)||'{}')}}catch(e){}
-if(!Array.isArray(state.mistakes))state.mistakes=[];if(!state.ratings||typeof state.ratings!=='object')state.ratings={};
+if(!Array.isArray(state.mistakes))state.mistakes=[];if(!Array.isArray(state.done))state.done=[];if(!Array.isArray(state.needsReview))state.needsReview=[];if(!state.ratings||typeof state.ratings!=='object')state.ratings={};
 let currentMode='',items=[],idx=0;
 function save(){localStorage.setItem(KEY,JSON.stringify(state));renderStats();$('savedLabel').textContent='Збережено ✓';queueCloudSave()}
 const firebaseConfig = {
@@ -620,6 +620,7 @@ auth.onAuthStateChanged(async user=>{
    if(data.progress&&typeof data.progress==='object'){
     state={...state,...data.progress};
     if(!Array.isArray(state.done))state.done=[];
+    if(!Array.isArray(state.needsReview))state.needsReview=[];
     if(!Array.isArray(state.mistakes))state.mistakes=[];
     if(!state.ratings||typeof state.ratings!=='object')state.ratings={};
     localStorage.setItem(KEY,JSON.stringify(state));
@@ -643,7 +644,11 @@ auth.onAuthStateChanged(async user=>{
 function rememberMistake(skillIndex,q){
  const id=String(skillIndex)+'|'+q.q;
  if(!state.mistakes.some(m=>m.id===id))state.mistakes.push({id:id,skillIndex:skillIndex,q:{q:q.q,o:q.o.slice(),a:q.a,e:q.e||''}});
- save();
+ if(state.done.includes(skillIndex)){
+  state.done=state.done.filter(i=>i!==skillIndex);
+  if(!state.needsReview.includes(skillIndex))state.needsReview.push(skillIndex);
+ }
+ save();renderSkills();
 }
 const globalSkillRatings={};
 async function loadGlobalSkillRating(skillIndex){
@@ -698,11 +703,13 @@ function renderStats(){
 }
 function renderSkills(){
  const q=$('search').value.toLowerCase(),f=$('filter').value;$('skills').innerHTML='';
- skills.forEach((s,i)=>{const done=state.done.includes(i);
- if(!s.toLowerCase().includes(q)||(f==='done'&&!done)||(f==='todo'&&done))return;
- const b=document.createElement('button');b.className='skill'+(done?' done':'');
- b.innerHTML=`<span class="num">${String(i+1).padStart(2,'0')}</span><span class="skill-title">${s}</span><span class="status">${done?'✓ Вивчено':'Вчити'}</span>`;
- b.onclick=()=>start('cards',[i]);$('skills').appendChild(b);
+ skills.forEach((s,i)=>{
+  const done=state.done.includes(i),review=state.needsReview.includes(i);
+  if(!s.toLowerCase().includes(q)||(f==='done'&&!done)||(f==='review'&&!review)||(f==='todo'&&(done||review)))return;
+  const b=document.createElement('button');b.className='skill'+(done?' done':review?' needs-review':'');
+  const status=done?'✓ Вивчено':review?'↻ Потребує повторення':'Вчити';
+  b.innerHTML=`<span class="num">${String(i+1).padStart(2,'0')}</span><span class="skill-title">${s}</span><span class="status">${status}</span>`;
+  b.onclick=()=>start('cards',[i]);$('skills').appendChild(b);
  });
 }
 function shuffle(a){return [...a].sort(()=>Math.random()-.5)}
@@ -747,7 +754,8 @@ function renderStudy(){
   const L=lessons[skillIndex];
   if(!L){content.innerHTML=`<div class="study-card"><div class="label">Практична навичка №${skillIndex+1}</div><h2>${title}</h2><div class="answer">Навчальний матеріал буде додано в наступних модулях.</div><div class="actions"><button class="btn" id="next">Наступна →</button></div></div>`;$('next').onclick=next;return}
   content.innerHTML=`<div class="study-card" style="text-align:left"><div class="label">Практична навичка №${skillIndex+1}</div><h2>${L.title}</h2><p><b>Мета:</b> ${L.goal}</p><p><b>Обладнання:</b> ${L.equipment}</p><h3>Алгоритм виконання</h3><ol>${L.steps.map(x=>`<li style="margin:8px 0">${x}</li>`).join('')}</ol><h3>Безпека</h3><p>${L.safety}</p><h3>Інтерпретація та ключові значення</h3><p>${L.interpret}</p><div class="mistake-box"><h3>Типові помилки та як їх уникнути</h3><ul><li>Пропускати етапи підготовки або пояснення процедури.</li><li>Не перевіряти обладнання та його відповідність завданню.</li><li>Ігнорувати стан, симптоми й реакцію пацієнта.</li><li>Інтерпретувати результат без урахування клінічного контексту.</li></ul><p><b>Профілактика:</b> дотримуйся алгоритму, перевіряй безпеку, документуй умови та результати.</p></div>${ratingMarkup(skillIndex)}<div class="actions"><button class="btn primary" id="lessonQuiz">Перевірити знання</button><button class="btn good" id="mark">Позначити опрацьованою</button><button class="btn" id="next">Наступна →</button></div><div id="lessonQuestion" style="margin-top:18px"></div><p class="note">Навчальний матеріал. На практиці дотримуйся локальних протоколів, інструкцій приладів і меж професійної компетенції.</p></div>`;
-  $('mark').onclick=()=>{if(!state.done.includes(skillIndex))state.done.push(skillIndex);save();renderSkills();showCompletionCelebration(skillIndex)};bindRating(content,skillIndex);
+  $('mark').textContent=state.needsReview.includes(skillIndex)?'Підтвердити повторне засвоєння':'Позначити опрацьованою';
+  $('mark').onclick=()=>{state.needsReview=state.needsReview.filter(i=>i!==skillIndex);if(!state.done.includes(skillIndex))state.done.push(skillIndex);save();renderSkills();showCompletionCelebration(skillIndex)};bindRating(content,skillIndex);
   $('next').onclick=next;
   $('lessonQuiz').onclick=()=>{
    const q=shuffle(L.questions)[0],box=$('lessonQuestion');
