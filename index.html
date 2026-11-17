@@ -402,12 +402,36 @@ function renderSkills(){
  });
 }
 function shuffle(a){return [...a].sort(()=>Math.random()-.5)}
+let sessionQuestions=[],sessionAnswers={},sessionStartedAt=0,examTimer=null,examSecondsLeft=20*60;
+function buildQuestion(skillIndex){
+ const L=lessons[skillIndex];
+ if(!L||!Array.isArray(L.questions)||!L.questions.length)return null;
+ const original=shuffle(L.questions)[0],order=shuffle(original.o.map((_,i)=>i));
+ return {skillIndex,q:original.q,o:order.map(i=>original.o[i]),a:order.indexOf(original.a),e:original.e||''};
+}
+function buildTestQuestions(){
+ return shuffle(skills.map((_,i)=>buildQuestion(i)).filter(Boolean));
+}
+function buildExamQuestions(){
+ return shuffle(skills.map((_,i)=>buildQuestion(i)).filter(Boolean)).slice(0,15);
+}
+function stopExamTimer(){if(examTimer){clearInterval(examTimer);examTimer=null;}}
+function startExamTimer(){
+ stopExamTimer();examSecondsLeft=20*60;sessionStartedAt=Date.now();
+ examTimer=setInterval(()=>{examSecondsLeft--;const t=$('examClock');if(t)t.textContent='Залишилось: '+Math.floor(examSecondsLeft/60)+':'+String(examSecondsLeft%60).padStart(2,'0');if(examSecondsLeft<=0){stopExamTimer();finish();}},1000);
+}
 function start(mode,custom=null){
- currentMode=mode;idx=0;items=custom||(mode==='exam'?shuffle(skills.map((_,i)=>i)).slice(0,20):shuffle(skills.map((_,i)=>i)));if(mode==='mistakes')items=[];
+ stopExamTimer();currentMode=mode;idx=0;sessionAnswers={};sessionQuestions=[];
+ items=custom||(mode==='exam'?shuffle(skills.map((_,i)=>i)).slice(0,15):shuffle(skills.map((_,i)=>i)));
+ if(mode==='quiz')sessionQuestions=buildTestQuestions();
+ if(mode==='exam'){sessionQuestions=buildExamQuestions();startExamTimer();}
+ if(mode==='mistakes')items=[];
  $('studyPanel').classList.remove('hidden');$('studyPanel').scrollIntoView({behavior:'smooth',block:'start'});
  document.querySelectorAll('.mode').forEach(b=>b.classList.toggle('active',b.dataset.mode===mode));
- $('modeName').textContent={cards:'Флеш-картки',quiz:'Тестування',sequence:'Послідовність',exam:'Екзаменаційний режим',challenge:'Клінічні ситуації',mistakes:'Мої помилки'}[mode];
- if(mode==='mistakes'){renderMistakes();return;}renderStudy();
+ $('modeName').textContent={cards:'Флеш-картки',quiz:'Тестування · 52 питання',sequence:'Послідовність',exam:'Екзамен · 5 білетів',challenge:'Клінічні ситуації',mistakes:'Мої помилки'}[mode];
+ if(mode==='mistakes'){renderMistakes();return;}
+ if((mode==='quiz'||mode==='exam')&&!sessionQuestions.length){$('studyContent').innerHTML='<div class="study-card"><h2>Питання ще готуються</h2><p>Не вдалося сформувати повний набір із навчальних матеріалів.</p></div>';stopExamTimer();return;}
+ renderStudy();
 }
 function renderStudy(){
  $('counter').textContent=`${Math.min(idx+1,items.length)} / ${items.length}`;
@@ -434,6 +458,22 @@ function renderStudy(){
   };
  }else if(currentMode==='sequence'){
   content.innerHTML=`<div class="study-card"><div class="label">Алгоритм · навичка №${skillIndex+1}</div><h2>${title}</h2><div class="answer">${lessons[skillIndex]?'Опрацюй алгоритм у картці цієї навички. Інтерактивне сортування кроків додамо окремим етапом.':'Алгоритм для цієї навички буде додано в наступних модулях.'}</div><div class="actions"><button class="btn" id="next">Наступна →</button></div></div>`;$('next').onclick=next;
+ }else if(currentMode==='quiz'||currentMode==='exam'){
+  const entry=sessionQuestions[idx],skillIndex=entry.skillIndex,q=entry;
+  const selected=sessionAnswers[idx];
+  const isExam=currentMode==='exam',ticket=Math.floor(idx/3)+1,questionInTicket=idx%3+1;
+  $('counter').textContent=isExam?'Білет '+ticket+' із 5 · питання '+questionInTicket+' із 3':(idx+1)+' із '+sessionQuestions.length+' · навичка '+(skillIndex+1);
+  $('bar').style.width=((idx+1)/sessionQuestions.length*100)+'%';
+  const feedback=selected===undefined?'':(selected===q.a?'<div class="feedback">Правильно! '+q.e+'</div>':'<div class="feedback">Не зовсім. Правильна відповідь підсвічена після вибору. '+q.e+'</div>');
+  content.innerHTML='<div class="study-card"><div class="label">'+(isExam?'ЕКЗАМЕНАЦІЙНИЙ БІЛЕТ '+ticket+' · НАВИЧКА №'+(skillIndex+1):'ТЕСТУВАННЯ · НАВИЧКА №'+(skillIndex+1))+'</div>'+(isExam?'<div class="pill" id="examClock" style="display:inline-block;margin:8px 0">Залишилось: '+Math.floor(examSecondsLeft/60)+':'+String(examSecondsLeft%60).padStart(2,'0')+'</div>':'')+'<h2>'+skills[skillIndex]+'</h2><div class="qtitle">'+q.q+'</div><div class="options">'+q.o.map((v,i)=>'<button class="option '+(selected===i?(i===q.a?'correct':'wrong'):'')+'" data-i="'+i+'" '+(isExam&&selected!==undefined?'':'')+'>'+v+'</button>').join('')+'</div><div id="feedback">'+(isExam?'':feedback)+'</div><div class="actions"><button class="btn" id="prev" '+(idx===0?'disabled':'')+'>← Назад</button><button class="btn primary" id="next">'+(idx===sessionQuestions.length-1?(isExam?'Завершити екзамен':'Завершити тест'):'Далі →')+'</button></div><p class="note">'+(isExam?'Під час екзамену відповіді не пояснюються. Повернутися до попередніх питань можна до завершення.':'Можна переходити між питаннями, змінювати відповіді та проходити тест повторно.')+'</p></div>';
+  content.querySelectorAll('.option').forEach(b=>b.onclick=()=>{
+   const choice=Number(b.dataset.i);sessionAnswers[idx]=choice;
+   if(!isExam){content.querySelectorAll('.option').forEach(x=>{const n=Number(x.dataset.i);x.classList.toggle('correct',n===q.a);x.classList.toggle('wrong',n===choice&&choice!==q.a);});$('feedback').innerHTML=choice===q.a?'<div class="feedback">Правильно! '+q.e+'</div>':'<div class="feedback">Неправильно. '+q.e+'</div>';}
+   else{content.querySelectorAll('.option').forEach(x=>x.classList.toggle('selected',Number(x.dataset.i)===choice));}
+  });
+  $('prev').onclick=()=>{if(idx>0){idx--;renderStudy();}};
+  $('next').onclick=()=>{if(idx<sessionQuestions.length-1){idx++;renderStudy();}else finish();};
+  return;
  }else{
   if(currentMode==='challenge'&&lessons[skillIndex]&&lessons[skillIndex].questions&&lessons[skillIndex].questions.length){const L=lessons[skillIndex],q=shuffle(L.questions)[0];content.innerHTML='<div class="study-card"><div class="label">Клінічний навчальний сценарій · навичка №'+(skillIndex+1)+'</div><h2>'+L.title+'</h2><div class="mistake-box"><b>Ситуація:</b> Ви працюєте з пацієнтом. Мета оцінювання або втручання: '+L.goal+' Оберіть найбільш доречну відповідь на контрольне питання.</div><div class="qtitle">'+q.q+'</div><div class="options">'+q.o.map((v,i)=>'<button class="option" data-i="'+i+'">'+v+'</button>').join('')+'</div><div id="feedback"></div>'+ratingMarkup(skillIndex)+'</div>';bindRating(content,skillIndex);content.querySelectorAll('.option').forEach(b=>b.onclick=()=>{if(content.querySelector('.option:disabled'))return;const ok=Number(b.dataset.i)===q.a;content.querySelectorAll('.option').forEach(x=>{x.disabled=true;if(Number(x.dataset.i)===q.a)x.classList.add('correct');});if(!ok){b.classList.add('wrong');rememberMistake(skillIndex,q);}state.answered++;if(ok){state.correct++;state.points+=10;}save();$('feedback').innerHTML='<div class="feedback">'+(ok?'Правильно! +10 балів.':'Правильну відповідь підсвічено.')+' '+(q.e||'')+'<div class="actions"><button class="btn primary" id="next">Далі →</button></div></div>';$('next').onclick=next;});return;}
   const distractors=shuffle(skills.map((_,i)=>i).filter(i=>i!==skillIndex)).slice(0,3),opts=shuffle([skillIndex,...distractors]);
@@ -449,8 +489,16 @@ function renderStudy(){
 }
 function next(){idx++;renderStudy()}
 function finish(){
- $('bar').style.width='100%';
- $('studyContent').innerHTML=`<div class="study-card"><div class="label">Сесію завершено</div><h2>Чудова робота!</h2><div class="answer">Опрацьовано завдань: ${items.length}. Загальний рахунок: ${state.points} балів. Правильних відповідей: ${state.correct} із ${state.answered}.</div><div class="actions"><button class="btn primary" id="again">Нова сесія</button><button class="btn" id="close">До каталогу</button></div></div>`;
+ stopExamTimer();$('bar').style.width='100%';
+ if(currentMode==='quiz'||currentMode==='exam'){
+  const total=sessionQuestions.length,answered=Object.keys(sessionAnswers).length;
+  let correct=0;sessionQuestions.forEach((q,i)=>{const choice=sessionAnswers[i];if(choice===q.a)correct++;else if(choice!==undefined)rememberMistake(q.skillIndex,{q:q.q,o:q.o,a:q.a,e:q.e});});
+  const pct=total?Math.round(correct/total*100):0;
+  state.answered+=answered;state.correct+=correct;state.points+=correct*10;save();
+  $('counter').textContent='Результат';$('studyContent').innerHTML='<div class="study-card"><div class="label">'+(currentMode==='exam'?'ЕКЗАМЕН ЗАВЕРШЕНО':'ТЕСТ ЗАВЕРШЕНО')+'</div><h2>'+(currentMode==='exam'?(pct>=70?'Екзамен складено!':'Потрібно ще потренуватися'):'Чудова робота!')+'</h2><div class="answer"><b>'+correct+' із '+total+' правильних відповідей · '+pct+'%</b><br>'+(currentMode==='exam'?'Оцінка: '+(pct>=90?'Відмінно':pct>=80?'Добре':pct>=70?'Задовільно':'Не складено')+'<br>Формат: 5 білетів × 3 питання.':'Тест охоплює всі доступні 52 навички. Питання сформовані з тематичних матеріалів кожної навички.')+'<br>Відповіли: '+answered+' із '+total+'</div><div class="actions"><button class="btn primary" id="again">Пройти ще раз</button><button class="btn" id="close">До каталогу</button></div></div>';
+ }else{
+  $('studyContent').innerHTML=`<div class="study-card"><div class="label">Сесію завершено</div><h2>Чудова робота!</h2><div class="answer">Опрацьовано завдань: ${items.length}. Загальний рахунок: ${state.points} балів. Правильних відповідей: ${state.correct} із ${state.answered}.</div><div class="actions"><button class="btn primary" id="again">Нова сесія</button><button class="btn" id="close">До каталогу</button></div></div>`;
+ }
  $('again').onclick=()=>start(currentMode);$('close').onclick=()=>{$('studyPanel').classList.add('hidden');document.querySelectorAll('.mode').forEach(b=>b.classList.remove('active'))};
 }
 document.querySelectorAll('.mode').forEach(b=>b.onclick=()=>start(b.dataset.mode));
