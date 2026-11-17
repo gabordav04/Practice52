@@ -58,6 +58,10 @@ select{border:1px solid var(--line);background:#fff;border-radius:11px;padding:1
 .reg-status{font-size:12px;color:var(--green);margin-top:10px}
 @media(max-width:760px){.reg-grid{grid-template-columns:1fr}.reg-actions .reg-btn{width:100%}}
 
+
+.avatar-area{display:flex;align-items:center;gap:14px;margin:12px 0 16px;padding:12px;background:#f7fafc;border:1px solid var(--line);border-radius:14px}
+.avatar-preview{width:76px;height:76px;flex:0 0 76px;border-radius:50%;display:grid;place-items:center;overflow:hidden;background:#e8f3f9;border:3px solid #fff;box-shadow:0 2px 10px #18324718;font-size:38px}
+.avatar-preview img{width:100%;height:100%;object-fit:cover}.avatar-tools{min-width:0}.avatar-tools b{display:block;margin-bottom:6px}.avatar-options{display:flex;gap:6px;flex-wrap:wrap}.avatar-choice{width:37px;height:37px;border-radius:11px;background:#fff;border:1px solid var(--line);font-size:22px}.avatar-choice.selected{border:2px solid var(--blue);background:#e8f3f9}.avatar-upload{display:inline-block;margin-top:8px;padding:7px 10px;border-radius:9px;background:#edf3f6;font-size:12px;font-weight:650;cursor:pointer}.avatar-upload input{display:none}
 </style>
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
@@ -72,6 +76,7 @@ select{border:1px solid var(--line);background:#fff;border-radius:11px;padding:1
 <section class="registration" aria-labelledby="regTitle">
  <h3 id="regTitle">Обліковий запис PRACTICE 52</h3>
  <p>Створи акаунт або увійди, щоб синхронізувати профіль і навчальний прогрес між пристроями.</p>
+ <div class="avatar-area"><div class="avatar-preview" id="avatarPreview">🦊</div><div class="avatar-tools"><b>Твій аватар</b><div class="avatar-options" id="avatarOptions"><button type="button" class="avatar-choice" data-avatar="🦊">🦊</button><button type="button" class="avatar-choice" data-avatar="🐼">🐼</button><button type="button" class="avatar-choice" data-avatar="🦁">🦁</button><button type="button" class="avatar-choice" data-avatar="🐺">🐺</button><button type="button" class="avatar-choice" data-avatar="🐉">🐉</button><button type="button" class="avatar-choice" data-avatar="🦸">🦸</button><button type="button" class="avatar-choice" data-avatar="🦹">🦹</button><button type="button" class="avatar-choice" data-avatar="🧙">🧙</button><button type="button" class="avatar-choice" data-avatar="🤖">🤖</button><button type="button" class="avatar-choice" data-avatar="👨‍⚕️">👨‍⚕️</button><button type="button" class="avatar-choice" data-avatar="⭐">⭐</button><button type="button" class="avatar-choice" data-avatar="🌌">🌌</button></div><label class="avatar-upload">＋ Завантажити своє фото<input id="avatarFile" type="file" accept="image/*"></label></div></div>
  <form id="registrationForm">
   <div class="reg-grid">
    <div class="reg-field"><label for="regName">ПІБ</label><input id="regName" name="name" type="text" autocomplete="name" placeholder="Прізвище, ім’я та по батькові" minlength="5"></div>
@@ -392,6 +397,32 @@ const auth=firebase.auth(), db=firebase.firestore();
 let firebaseUser=null, cloudReady=false, cloudSaveTimer=null;
 function setAuthStatus(message,isError=false){$('regStatus').textContent=message;$('regStatus').style.color=isError?'var(--red)':'var(--green)';}
 function readLocalProfile(){try{return JSON.parse(localStorage.getItem(PROFILE_KEY)||'null')}catch(e){return null}}
+const DEFAULT_AVATAR='🦊';
+function renderAvatar(avatar){
+ const preview=$('avatarPreview');if(!preview)return;
+ preview.innerHTML='';
+ if(typeof avatar==='string'&&avatar.startsWith('data:image/')){const img=document.createElement('img');img.src=avatar;img.alt='Аватар профілю';preview.appendChild(img);}
+ else preview.textContent=avatar||DEFAULT_AVATAR;
+ document.querySelectorAll('.avatar-choice').forEach(b=>b.classList.toggle('selected',b.dataset.avatar===(avatar||DEFAULT_AVATAR)));
+}
+async function persistAvatar(avatar){
+ const profile={...(readLocalProfile()||{}),avatar};
+ localStorage.setItem(PROFILE_KEY,JSON.stringify(profile));renderAvatar(avatar);
+ if(firebaseUser&&cloudReady){
+  try{await db.collection('users').doc(firebaseUser.uid).set({profile,updatedAt:firebase.firestore.FieldValue.serverTimestamp()},{merge:true});setAuthStatus('Аватар збережено у твоєму профілі.');}
+  catch(err){console.error('Avatar save failed:',err);setAuthStatus('Аватар збережено на цьому пристрої, але не вдалося синхронізувати його.',true);}
+ }
+}
+document.querySelectorAll('.avatar-choice').forEach(b=>b.addEventListener('click',()=>persistAvatar(b.dataset.avatar)));
+$('avatarFile').addEventListener('change',e=>{
+ const file=e.target.files&&e.target.files[0];if(!file)return;
+ if(!file.type.startsWith('image/')){setAuthStatus('Обери файл зображення.',true);return;}
+ if(file.size>10*1024*1024){setAuthStatus('Фото завелике. Максимальний розмір — 10 МБ.',true);e.target.value='';return;}
+ const reader=new FileReader();
+ reader.onload=()=>{const img=new Image();img.onload=()=>{const canvas=document.createElement('canvas'),max=256,scale=Math.min(1,max/Math.max(img.width,img.height));canvas.width=Math.round(img.width*scale);canvas.height=Math.round(img.height*scale);canvas.getContext('2d').drawImage(img,0,0,canvas.width,canvas.height);persistAvatar(canvas.toDataURL('image/jpeg',.78));};img.onerror=()=>setAuthStatus('Не вдалося прочитати це фото.',true);img.src=reader.result;};
+ reader.readAsDataURL(file);
+});
+renderAvatar((readLocalProfile()||{}).avatar||DEFAULT_AVATAR);
 function queueCloudSave(){
  if(!firebaseUser||!cloudReady)return;
  clearTimeout(cloudSaveTimer);
@@ -454,7 +485,7 @@ auth.onAuthStateChanged(async user=>{
   const ref=db.collection('users').doc(user.uid),snap=await ref.get();
   if(snap.exists){
    const data=snap.data()||{};
-   if(data.profile){localStorage.setItem(PROFILE_KEY,JSON.stringify(data.profile));$('regName').value=data.profile.name||'';$('regPhone').value=data.profile.phone||'';}
+   if(data.profile){localStorage.setItem(PROFILE_KEY,JSON.stringify(data.profile));$('regName').value=data.profile.name||'';$('regPhone').value=data.profile.phone||'';renderAvatar(data.profile.avatar||DEFAULT_AVATAR);}
    if(data.progress&&typeof data.progress==='object'){
     state={...state,...data.progress};
     if(!Array.isArray(state.done))state.done=[];
@@ -468,7 +499,7 @@ auth.onAuthStateChanged(async user=>{
    localStorage.setItem(PROFILE_KEY,JSON.stringify(profile));
    await ref.set({profile,progress:state,createdAt:firebase.firestore.FieldValue.serverTimestamp()},{merge:true});
   }
-  if(user.email)$('regEmail').value=user.email;
+  if(user.email)$('regEmail').value=user.email;renderAvatar((readLocalProfile()||{}).avatar||DEFAULT_AVATAR);
   $('regPassword').value='';
   cloudReady=true;renderStats();renderSkills();
   setAuthStatus('Вхід виконано: '+(user.email||user.displayName||'користувач')+'. Хмарна синхронізація активна.');
