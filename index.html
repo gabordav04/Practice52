@@ -612,6 +612,7 @@ auth.getRedirectResult().then(result=>{
 });
 $('logoutBtn').addEventListener('click',async()=>{try{await auth.signOut();}catch(err){setAuthStatus(err.message,true);}});
 auth.onAuthStateChanged(async user=>{
+ if(window.practice52ProgressUnsubscribe){window.practice52ProgressUnsubscribe();window.practice52ProgressUnsubscribe=null;}
  firebaseUser=user;cloudReady=false;renderHeaderIdentity();
  $('rankingJoinPrompt').classList.toggle('hidden',!!user);
  $('logoutBtn').classList.toggle('hidden',!user);
