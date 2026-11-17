@@ -433,10 +433,12 @@ const lessons = {0:{title:"Життєві показники: АТ, ЧСС, ЧД
 const $=id=>document.getElementById(id);
 const PROFILE_KEY='practice52_profile_v1';
 const KEY='practice52_v1';
-let state={done:[],needsReview:[],points:0,correct:0,answered:0,mistakes:[],ratings:{}};
+let state={done:[],needsReview:[],skillStatusUpdatedAt:{},points:0,correct:0,answered:0,mistakes:[],ratings:{}};
 try{state={...state,...JSON.parse(localStorage.getItem(KEY)||'{}')}}catch(e){}
-if(!Array.isArray(state.mistakes))state.mistakes=[];if(!Array.isArray(state.done))state.done=[];if(!Array.isArray(state.needsReview))state.needsReview=[];if(!state.ratings||typeof state.ratings!=='object')state.ratings={};
+if(!Array.isArray(state.mistakes))state.mistakes=[];if(!Array.isArray(state.done))state.done=[];if(!Array.isArray(state.needsReview))state.needsReview=[];if(!state.ratings||typeof state.ratings!=='object')state.ratings={};if(!state.skillStatusUpdatedAt||typeof state.skillStatusUpdatedAt!=='object')state.skillStatusUpdatedAt={};
 let currentMode='',items=[],idx=0;
+function setSkillStatus(skillIndex,status){state.done=state.done.filter(i=>i!==skillIndex);state.needsReview=state.needsReview.filter(i=>i!==skillIndex);if(status==='done')state.done.push(skillIndex);if(status==='review')state.needsReview.push(skillIndex);state.skillStatusUpdatedAt[String(skillIndex)]=Date.now();}
+function mergeCloudSkillStatuses(remote){const localDone=[...state.done],localReview=[...state.needsReview],localTimes={...state.skillStatusUpdatedAt};const remoteTimes=remote.skillStatusUpdatedAt&&typeof remote.skillStatusUpdatedAt==='object'?remote.skillStatusUpdatedAt:{};const remoteDone=Array.isArray(remote.done)?remote.done:[],remoteReview=Array.isArray(remote.needsReview)?remote.needsReview:[];for(let i=0;i<skills.length;i++){const k=String(i),lt=Number(localTimes[k])||0,rt=Number(remoteTimes[k])||0;const status=lt>rt?(localDone.includes(i)?'done':localReview.includes(i)?'review':'todo'):(remoteDone.includes(i)?'done':remoteReview.includes(i)?'review':'todo');state.done=state.done.filter(x=>x!==i);state.needsReview=state.needsReview.filter(x=>x!==i);if(status==='done')state.done.push(i);if(status==='review')state.needsReview.push(i);state.skillStatusUpdatedAt[k]=Math.max(lt,rt);}}
 function save(){localStorage.setItem(KEY,JSON.stringify(state));renderStats();$('savedLabel').textContent='Збережено ✓';queueCloudSave()}
 const firebaseConfig = {
  apiKey: "AIzaSyBihmwzPCaIDXGXMTxfwSjBKiWtlf2BAOA",
@@ -624,11 +626,12 @@ auth.onAuthStateChanged(async user=>{
    const data=snap.data()||{};
    if(data.profile){localStorage.setItem(PROFILE_KEY,JSON.stringify(data.profile));$('regName').value=data.profile.name||'';$('regPhone').value=data.profile.phone||'';$('regNickname').value=data.profile.nickname||'';$('regNickname').disabled=!!data.profile.nickname;renderAvatar(data.profile.avatar||DEFAULT_AVATAR);$('profileVisible').checked=data.profile.publicProfile!==false;}
    if(data.progress&&typeof data.progress==='object'){
-    state={...state,...data.progress};
-    if(!Array.isArray(state.done))state.done=[];
-    if(!Array.isArray(state.needsReview))state.needsReview=[];
-    if(!Array.isArray(state.mistakes))state.mistakes=[];
-    if(!state.ratings||typeof state.ratings!=='object')state.ratings={};
+    const localState={...state};state={...data.progress,...localState};
+    if(!Array.isArray(state.mistakes))state.mistakes=Array.isArray(data.progress.mistakes)?data.progress.mistakes:[];
+    if(!state.ratings||typeof state.ratings!=='object')state.ratings=data.progress.ratings||{};
+    if(!state.skillStatusUpdatedAt||typeof state.skillStatusUpdatedAt!=='object')state.skillStatusUpdatedAt={};
+    mergeCloudSkillStatuses(data.progress);
+    state.points=Math.max(Number(localState.points)||0,Number(data.progress.points)||0);state.correct=Math.max(Number(localState.correct)||0,Number(data.progress.correct)||0);state.answered=Math.max(Number(localState.answered)||0,Number(data.progress.answered)||0);
     localStorage.setItem(KEY,JSON.stringify(state));
    }
   }else{
@@ -641,8 +644,10 @@ auth.onAuthStateChanged(async user=>{
   }
   if(user.email)$('regEmail').value=user.email;$('regNickname').value=(readLocalProfile()||{}).nickname||'';$('regNickname').disabled=!!(readLocalProfile()||{}).nickname;renderAvatar((readLocalProfile()||{}).avatar||DEFAULT_AVATAR);
   $('regPassword').value='';
-  cloudReady=true;renderStats();renderSkills();loadLeaderboard();
-  setAuthStatus('Вхід виконано: '+(user.email||user.displayName||'користувач')+'. Хмарна синхронізація активна.');
+  cloudReady=true;renderStats();renderSkills();loadLeaderboard();queueCloudSave();
+  if(window.practice52ProgressUnsubscribe)window.practice52ProgressUnsubscribe();
+  window.practice52ProgressUnsubscribe=ref.onSnapshot(snap=>{if(!snap.exists)return;const remote=(snap.data()||{}).progress;if(!remote)return;const before=JSON.stringify({done:state.done,needsReview:state.needsReview,skillStatusUpdatedAt:state.skillStatusUpdatedAt});mergeCloudSkillStatuses(remote);const after=JSON.stringify({done:state.done,needsReview:state.needsReview,skillStatusUpdatedAt:state.skillStatusUpdatedAt});if(before!==after){localStorage.setItem(KEY,JSON.stringify(state));renderStats();renderSkills();queueCloudSave();}},err=>{console.warn('Progress sync listener failed:',err);setAuthStatus('Не вдалося оновити синхронізацію прогресу в реальному часі.',true);});
+  setAuthStatus('Вхід виконано: '+(user.email||user.displayName||'користувач')+'. Прогрес синхронізується між пристроями.');
   $('savedLabel').textContent='Firebase ✓';renderHeaderIdentity();
  }catch(err){console.error('Firebase load failed:',err);setAuthStatus('Авторизація є, але не вдалося прочитати дані. Перевір правила Firestore.',true);}
 });
@@ -651,8 +656,7 @@ function rememberMistake(skillIndex,q){
  const id=String(skillIndex)+'|'+q.q;
  if(!state.mistakes.some(m=>m.id===id))state.mistakes.push({id:id,skillIndex:skillIndex,q:{q:q.q,o:q.o.slice(),a:q.a,e:q.e||''}});
  if(state.done.includes(skillIndex)){
-  state.done=state.done.filter(i=>i!==skillIndex);
-  if(!state.needsReview.includes(skillIndex))state.needsReview.push(skillIndex);
+  setSkillStatus(skillIndex,'review');
  }
  save();renderSkills();
 }
@@ -766,11 +770,10 @@ function renderStudy(){
    $('mark').textContent=reviewVerified?'Позначити опрацьованою':'Підтвердити повторне засвоєння';
    $('mark').disabled=!reviewVerified;
    if(!reviewVerified)$('mark').title='Спочатку правильно дай відповідь у блоці «Перевірити знання».';
-   $('mark').onclick=()=>{if(!reviewVerified)return;state.needsReview=state.needsReview.filter(i=>i!==skillIndex);if(!state.done.includes(skillIndex))state.done.push(skillIndex);save();renderSkills();showCompletionCelebration(skillIndex)};
+   $('mark').onclick=()=>{if(!reviewVerified)return;setSkillStatus(skillIndex,'done');save();renderSkills();showCompletionCelebration(skillIndex)};
   }else{
    $('returnToStudy').onclick=()=>{
-    state.done=state.done.filter(i=>i!==skillIndex);
-    state.needsReview=state.needsReview.filter(i=>i!==skillIndex);
+    setSkillStatus(skillIndex,'todo');
     // If the catalog is filtered to completed skills, show the returned skill again.
     if($('filter').value==='done')$('filter').value='all';
     save();
