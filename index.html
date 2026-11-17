@@ -676,5 +676,37 @@ window.addEventListener('load', function () {
   }
 });
 </script>
+
+<script>
+/* Незалежне відкриття карток — не залежить від ініціалізації основного тренажера */
+(function () {
+  function openPracticeCard(index) {
+    const panel = document.getElementById('studyPanel');
+    const content = document.getElementById('studyContent');
+    const title = Array.isArray(window.practice52SkillTitles) ? window.practice52SkillTitles[index] : null;
+    if (!panel || !content || !title) return;
+    let lesson = null;
+    try { lesson = lessons[index] || null; } catch (e) {}
+    panel.classList.remove('hidden');
+    document.getElementById('modeName').textContent = 'Навчальна картка';
+    document.getElementById('counter').textContent = (index + 1) + ' / 52';
+    document.getElementById('bar').style.width = ((index + 1) / 52 * 100) + '%';
+    if (!lesson) {
+      content.innerHTML = '<div class="study-card"><h2>' + title + '</h2><p>Структурований матеріал для цієї навички ще не додано.</p></div>';
+    } else {
+      const esc = value => String(value == null ? '' : value).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+      content.innerHTML = '<div class="study-card" style="text-align:left"><div class="label">Практична навичка №' + (index + 1) + '</div><h2>' + esc(lesson.title || title) + '</h2><p><b>Мета:</b> ' + esc(lesson.goal) + '</p><p><b>Обладнання:</b> ' + esc(lesson.equipment) + '</p><h3>Алгоритм виконання</h3><ol>' + (lesson.steps || []).map(x => '<li style="margin:8px 0">' + esc(x) + '</li>').join('') + '</ol><h3>Безпека</h3><p>' + esc(lesson.safety) + '</p><h3>Інтерпретація та ключові значення</h3><p>' + esc(lesson.interpret) + '</p><p class="note">Навчальний матеріал. Дотримуйся локальних протоколів та інструкцій приладів.</p></div>';
+    }
+    panel.scrollIntoView({behavior:'smooth',block:'start'});
+  }
+  document.addEventListener('click', function (event) {
+    const card = event.target.closest('#skills [data-skill-index]');
+    if (!card) return;
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    openPracticeCard(Number(card.getAttribute('data-skill-index')));
+  }, true);
+})();
+</script>
 </body>
 </html>
