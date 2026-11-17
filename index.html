@@ -82,7 +82,7 @@ select{border:1px solid var(--line);background:#fff;border-radius:11px;padding:1
 .rank-panel{background:#fff;border:1px solid var(--line);border-radius:18px;padding:18px;margin:18px 0 22px;box-shadow:var(--shadow)}
 .rank-panel h3{margin:0 0 8px}.rank-list{display:grid;gap:8px;margin-top:12px}.rank-row{display:flex;align-items:center;gap:10px;padding:10px 12px;background:#f6f9fb;border-radius:11px}
 .rank-place{font-weight:800;color:var(--blue);width:30px}.rank-name{flex:1;min-width:0;overflow-wrap:anywhere}.rank-points{font-weight:750}.rank-me{outline:2px solid #8bbbd3;background:#f0f8fc}
-</style>
+.exam-tools{margin:14px 0 20px;padding:14px;border:1px solid var(--line,#dce7ee);border-radius:14px;background:var(--surface,#f8fbfd)}.exam-grid{display:grid;grid-template-columns:repeat(5,minmax(38px,1fr));gap:8px;margin-bottom:10px}.exam-jump{min-height:42px;border:1px solid #cbd5df;border-radius:9px;background:#fff;color:#263b50;font-weight:700;cursor:pointer}.exam-jump.answered{background:#d9f4e4;border-color:#55b879;color:#176638}.exam-jump.unanswered{background:#edf1f5;border-color:#cbd5df;color:#526477}.exam-jump.marked-later{background:#fff0c2;border-color:#e3ad31;color:#775300}.exam-jump.current{outline:3px solid #3689c9;outline-offset:2px}.exam-legend{display:flex;flex-wrap:wrap;gap:12px;margin:8px 0 12px;font-size:12px;color:var(--muted,#71869a)}.exam-legend span{display:inline-flex;align-items:center;gap:5px}.exam-legend i{width:10px;height:10px;border-radius:3px;display:inline-block}.answered-key{background:#55b879}.unanswered-key{background:#cbd5df}.later-key{background:#e3ad31}.btn.danger{border:1px solid #d77b7b;color:#a42e2e;background:#fff5f5}@media(max-width:520px){.exam-tools{padding:10px}.exam-grid{gap:6px}.exam-jump{min-height:40px}}</style>
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
@@ -623,7 +623,7 @@ function renderSkills(){
  });
 }
 function shuffle(a){return [...a].sort(()=>Math.random()-.5)}
-let sessionQuestions=[],sessionAnswers={},sessionStartedAt=0,examTimer=null,examSecondsLeft=20*60;
+let sessionQuestions=[],sessionAnswers={},sessionMarkedLater={},sessionStartedAt=0,examTimer=null,examSecondsLeft=20*60;
 function buildQuestion(skillIndex){
  const L=lessons[skillIndex];
  if(!L||!Array.isArray(L.questions)||!L.questions.length)return null;
@@ -642,7 +642,7 @@ function startExamTimer(){
  examTimer=setInterval(()=>{examSecondsLeft--;const t=$('examClock');if(t)t.textContent='Залишилось: '+Math.floor(examSecondsLeft/60)+':'+String(examSecondsLeft%60).padStart(2,'0');if(examSecondsLeft<=0){stopExamTimer();finish();}},1000);
 }
 function start(mode,custom=null){
- stopExamTimer();currentMode=mode;idx=0;sessionAnswers={};sessionQuestions=[];
+ stopExamTimer();currentMode=mode;idx=0;sessionAnswers={};sessionMarkedLater={};sessionQuestions=[];
  items=custom||(mode==='exam'?shuffle(skills.map((_,i)=>i)).slice(0,15):shuffle(skills.map((_,i)=>i)));
  if(mode==='quiz')sessionQuestions=buildTestQuestions();
  if(mode==='exam'){sessionQuestions=buildExamQuestions();startExamTimer();}
@@ -711,12 +711,18 @@ function renderStudy(){
   $('counter').textContent=isExam?'Білет '+ticket+' із 5 · питання '+questionInTicket+' із 3':(idx+1)+' із '+sessionQuestions.length+' · навичка '+(skillIndex+1);
   $('bar').style.width=((idx+1)/sessionQuestions.length*100)+'%';
   const feedback=selected===undefined?'':(selected===q.a?'<div class="feedback">Правильно! '+q.e+'</div>':'<div class="feedback">Не зовсім. Правильна відповідь підсвічена після вибору. '+q.e+'</div>');
-  content.innerHTML='<div class="study-card"><div class="label">'+(isExam?'ЕКЗАМЕНАЦІЙНИЙ БІЛЕТ '+ticket+' · НАВИЧКА №'+(skillIndex+1):'ТЕСТУВАННЯ · НАВИЧКА №'+(skillIndex+1))+'</div>'+(isExam?'<div class="pill" id="examClock" style="display:inline-block;margin:8px 0">Залишилось: '+Math.floor(examSecondsLeft/60)+':'+String(examSecondsLeft%60).padStart(2,'0')+'</div>':'')+'<h2>'+skills[skillIndex]+'</h2><div class="qtitle">'+q.q+'</div><div class="options">'+q.o.map((v,i)=>'<button class="option '+(selected===i?(i===q.a?'correct':'wrong'):'')+'" data-i="'+i+'" '+(isExam&&selected!==undefined?'':'')+'>'+v+'</button>').join('')+'</div><div id="feedback">'+(isExam?'':feedback)+'</div><div class="actions"><button class="btn" id="prev" '+(idx===0?'disabled':'')+'>← Назад</button><button class="btn primary" id="next">'+(idx===sessionQuestions.length-1?(isExam?'Завершити екзамен':'Завершити тест'):'Далі →')+'</button></div><p class="note">'+(isExam?'Під час екзамену відповіді не пояснюються. Повернутися до попередніх питань можна до завершення.':'Можна переходити між питаннями, змінювати відповіді та проходити тест повторно.')+'</p></div>';
+  const examNavigator=isExam?'<div class="exam-tools"><div class="exam-grid" aria-label="Швидкий перехід до питання">'+sessionQuestions.map((item,i)=>'<button type="button" class="exam-jump '+(sessionAnswers[i]!==undefined?'answered':'unanswered')+(sessionMarkedLater[i]?' marked-later':'')+(i===idx?' current':'')+'" data-jump="'+i+'">'+(i+1)+'</button>').join('')+'</div><div class="exam-legend"><span><i class="answered-key"></i>Відповідено</span><span><i class="unanswered-key"></i>Без відповіді</span><span><i class="later-key"></i>На потім</span></div><button type="button" class="btn '+(sessionMarkedLater[idx]?'good':'')+'" id="markLater">'+(sessionMarkedLater[idx]?'Зняти позначку «На потім»':'Позначити на потім')+'</button></div>':'';
+  content.innerHTML='<div class="study-card"><div class="label">'+(isExam?'ЕКЗАМЕНАЦІЙНИЙ БІЛЕТ '+ticket+' · НАВИЧКА №'+(skillIndex+1):'ТЕСТУВАННЯ · НАВИЧКА №'+(skillIndex+1))+'</div>'+(isExam?'<div class="pill" id="examClock" style="display:inline-block;margin:8px 0">Залишилось: '+Math.floor(examSecondsLeft/60)+':'+String(examSecondsLeft%60).padStart(2,'0')+'</div>'+examNavigator:'')+'<h2>'+skills[skillIndex]+'</h2><div class="qtitle">'+q.q+'</div><div class="options">'+q.o.map((v,i)=>'<button class="option '+(selected===i?(i===q.a?'correct':'wrong'):'')+'" data-i="'+i+'" '+(isExam&&selected!==undefined?'':'')+'>'+v+'</button>').join('')+'</div><div id="feedback">'+(isExam?'':feedback)+'</div><div class="actions"><button class="btn" id="prev" '+(idx===0?'disabled':'')+'>← Назад</button><button class="btn primary" id="next">'+(idx===sessionQuestions.length-1?(isExam?'Завершити екзамен':'Завершити тест'):'Далі →')+'</button></div><p class="note">'+(isExam?'Під час екзамену відповіді не пояснюються. Повернутися до попередніх питань можна до завершення.':'Можна переходити між питаннями, змінювати відповіді та проходити тест повторно.')+'</p></div>';
   content.querySelectorAll('.option').forEach(b=>b.onclick=()=>{
    const choice=Number(b.dataset.i);sessionAnswers[idx]=choice;
    if(!isExam){content.querySelectorAll('.option').forEach(x=>{const n=Number(x.dataset.i);x.classList.toggle('correct',n===q.a);x.classList.toggle('wrong',n===choice&&choice!==q.a);});$('feedback').innerHTML=choice===q.a?'<div class="feedback">Правильно! '+q.e+'</div>':'<div class="feedback">Неправильно. '+q.e+'</div>';}
    else{content.querySelectorAll('.option').forEach(x=>x.classList.toggle('selected',Number(x.dataset.i)===choice));}
   });
+  if(isExam){
+   content.querySelectorAll('[data-jump]').forEach(b=>b.onclick=()=>{idx=Number(b.dataset.jump);renderStudy();});
+   $('markLater').onclick=()=>{sessionMarkedLater[idx]=!sessionMarkedLater[idx];renderStudy();};
+   const exit=document.createElement('button');exit.type='button';exit.className='btn danger';exit.textContent='Вийти з екзамену';exit.style.marginTop='12px';exit.onclick=()=>{if(confirm('Вийти з екзамену? Поточна спроба буде перервана без нарахування бонусу.')){stopExamTimer();$('studyPanel').classList.add('hidden');document.querySelectorAll('.mode').forEach(b=>b.classList.remove('active'));}};content.querySelector('.study-card').appendChild(exit);
+  }
   $('prev').onclick=()=>{if(idx>0){idx--;renderStudy();}};
   $('next').onclick=()=>{if(idx<sessionQuestions.length-1){idx++;renderStudy();}else finish();};
   return;
