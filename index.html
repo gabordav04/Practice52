@@ -377,7 +377,6 @@ let state={done:[],points:0,correct:0,answered:0,mistakes:[],ratings:{}};
 try{state={...state,...JSON.parse(localStorage.getItem(KEY)||'{}')}}catch(e){}
 if(!Array.isArray(state.mistakes))state.mistakes=[];if(!state.ratings||typeof state.ratings!=='object')state.ratings={};
 let currentMode='',items=[],idx=0;
-loadProfile();
 function save(){localStorage.setItem(KEY,JSON.stringify(state));renderStats();$('savedLabel').textContent='Збережено ✓';queueCloudSave()}
 const firebaseConfig = {
  apiKey: "AIzaSyBihmwzPCaIDXGXMTxfwSjBKiWtlf2BAOA",
