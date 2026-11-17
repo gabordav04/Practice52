@@ -496,7 +496,7 @@ $('saveProfileBtn').addEventListener('click',async()=>{
  }catch(err){setAuthStatus(err.message||'Не вдалося зберегти профіль.',true);}
 });
 $('hideProfileBtn').addEventListener('click',()=>{$('accountPanel').classList.add('hidden');$('profileTabBtn').setAttribute('aria-expanded','false');$('profileTabBtn').textContent='Профіль / Вхід';});
-$('profileVisible').addEventListener('change',async()=>{try{if(firebaseUser&&cloudReady){await syncPublicRank();await loadLeaderboard();setAuthStatus($('profileVisible').checked?'Профіль показується в рейтингу.':'Профіль приховано з рейтингу.');}}catch(err){setAuthStatus('Не вдалося змінити видимість. Перевір правила Firestore.',true);}});
+$('profileVisible').addEventListener('change',async()=>{try{if(firebaseUser&&cloudReady){const profile={...(readLocalProfile()||{}),publicProfile:$('profileVisible').checked};localStorage.setItem(PROFILE_KEY,JSON.stringify(profile));await db.collection('users').doc(firebaseUser.uid).set({profile,updatedAt:firebase.firestore.FieldValue.serverTimestamp()},{merge:true});await syncPublicRank();await loadLeaderboard();setAuthStatus($('profileVisible').checked?'Профіль показується в рейтингу.':'Профіль приховано з рейтингу.');}}catch(err){setAuthStatus('Не вдалося змінити видимість. Перевір правила Firestore.',true);}});
 async function saveAccountProfile(user){
  const profile=validateProfile();
  if(profile.name||profile.phone){
