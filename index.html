@@ -46,6 +46,8 @@ select{border:1px solid var(--line);background:#fff;border-radius:11px;padding:1
 .reg-status{font-size:12px;color:var(--green);margin-top:10px}
 @media(max-width:760px){.reg-grid{grid-template-columns:1fr}.reg-btn{width:100%}}
 
+
+.sequence-list{display:grid;gap:9px;margin:18px 0}.sequence-row{display:grid;grid-template-columns:32px 1fr auto;gap:10px;align-items:center;padding:12px;border:1px solid var(--line);border-radius:12px;background:#fff}.sequence-number{width:28px;height:28px;border-radius:9px;background:#edf4f8;color:var(--blue);display:grid;place-items:center;font-weight:750}.sequence-text{font-size:14px}.sequence-move{display:flex;gap:5px}.sequence-move .btn{padding:7px 11px}.sequence-row[style*="border-color"]{border-width:2px}@media(max-width:520px){.sequence-row{grid-template-columns:28px 1fr}.sequence-move{grid-column:2;justify-content:flex-end}}
 </style>
 </head>
 <body>
@@ -80,9 +82,9 @@ select{border:1px solid var(--line);background:#fff;border-radius:11px;padding:1
 <div class="section-head"><h3>Обери режим навчання</h3><small id="modeHint">Почни з карток або тестування</small></div>
 <div class="modes">
  <button class="mode" data-mode="cards"><div class="ico">▤</div><b>Флеш-картки</b><span>Навичка та навчальний матеріал</span></button>
- <button class="mode" data-mode="quiz"><div class="ico">☑</div><b>Тестування</b><span>Обери правильну навичку</span></button>
- <button class="mode" data-mode="sequence"><div class="ico">⇅</div><b>Послідовність</b><span>Тренування алгоритмів</span></button>
- <button class="mode" data-mode="exam"><div class="ico">▣</div><b>Екзамен</b><span>Випадкова вибірка завдань</span></button>
+ <button class="mode" data-mode="quiz"><div class="ico">☑</div><b>Тестування</b><span>Зістав мету, обладнання та безпеку</span></button>
+ <button class="mode" data-mode="sequence"><div class="ico">⇅</div><b>Послідовність</b><span>Віднови порядок кроків</span></button>
+ <button class="mode" data-mode="exam"><div class="ico">▣</div><b>Екзамен</b><span>Різні типи завдань без номерів навичок</span></button>
 </div>
 <div id="studyPanel" class="panel hidden">
  <div class="panel-top"><span id="modeName">Навчання</span><span id="counter"></span></div>
@@ -95,7 +97,7 @@ select{border:1px solid var(--line);background:#fff;border-radius:11px;padding:1
  <select id="filter"><option value="all">Усі навички</option><option value="done">Опрацьовані</option><option value="todo">Ще не опрацьовані</option></select>
 </div>
 <div class="skills" id="skills"></div>
-<p class="note">Навчальна примітка: каталог містить 52 навички. Навчальні картки з алгоритмами й контрольними питаннями заповнені для навичок 1–52; решта додаватиметься поетапно. Нормативи слід звіряти з версією протоколу та популяцією.</p>
+<p class="note">Навчальна примітка: каталог містить 52 навички. Структуровані навчальні картки з алгоритмами й контрольними питаннями наразі заповнені для навичок 1–51; матеріал для навички 52 буде додано окремо. Нормативи слід звіряти з версією протоколу та популяцією.</p>
 <div class="footer">PRACTICE 52 · Навчальний проєкт</div>
 </div>
 <script>
@@ -384,10 +386,106 @@ function renderSkills(){
  });
 }
 function shuffle(a){return [...a].sort(()=>Math.random()-.5)}
+const lessonFor = i => lessons[i+1] || null;
+let sessionData={};
+function availableLessonIndexes(){return skills.map((_,i)=>i).filter(i=>lessonFor(i));}
 function start(mode,custom=null){
- currentMode=mode;idx=0;items=custom||(mode==='exam'?shuffle(skills.map((_,i)=>i)).slice(0,20):shuffle(skills.map((_,i)=>i)));
+ currentMode=mode;idx=0;sessionData={};
+ const available=availableLessonIndexes();
+ if(mode==='cards') items=custom||shuffle(skills.map((_,i)=>i));
+ else if(mode==='sequence') items=custom||shuffle(available).slice(0,10);
+ else items=custom||shuffle(available).slice(0,20);
  $('studyPanel').classList.remove('hidden');$('studyPanel').scrollIntoView({behavior:'smooth',block:'start'});
  document.querySelectorAll('.mode').forEach(b=>b.classList.toggle('active',b.dataset.mode===mode));
+ $('modeName').textContent={cards:'Навчальні картки',quiz:'Тренування: мета, обладнання, безпека та знання',sequence:'Віднови алгоритм',exam:'Пробний екзамен'}[mode];
+ renderStudy();
+}
+function getSession(){if(!sessionData[idx])sessionData[idx]={};return sessionData[idx]}
+function navHtml(nextLabel='Далі →',extra=''){
+ return `<div class="actions"><button class="btn" id="back" ${idx===0?'disabled':''}>← Назад</button>${extra}<button class="btn primary" id="next">${nextLabel}</button></div>`;
+}
+function bindNav(nextLabel='Далі →',extra=''){
+ const back=$('back'),nextBtn=$('next');
+ if(back)back.onclick=()=>{if(idx>0){idx--;renderStudy()}};
+ if(nextBtn)nextBtn.onclick=next;
+}
+function makeMatchTask(skillIndex){
+ const L=lessonFor(skillIndex),types=[
+  {key:'goal',label:'Мета',prompt:'Яка мета відповідає цій навичці?'},
+  {key:'equipment',label:'Обладнання',prompt:'Яке обладнання потрібне для цієї навички?'},
+  {key:'safety',label:'Безпека',prompt:'Яке правило безпеки відповідає цій навичці?'},
+  {key:'interpret',label:'Інтерпретація',prompt:'Яке пояснення / принцип інтерпретації відповідає цій навичці?'}
+ ].filter(t=>L[t.key]);
+ const useQuestion=Array.isArray(L.questions)&&L.questions.length>0&&Math.random()<.28;
+ if(useQuestion){const q=shuffle(L.questions)[0];return {kind:'mcq',label:'Термінологія та розуміння',prompt:q.q,options:q.o,answer:q.a,explanation:q.e};}
+ const type=shuffle(types)[0],correct=L[type.key];
+ const distractors=shuffle(availableLessonIndexes().filter(i=>i!==skillIndex).map(i=>lessonFor(i)[type.key]).filter(v=>v&&v!==correct));
+ const options=shuffle([correct,...distractors.slice(0,3)]);
+ return {kind:'match',label:type.label,prompt:type.prompt,options,answer:options.indexOf(correct),explanation:'Зіставлення перевіряє розуміння змісту навички, а не її порядкового номера.'};
+}
+function renderStudy(){
+ $('counter').textContent=`${Math.min(idx+1,items.length)} / ${items.length}`;
+ $('bar').style.width=(idx/items.length*100)+'%';
+ const content=$('studyContent');content.innerHTML='';
+ if(idx>=items.length){finish();return}
+ const skillIndex=items[idx],title=skills[skillIndex],L=lessonFor(skillIndex),data=getSession();
+ if(currentMode==='cards'){
+  if(!L){content.innerHTML=`<div class="study-card"><div class="label">Навичка №${skillIndex+1}</div><h2>${title}</h2><div class="answer">Структурований навчальний матеріал для цієї навички ще не додано.</div>${navHtml()}</div>`;bindNav();return}
+  content.innerHTML=`<div class="study-card" style="text-align:left"><div class="label">Навичка №${skillIndex+1}</div><h2>${L.title}</h2><p><b>Мета:</b> ${L.goal}</p><p><b>Обладнання:</b> ${L.equipment}</p><h3>Алгоритм виконання</h3><ol>${L.steps.map(x=>`<li style="margin:8px 0">${x}</li>`).join('')}</ol><h3>Безпека</h3><p>${L.safety}</p><h3>Інтерпретація та ключові значення</h3><p>${L.interpret}</p><div class="actions"><button class="btn primary" id="lessonQuiz">Перевірити знання</button><button class="btn good" id="mark">Позначити опрацьованою</button></div><div id="lessonQuestion" style="margin-top:18px"></div>${navHtml()}</div><p class="note">Навчальний матеріал. На практиці дотримуйся локальних протоколів, інструкцій приладів і меж професійної компетенції.</p>`;
+  $('mark').onclick=()=>{if(!state.done.includes(skillIndex))state.done.push(skillIndex);save()};
+  $('lessonQuiz').onclick=()=>{
+   const q=shuffle(L.questions)[0],box=$('lessonQuestion');
+   box.innerHTML=`<div class="qtitle">${q.q}</div><div class="options">${q.o.map((v,i)=>`<button class="option" data-i="${i}">${v}</button>`).join('')}</div><div id="lfeedback"></div>`;
+   box.querySelectorAll('.option').forEach(btn=>btn.onclick=()=>{
+    if(box.dataset.answered)return;box.dataset.answered='1';
+    const ok=+btn.dataset.i===q.a;btn.classList.add(ok?'correct':'wrong');
+    box.querySelectorAll('.option').forEach(x=>{if(+x.dataset.i===q.a)x.classList.add('correct');x.disabled=true});
+    state.answered++;if(ok){state.correct++;state.points+=10}save();
+    $('lfeedback').innerHTML=`<div class="feedback">${ok?'Правильно! +10 балів.':'Правильна відповідь підсвічена.'} ${q.e}</div>`;
+   });
+  };
+  bindNav();
+ }else if(currentMode==='sequence'){
+  if(!L){content.innerHTML=`<div class="study-card"><h2>${title}</h2><p>Для цієї навички алгоритм ще не внесено.</p>${navHtml()}</div>`;bindNav();return}
+  if(!data.order)data.order=shuffle(L.steps.map((_,i)=>i));
+  const checked=data.checked;
+  content.innerHTML=`<div class="study-card" style="text-align:left"><div class="label">Віднови правильний порядок · навичка №${skillIndex+1}</div><h2>${L.title}</h2><p>Переміщуй кроки кнопками ↑ та ↓, щоб скласти алгоритм від першого до останнього.</p><div class="sequence-list">${data.order.map((stepIndex,pos)=>`<div class="sequence-row"><span class="sequence-number">${pos+1}</span><span class="sequence-text">${L.steps[stepIndex]}</span><span class="sequence-move"><button class="btn move-up" data-pos="${pos}" ${pos===0||checked?'disabled':''} aria-label="Перемістити вище">↑</button><button class="btn move-down" data-pos="${pos}" ${pos===data.order.length-1||checked?'disabled':''} aria-label="Перемістити нижче">↓</button></span></div>`).join('')}</div><div id="sequenceFeedback"></div><div class="actions"><button class="btn primary" id="checkSequence" ${checked?'disabled':''}>Перевірити порядок</button></div>${navHtml()}</div>`;
+  content.querySelectorAll('.move-up').forEach(btn=>btn.onclick=()=>{const p=+btn.dataset.pos;if(p>0){[data.order[p-1],data.order[p]]=[data.order[p],data.order[p-1]];renderStudy()}});
+  content.querySelectorAll('.move-down').forEach(btn=>btn.onclick=()=>{const p=+btn.dataset.pos;if(p<data.order.length-1){[data.order[p+1],data.order[p]]=[data.order[p],data.order[p+1]];renderStudy()}});
+  if(checked)$('sequenceFeedback').innerHTML=`<div class="feedback">${data.correct?'Правильно! Алгоритм складено вірно. +10 балів.':'Порядок ще не зовсім правильний. Правильна послідовність показана зеленим.'}</div>`;
+  $('checkSequence').onclick=()=>{
+   if(data.checked)return;data.checked=true;data.correct=data.order.every((v,i)=>v===i);
+   state.answered++;if(data.correct){state.correct++;state.points+=10}save();
+   const rows=content.querySelectorAll('.sequence-row');rows.forEach((row,pos)=>{row.style.borderColor=data.order[pos]===pos?'#64b78d':'#d88a8a';row.style.background=data.order[pos]===pos?'#eff9f3':'#fff4f4'});
+   $('sequenceFeedback').innerHTML=`<div class="feedback">${data.correct?'Правильно! Алгоритм складено вірно. +10 балів.':'Є помилки. Правильна послідовність: '+L.steps.map((s,i)=>(i+1)+'. '+s).join(' → ')}</div>`;
+   $('checkSequence').disabled=true;content.querySelectorAll('.sequence-move button').forEach(x=>x.disabled=true);
+  };
+  bindNav();
+ }else{
+  if(!data.task)data.task=makeMatchTask(skillIndex);
+  const task=data.task,selected=data.selected;
+  const options=task.options||[];
+  content.innerHTML=`<div class="study-card"><div class="label">${currentMode==='exam'?'Екзаменаційне завдання':'Зіставлення: '+task.label}</div><h2>${L?L.title:title}</h2><div class="qtitle">${task.prompt}</div><div class="options">${options.map((v,i)=>`<button class="option" data-i="${i}" ${selected!==undefined?'disabled':''}>${v}</button>`).join('')}</div><div id="feedback"></div>${navHtml('Далі →')}</div>`;
+  if(selected!==undefined){
+   content.querySelectorAll('.option').forEach(btn=>{const i=+btn.dataset.i;if(i===task.answer)btn.classList.add('correct');if(i===selected&&selected!==task.answer)btn.classList.add('wrong')});
+   $('feedback').innerHTML=`<div class="feedback">${selected===task.answer?'Правильно! +10 балів.':'Не зовсім. Правильний варіант позначено зеленим.'} ${task.explanation||''}</div>`;
+  }else{
+   content.querySelectorAll('.option').forEach(btn=>btn.onclick=()=>{
+    if(data.selected!==undefined)return;
+    data.selected=+btn.dataset.i;const ok=data.selected===task.answer;
+    state.answered++;if(ok){state.correct++;state.points+=10}save();renderStudy();
+   });
+  }
+  bindNav();
+ }
+}
+function next(){idx++;renderStudy()}
+function finish(){
+ $('bar').style.width='100%';
+ $('studyContent').innerHTML=`<div class="study-card"><div class="label">Сесію завершено</div><h2>Чудова робота!</h2><div class="answer">Завдань у сесії: ${items.length}. Загальний рахунок: ${state.points} балів. Правильних відповідей: ${state.correct} із ${state.answered}.</div><div class="actions"><button class="btn primary" id="again">Нова сесія</button><button class="btn" id="close">До каталогу</button></div></div>`;
+ $('again').onclick=()=>start(currentMode);$('close').onclick=()=>{$('studyPanel').classList.add('hidden');document.querySelectorAll('.mode').forEach(b=>b.classList.remove('active'))};
+}
+document.querySelectorAll('.mode').forEach(b=>b.classList.toggle('active',b.dataset.mode===mode));
  $('modeName').textContent={cards:'Флеш-картки',quiz:'Тестування',sequence:'Послідовність',exam:'Екзаменаційний режим'}[mode];
  renderStudy();
 }
