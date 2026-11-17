@@ -771,6 +771,8 @@ function renderStudy(){
    $('returnToStudy').onclick=()=>{
     state.done=state.done.filter(i=>i!==skillIndex);
     state.needsReview=state.needsReview.filter(i=>i!==skillIndex);
+    // If the catalog is filtered to completed skills, show the returned skill again.
+    if($('filter').value==='done')$('filter').value='all';
     save();
     renderSkills();
     renderStudy();
