@@ -573,5 +573,40 @@ window.addEventListener('load', function () {
   }
 });
 </script>
+
+<script>
+/* Резервне відображення каталогу, якщо основний рендер не спрацював */
+window.addEventListener('load', function () {
+  try {
+    const root = document.getElementById('skills');
+    if (!root || root.children.length) return;
+    const list = typeof skills !== 'undefined' ? skills : window.skills;
+    if (!Array.isArray(list) || !list.length) return;
+    const saved = JSON.parse(localStorage.getItem('practice52_v1') || '{}');
+    const done = Array.isArray(saved.done) ? saved.done : [];
+    list.forEach(function (label, i) {
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = 'skill' + (done.includes(i) ? ' done' : '');
+      const number = document.createElement('span');
+      number.className = 'num';
+      number.textContent = String(i + 1).padStart(2, '0');
+      const title = document.createElement('span');
+      title.className = 'skill-title';
+      title.textContent = label;
+      const status = document.createElement('span');
+      status.className = 'status';
+      status.textContent = done.includes(i) ? '✓' : 'Вивчити';
+      button.append(number, title, status);
+      button.addEventListener('click', function () {
+        if (typeof start === 'function') start('cards', [i]);
+      });
+      root.appendChild(button);
+    });
+  } catch (error) {
+    console.error('PRACTICE 52 catalog fallback:', error);
+  }
+});
+</script>
 </body>
 </html>
