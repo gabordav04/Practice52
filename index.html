@@ -27,6 +27,7 @@ header{display:flex;align-items:center;justify-content:space-between;gap:16px;ma
 select{border:1px solid var(--line);background:#fff;border-radius:11px;padding:10px;color:var(--ink);font:inherit}
 .skills{display:grid;grid-template-columns:repeat(2,1fr);gap:9px}.skill{display:flex;align-items:center;gap:12px;padding:12px 14px;text-align:left;color:var(--ink);box-shadow:none}.skill:hover{border-color:#9fc5d8;background:#fbfdfe}.num{width:31px;height:31px;flex:0 0 31px;border-radius:10px;background:#edf4f8;color:var(--blue);display:grid;place-items:center;font-weight:700;font-size:12px}.skill-title{font-size:13px;line-height:1.35;flex:1}.status{font-size:11px;color:var(--muted)}.done .num{background:#e8f6ef;color:var(--green)}
 .panel{padding:22px;margin-top:18px}.hidden{display:none!important}
+.panel-actions{display:flex;align-items:center;gap:10px;flex-wrap:wrap;justify-content:flex-end}.panel-actions .btn{padding:8px 12px;font-size:13px;white-space:nowrap}@media(max-width:600px){.panel-top{align-items:flex-start;gap:10px}.panel-actions{align-items:flex-end;flex-direction:column;gap:7px}.panel-actions .btn{font-size:12px;padding:8px 10px}}
 .panel-top{display:flex;justify-content:space-between;gap:10px;align-items:center;color:var(--muted);font-size:13px}
 .progress{height:7px;background:#edf2f5;border-radius:9px;overflow:hidden;margin:12px 0 20px}.progress>i{display:block;height:100%;width:0;background:var(--teal);transition:.2s}
 .study-card{max-width:720px;margin:0 auto;text-align:center;padding:20px 10px}.study-card .label{font-size:12px;color:var(--teal);font-weight:750;letter-spacing:.08em;text-transform:uppercase}.study-card h2{font-size:clamp(22px,4vw,30px);margin:12px 0 20px}.answer{background:#f4f8fa;border:1px dashed #b8cbd6;border-radius:15px;padding:20px;color:#637a89;min-height:85px;display:grid;place-items:center}
@@ -136,7 +137,7 @@ select{border:1px solid var(--line);background:#fff;border-radius:11px;padding:1
  <button class="mode" data-mode="mistakes"><div class="ico">↻</div><b>Мої помилки</b><span>Повторення неправильних відповідей</span></button>
 </div>
 <div id="studyPanel" class="panel hidden">
- <div class="panel-top"><span id="modeName">Навчання</span><span id="counter"></span></div>
+ <div class="panel-top"><span id="modeName">Навчання</span><div class="panel-actions"><span id="counter"></span><button type="button" class="btn" id="backToModes">← До вибору режиму</button></div></div>
  <div class="progress"><i id="bar"></i></div>
  <div id="studyContent"></div>
 </div>
@@ -619,7 +620,7 @@ function renderMistakes(){
  if(!state.mistakes.length){root.innerHTML='<div class="study-card"><h2>Помилок поки немає 🎉</h2><p>Неправильні відповіді з тестів з’являтимуться тут.</p></div>';return;}
  const m=state.mistakes[0],q=m.q;
  root.innerHTML='<div class="study-card"><div class="label">Мої помилки · навичка №'+(m.skillIndex+1)+'</div><h2>'+skills[m.skillIndex]+'</h2><div class="qtitle">'+q.q+'</div><div class="options">'+q.o.map((v,i)=>'<button class="option" data-i="'+i+'">'+v+'</button>').join('')+'</div><div id="mistakeFeedback"></div><p class="note">Після правильної повторної відповіді питання буде прибрано.</p></div>';
- root.querySelectorAll('.option').forEach(b=>b.onclick=()=>{if(root.querySelector('.option:disabled'))return;const ok=Number(b.dataset.i)===q.a;root.querySelectorAll('.option').forEach(x=>{x.disabled=true;if(Number(x.dataset.i)===q.a)x.classList.add('correct');});if(!ok)b.classList.add('wrong');state.answered++;if(ok){state.correct++;state.mistakes=state.mistakes.filter(x=>x.id!==m.id);}save();$('mistakeFeedback').innerHTML='<div class="feedback">'+(ok?'Правильно! Питання прибрано. +10 балів.':'Неправильно. Питання залишилося для повторення.')+' '+(q.e||'')+'</div><div class="actions"><button class="btn primary" id="nextMistake">'+(state.mistakes.length?'Наступна помилка':'Завершити')+'</button></div>';$('nextMistake').onclick=renderMistakes;});
+ root.querySelectorAll('.option').forEach(b=>b.onclick=()=>{if(root.querySelector('.option:disabled'))return;const ok=Number(b.dataset.i)===q.a;root.querySelectorAll('.option').forEach(x=>{x.disabled=true;if(Number(x.dataset.i)===q.a)x.classList.add('correct');});if(!ok)b.classList.add('wrong');state.answered++;if(ok){state.correct++;state.mistakes=state.mistakes.filter(x=>x.id!==m.id);}save();$('mistakeFeedback').innerHTML='<div class="feedback">'+(ok?'Правильно! Питання видалено зі списку помилок.':'Неправильно. Питання залишилося для повторення.')+' '+(q.e||'')+'</div><div class="actions"><button class="btn primary" id="nextMistake">'+(state.mistakes.length?'Наступна помилка':'До вибору режиму')+'</button></div>';$('nextMistake').onclick=()=>{if(state.mistakes.length)renderMistakes();else returnToModes();};});
 }
 function renderStats(){
  $('sDone').textContent=state.done.length;$('sPoints').textContent=state.points;renderMyRank();
@@ -751,6 +752,15 @@ function renderStudy(){
   });
  }
 }
+function returnToModes(){
+ stopExamTimer();
+ $('studyPanel').classList.add('hidden');
+ document.querySelectorAll('.mode').forEach(b=>b.classList.remove('active'));
+ const heading=[...document.querySelectorAll('h3')].find(el=>el.textContent.includes('режим навчання'));
+ if(heading)heading.scrollIntoView({behavior:'smooth',block:'start'});
+ else $('skills').scrollIntoView({behavior:'smooth',block:'start'});
+}
+$('backToModes').addEventListener('click',returnToModes);
 function next(){idx++;renderStudy()}
 function finish(){
  stopExamTimer();$('bar').style.width='100%';
