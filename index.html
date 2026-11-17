@@ -681,8 +681,9 @@ function ratingMarkup(skillIndex){
  return '<div class="rating"><button class="'+(vote==='like'?'selected':'')+'" data-vote="like" '+(!firebaseUser?'title="Увійди, щоб голосувати"':'')+'>👍 Подобається</button><button class="'+(vote==='dislike'?'selected':'')+'" data-vote="dislike" '+(!firebaseUser?'title="Увійди, щоб голосувати"':'')+'>👎 Не подобається</button><small>'+summary+(firebaseUser?'':' · Увійди, щоб голосувати')+'</small></div>';
 }
 function bindRating(root,skillIndex){
- loadGlobalSkillRating(skillIndex).then(()=>{if(root.isConnected){const oldRating=root.querySelector('.rating');if(oldRating){const temp=document.createElement('div');temp.innerHTML=ratingMarkup(skillIndex);oldRating.replaceWith(temp.firstElementChild);bindRating(root,skillIndex);}}});
- root.querySelectorAll('[data-vote]').forEach(b=>b.onclick=()=>setRating(skillIndex,b.dataset.vote));
+ const attach=()=>root.querySelectorAll('[data-vote]').forEach(b=>b.onclick=()=>setRating(skillIndex,b.dataset.vote));
+ attach();
+ loadGlobalSkillRating(skillIndex).then(()=>{if(root.isConnected){const oldRating=root.querySelector('.rating');if(oldRating){const temp=document.createElement('div');temp.innerHTML=ratingMarkup(skillIndex);oldRating.replaceWith(temp.firstElementChild);attach();}}});
 }
 function renderMistakes(){
  const root=$('studyContent');$('modeName').textContent='Мої помилки';$('counter').textContent=state.mistakes.length+' питань';$('bar').style.width='0%';
