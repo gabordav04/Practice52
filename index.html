@@ -755,6 +755,14 @@ function start(mode,custom=null){
  if((mode==='quiz'||mode==='exam')&&!sessionQuestions.length){$('studyContent').innerHTML='<div class="study-card"><h2>Питання ще готуються</h2><p>Не вдалося сформувати повний набір із навчальних матеріалів.</p></div>';stopExamTimer();return;}
  renderStudy();
 }
+function updateStudyStatusButton(skillIndex){
+ const oldButton=$('mark')||$('returnToStudy');if(!oldButton)return;
+ const done=state.done.includes(skillIndex),button=document.createElement('button');
+ button.className=done?'btn':'btn good';
+ if(done){button.id='returnToStudy';button.textContent='↩ Повернути до вивчення';button.onclick=()=>{setSkillStatus(skillIndex,'todo');if($('filter').value==='done')$('filter').value='all';save();renderSkills();updateStudyStatusButton(skillIndex);};}
+ else{button.id='mark';button.textContent=state.needsReview.includes(skillIndex)?'Підтвердити повторне засвоєння':'Позначити опрацьованою';button.disabled=state.needsReview.includes(skillIndex);if(button.disabled)button.title='Спочатку правильно дай відповідь у блоці «Перевірити знання».';button.onclick=()=>{if(button.disabled)return;setSkillStatus(skillIndex,'done');save();renderSkills();updateStudyStatusButton(skillIndex);showCompletionCelebration(skillIndex);};}
+ oldButton.replaceWith(button);
+}
 function renderStudy(){
  $('counter').textContent=`${Math.min(idx+1,items.length)} / ${items.length}`;
  $('bar').style.width=(idx/items.length*100)+'%';
@@ -771,7 +779,7 @@ function renderStudy(){
    $('mark').textContent=reviewVerified?'Позначити опрацьованою':'Підтвердити повторне засвоєння';
    $('mark').disabled=!reviewVerified;
    if(!reviewVerified)$('mark').title='Спочатку правильно дай відповідь у блоці «Перевірити знання».';
-   $('mark').onclick=()=>{if(!reviewVerified)return;setSkillStatus(skillIndex,'done');save();renderSkills();showCompletionCelebration(skillIndex)};
+   $('mark').onclick=()=>{if(!reviewVerified)return;setSkillStatus(skillIndex,'done');save();renderSkills();updateStudyStatusButton(skillIndex);showCompletionCelebration(skillIndex)};
   }else{
    $('returnToStudy').onclick=()=>{
     setSkillStatus(skillIndex,'todo');
@@ -779,7 +787,7 @@ function renderStudy(){
     if($('filter').value==='done')$('filter').value='all';
     save();
     renderSkills();
-    renderStudy();
+    updateStudyStatusButton(skillIndex);
    };
   }
   bindRating(content,skillIndex);
