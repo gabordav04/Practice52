@@ -991,8 +991,8 @@ function renderStudy(){
     box.querySelectorAll('.option').forEach(x=>{if(+x.dataset.i===q.a)x.classList.add('correct');x.disabled=true});
     lessonQuizAnswered.add(lessonQuizIndex);
     state.answered++;if(ok){state.correct++;if(state.needsReview.includes(skillIndex)){reviewVerified=true;$('mark').disabled=false;$('mark').title='Відповідь правильна. Тепер можна підтвердити повторне засвоєння.';}}save();
-    $('lfeedback').innerHTML='<div class="feedback">'+(ok?'Правильно! Відповідь зараховано.':'Правильну відповідь підсвічено.')+' '+(q.e||'')+'</div><div class="actions"><button class="btn primary" id="lessonNextQuestion">'+(lessonQuizAnswered.size===L.questions.length?'Завершити тестування':'Наступне питання →')+'</button></div>';
-    $('lessonNextQuestion').onclick=()=>{lessonQuizIndex++;showLessonQuizQuestion();};
+    $('lfeedback').innerHTML='<div class="feedback">'+(ok?'Правильно! Відповідь зараховано.':'Правильну відповідь підсвічено.')+' '+(q.e||'')+'</div><p class="note">Переходимо далі автоматично…</p>';
+    setTimeout(()=>{lessonQuizIndex++;showLessonQuizQuestion();},1400);
    });
   };
   $('lessonQuiz').onclick=()=>{lessonQuizIndex=0;lessonQuizAnswered.clear();showLessonQuizQuestion();};
