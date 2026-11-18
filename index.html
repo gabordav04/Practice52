@@ -873,7 +873,7 @@ function renderStudy(){
   $('prev').onclick=()=>{if(idx>0){idx--;renderStudy();}};
   const allAnswered=()=>sessionQuestions.every((q,i)=>sessionAnswers[i]!==undefined);
   $('next').textContent=idx===sessionQuestions.length-1&&allAnswered()?'Завершити екзамен':(idx===sessionQuestions.length-1?'Перевірити пропущені':'Далі →');
-  $('next').disabled=idx===sessionQuestions.length-1&&!allAnswered()&&!examReviewMode;
+  $('next').disabled=false;
   $('next').onclick=()=>{if(examReviewMode){const nextUnanswered=findNextExamUnanswered(idx);if(nextUnanswered!==-1){idx=nextUnanswered;renderStudy();}else if(allAnswered())finish();else showExamReviewPrompt();}else if(idx<sessionQuestions.length-1){idx++;renderStudy();}else if(allAnswered())finish();else showExamReviewPrompt();};
   return;
  }else{
