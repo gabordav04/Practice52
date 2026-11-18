@@ -799,12 +799,47 @@ function balanceQuestionOptions(question,skillIndex){
  }
  return options;
 }
+function splitEquipmentList(value){
+ return String(value||'').split(/[;\n]+/).map(x=>x.trim().replace(/[.]$/,'')).filter(Boolean);
+}
+function buildEquipmentQuestion(skillIndex){
+ const L=lessons[skillIndex],required=splitEquipmentList(L&&L.equipment);
+ if(required.length<2)return null;
+ const otherItems=Object.keys(lessons).map(Number).filter(i=>i!==skillIndex)
+  .flatMap(i=>splitEquipmentList(lessons[i]&&lessons[i].equipment))
+  .filter((item,i,all)=>item&&!required.some(x=>x.toLowerCase()===item.toLowerCase())&&all.findIndex(x=>x.toLowerCase()===item.toLowerCase())===i);
+ if(!otherItems.length)return null;
+ const distractors=[];
+ for(let n=0;n<3;n++){
+  const omitted=required[(n+skillIndex)%required.length];
+  const replacements=shuffle(otherItems.filter(x=>Math.abs(x.length-omitted.length)<Math.max(18,omitted.length*.8)));
+  const replacement=replacements[0]||shuffle(otherItems)[0];
+  const set=required.filter(x=>x!==omitted);
+  set.splice(Math.min((n+1)% (set.length+1),set.length),0,replacement);
+  const option=set.join('; ');
+  if(!distractors.includes(option))distractors.push(option);
+ }
+ if(distractors.length<3)return null;
+ const options=shuffle([required.join('; '),...distractors]);
+ return {skillIndex,q:'Який набір обладнання та матеріалів є найбільш доречним для проведення цієї навички?',o:options,a:options.indexOf(required.join('; ')),e:'Для цієї навички потрібен такий комплект: '+required.join('; ')+'.'};
+}
+function isLowValueGenericQuestion(question){
+ const q=String(question.q||'').toLowerCase();
+ return /як слід оцінювати результат|як слід інтерпретувати результат|як інтерпретувати результат|як оцінити результат/.test(q);
+}
 function buildQuestion(skillIndex){
  const L=lessons[skillIndex];
  if(!L||!Array.isArray(L.questions)||!L.questions.length)return null;
  const ranked=L.questions.map(question=>({question,score:scoreTestQuestion(question)})).filter(x=>x.score>=0).sort((a,b)=>b.score-a.score);
- const pool=ranked.length?ranked.filter(x=>x.score>=Math.max(0,ranked[0].score-2)).map(x=>x.question):L.questions;
- const original=shuffle(pool)[0],balanced=balanceQuestionOptions(original,skillIndex),order=shuffle(balanced.map((_,i)=>i));
+ let pool=ranked.length?ranked.filter(x=>x.score>=Math.max(0,ranked[0].score-2)).map(x=>x.question):L.questions;
+ // Загальні питання на кшталт «як оцінити результат?» замінюємо предметним вибором комплекту обладнання.
+ if(pool.some(isLowValueGenericQuestion)){
+  const equipmentQuestion=buildEquipmentQuestion(skillIndex);
+  if(equipmentQuestion){const specific=pool.filter(q=>!isLowValueGenericQuestion(q));pool=specific.length?specific:[equipmentQuestion];}
+ }
+ const original=shuffle(pool)[0];
+ if(original&&original.generatedEquipment)return original;
+ const balanced=balanceQuestionOptions(original,skillIndex),order=shuffle(balanced.map((_,i)=>i));
  return {skillIndex,q:original.q,o:order.map(i=>balanced[i]),a:order.indexOf(original.a),e:original.e||''};
 }
 function buildTestQuestions(){
