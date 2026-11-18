@@ -830,15 +830,13 @@ function isLowValueGenericQuestion(question){
 function buildQuestion(skillIndex){
  const L=lessons[skillIndex];
  if(!L||!Array.isArray(L.questions)||!L.questions.length)return null;
- const ranked=L.questions.map(question=>({question,score:scoreTestQuestion(question)})).filter(x=>x.score>=0).sort((a,b)=>b.score-a.score);
- let pool=ranked.length?ranked.filter(x=>x.score>=Math.max(0,ranked[0].score-2)).map(x=>x.question):L.questions;
- // Загальні питання на кшталт «як оцінити результат?» замінюємо предметним вибором комплекту обладнання.
- if(pool.some(isLowValueGenericQuestion)){
-  const equipmentQuestion=buildEquipmentQuestion(skillIndex);
-  if(equipmentQuestion){const specific=pool.filter(q=>!isLowValueGenericQuestion(q));pool=specific.length?specific:[equipmentQuestion];}
- }
+ // Загальні питання на кшталт «як оцінити результат?» замінюємо предметним завданням з обладнанням.
+ const equipmentQuestion=L.questions.some(isLowValueGenericQuestion)?buildEquipmentQuestion(skillIndex):null;
+ const sourceQuestions=L.questions.map(q=>isLowValueGenericQuestion(q)&&equipmentQuestion?equipmentQuestion:q);
+ const uniqueQuestions=sourceQuestions.filter((q,i,all)=>all.findIndex(x=>x.q===q.q)===i);
+ const ranked=uniqueQuestions.map(question=>({question,score:scoreTestQuestion(question)})).filter(x=>x.score>=0).sort((a,b)=>b.score-a.score);
+ const pool=ranked.length?ranked.filter(x=>x.score>=Math.max(0,ranked[0].score-2)).map(x=>x.question):uniqueQuestions;
  const original=shuffle(pool)[0];
- if(original&&original.generatedEquipment)return original;
  const balanced=balanceQuestionOptions(original,skillIndex),order=shuffle(balanced.map((_,i)=>i));
  return {skillIndex,q:original.q,o:order.map(i=>balanced[i]),a:order.indexOf(original.a),e:original.e||''};
 }
