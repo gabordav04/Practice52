@@ -783,13 +783,29 @@ function scoreTestQuestion(question){
  if(/виконати процедуру без оцінювання|замінити повне клінічне обстеження|проводити тест без урахування стану/.test(opts))score-=5;
  return score;
 }
+function balanceQuestionOptions(question,skillIndex){
+ const L=lessons[skillIndex],options=[...question.o],correct=Number(question.a);
+ if(!L||!options.length||correct<0||correct>=options.length)return options;
+ const q=String(question.q||'').toLowerCase();
+ // У питаннях про мету навички замінюємо шаблонні та явно коротші відволікальні
+ // варіанти на реальні цілі інших практичних навичок із тієї ж навчальної бази.
+ if(/головна мета|мета навички|для чого проводять/.test(q)&&L.goal){
+  const answer=String(options[correct]),target=answer.length;
+  const candidates=Object.keys(lessons).map(Number).filter(i=>i!==skillIndex&&lessons[i]&&lessons[i].goal)
+   .map(i=>String(lessons[i].goal).trim())
+   .filter((goal,i,all)=>goal&&goal!==answer&&all.indexOf(goal)===i&&goal.length>=target*0.62&&goal.length<=target*1.48);
+  const selected=shuffle(candidates).slice(0,options.length-1);
+  if(selected.length===options.length-1){let n=0;for(let i=0;i<options.length;i++)if(i!==correct)options[i]=selected[n++];}
+ }
+ return options;
+}
 function buildQuestion(skillIndex){
  const L=lessons[skillIndex];
  if(!L||!Array.isArray(L.questions)||!L.questions.length)return null;
  const ranked=L.questions.map(question=>({question,score:scoreTestQuestion(question)})).filter(x=>x.score>=0).sort((a,b)=>b.score-a.score);
  const pool=ranked.length?ranked.filter(x=>x.score>=Math.max(0,ranked[0].score-2)).map(x=>x.question):L.questions;
- const original=shuffle(pool)[0],order=shuffle(original.o.map((_,i)=>i));
- return {skillIndex,q:original.q,o:order.map(i=>original.o[i]),a:order.indexOf(original.a),e:original.e||''};
+ const original=shuffle(pool)[0],balanced=balanceQuestionOptions(original,skillIndex),order=shuffle(balanced.map((_,i)=>i));
+ return {skillIndex,q:original.q,o:order.map(i=>balanced[i]),a:order.indexOf(original.a),e:original.e||''};
 }
 function buildTestQuestions(){
  return shuffle(skills.map((_,i)=>buildQuestion(i)).filter(Boolean));
