@@ -931,7 +931,7 @@ function renderMatchingRound(){
     $('matchingActions').innerHTML='<button type="button" class="btn primary" id="matchingAgain">Наступні 5 пар →</button>';$('matchingAgain').onclick=()=>{matchingSession=null;renderMatchingRound();};
    }
   }else{
-   session.wrong=true;if(!session.failedPairs.includes(first.pair))session.failedPairs.push(first.pair);
+   session.wrong=true;[first.pair,card.pair].forEach(pair=>{if(!session.failedPairs.includes(pair))session.failedPairs.push(pair);});
    const grid=$('matchingGrid'),firstButton=grid.querySelector('[data-card="'+first.id+'"]');
    if(firstButton)firstButton.classList.add('wrong','shake');button.classList.add('wrong','shake');
    if(navigator.vibrate)navigator.vibrate([90,45,90]);
