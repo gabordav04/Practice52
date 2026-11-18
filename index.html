@@ -1177,6 +1177,8 @@ function finish(){
   $('studyContent').innerHTML=`<div class="study-card"><div class="label">Сесію завершено</div><h2>Чудова робота!</h2><div class="answer">Опрацьовано завдань: ${items.length}. Загальний рахунок: ${state.points} балів. Правильних відповідей: ${state.correct} із ${state.answered}.</div><div class="actions"><button class="btn primary" id="again">Нова сесія</button><button class="btn" id="close">До каталогу</button></div></div>`;
  }
  $('again').onclick=()=>start(currentMode);$('close').onclick=()=>{$('studyPanel').classList.add('hidden');document.querySelectorAll('.mode').forEach(b=>b.classList.remove('active'))};
+ // Після завершення показуємо результат одразу, навіть якщо каталог розгорнутий нижче.
+ requestAnimationFrame(()=>{$('studyPanel').scrollIntoView({behavior:'smooth',block:'start'});});
 }
 document.querySelectorAll('.mode').forEach(b=>b.onclick=()=>start(b.dataset.mode));
 const guidePanel=$('userGuide'),guideToggle=$('guideToggle');
