@@ -188,14 +188,21 @@ select{border:1px solid var(--line);background:#fff;border-radius:11px;padding:1
  <div class="progress"><i id="bar"></i></div>
  <div id="studyContent"></div>
 </div>
-<div class="section-head"><h3>Каталог 52 практичних навичок</h3><small>Обери навичку для опрацювання</small></div>
-<div class="toolbar">
- <input id="searchNumber" class="search number-search" type="number" min="1" max="52" step="1" inputmode="numeric" placeholder="Номер навички (1–52)" aria-label="Пошук за номером навички">
- <input id="search" class="search" placeholder="Або пошук за назвою…" aria-label="Пошук навички за назвою">
- <select id="filter"><option value="all">Усі навички</option><option value="done">Вивчені</option><option value="review">Потребують повторення</option><option value="todo">Ще не опрацьовані</option></select>
-</div>
-<div class="skills" id="skills"></div>
-<p class="note">Навчальна примітка: каталог містить 52 навички. Навчальні картки з алгоритмами й контрольними питаннями заповнені для навичок 1–52; решта додаватиметься поетапно. Нормативи слід звіряти з версією протоколу та популяцією.</p>
+<section class="guide-panel collapsed" id="skillCatalog">
+ <button class="guide-toggle" id="catalogToggle" type="button" aria-expanded="false" aria-controls="catalogContent">
+  <span><span class="guide-kicker">ШВИДКИЙ ДОСТУП</span><strong>📚 Каталог 52 практичних навичок</strong><small>Пошук за номером або назвою, фільтри та повний список</small></span><span class="guide-chevron" id="catalogChevron">⌃</span>
+ </button>
+ <div class="guide-content" id="catalogContent">
+  <div class="section-head"><h3>Обери навичку для опрацювання</h3></div>
+  <div class="toolbar">
+   <input id="searchNumber" class="search number-search" type="number" min="1" max="52" step="1" inputmode="numeric" placeholder="Номер навички (1–52)" aria-label="Пошук за номером навички">
+   <input id="search" class="search" placeholder="Або пошук за назвою…" aria-label="Пошук навички за назвою">
+   <select id="filter"><option value="all">Усі навички</option><option value="done">Вивчені</option><option value="review">Потребують повторення</option><option value="todo">Ще не опрацьовані</option></select>
+  </div>
+  <div class="skills" id="skills"></div>
+  <p class="note">Навчальна примітка: каталог містить 52 навички. Навчальні картки з алгоритмами й контрольними питаннями заповнені для навичок 1–52; нормативи слід звіряти з версією протоколу та популяцією.</p>
+ </div>
+</section>
 <div class="footer">PRACTICE 52 · Навчальний проєкт</div>
 </div>
 <script>
@@ -1120,6 +1127,8 @@ function finish(){
 document.querySelectorAll('.mode').forEach(b=>b.onclick=()=>start(b.dataset.mode));
 const guidePanel=$('userGuide'),guideToggle=$('guideToggle');
 if(guideToggle&&guidePanel){guideToggle.addEventListener('click',()=>{const collapsed=guidePanel.classList.toggle('collapsed');guideToggle.setAttribute('aria-expanded',String(!collapsed));});}
+const catalogPanel=$('skillCatalog'),catalogToggle=$('catalogToggle');
+if(catalogToggle&&catalogPanel){catalogToggle.addEventListener('click',()=>{const collapsed=catalogPanel.classList.toggle('collapsed');catalogToggle.setAttribute('aria-expanded',String(!collapsed));});}
 $('search').addEventListener('input',renderSkills);$('searchNumber').addEventListener('input',renderSkills);$('filter').addEventListener('change',renderSkills);
 renderStats();renderSkills();renderHeaderIdentity();
 
