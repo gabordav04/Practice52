@@ -764,10 +764,31 @@ function renderSkills(){
 function shuffle(a){return [...a].sort(()=>Math.random()-.5)}
 let sessionQuestions=[],sessionAnswers={},sessionMarkedLater={},sessionStartedAt=0,examTimer=null,examSecondsLeft=20*60,examReviewMode=false;
 let matchingSession=null;
+function scoreTestQuestion(question){
+ const q=String(question.q||'').toLowerCase(),opts=(question.o||[]).join(' ').toLowerCase(),text=q+' '+opts;
+ // Не беремо питання, які перевіряють відтворення алгоритму або послідовності дій.
+ const algorithmPatterns=[/послідовн/i,/який крок/i,/яку дію слід виконати перш/i,/що зробити спочатку/i,/наступн(ий|ою) крок/i,/у якому порядку/i,/як правильно виконати/i,/етап(и|ів) проведення/i];
+ if(algorithmPatterns.some(re=>re.test(q)))return -100;
+ let score=0;
+ // Основний акцент — клінічна мета, інтерпретація результатів і ключові числові значення.
+ if(/головна мета|мета навички|для чого проводять|що оцінює|що визначає/.test(q))score+=7;
+ if(/інтерпрет|клінічн(е|ого) значення|що означає|який висновок|як трактувати|який показник свідчить|який критерій|яка межа|який діапазон|яке значення/.test(q))score+=9;
+ if(/\d|≥|≤|мм рт|уд\/хв|мл|см|кг|%|бал(и|ів)?|хвилин/.test(text))score+=4;
+ if(/обладнан|прилад|інструмент|необхідн(е|ого) для вимірювання|чим вимірюють|який засіб/.test(q))score+=6;
+ if(/помилк|неточн|похиб|спотвор|що може вплинути|що знижує точність|неправильн/.test(q))score+=6;
+ if(/клінічн(ий|а) випадок|пацієнт|ситуац|після навантаження/.test(q))score+=3;
+ if(/безпек|ризик|протипоказ|припинити/.test(q))score+=2;
+ if(/який принцип безпеки/.test(q))score-=3;
+ // Відсікаємо очевидно слабкі універсальні відволікальні варіанти.
+ if(/виконати процедуру без оцінювання|замінити повне клінічне обстеження|проводити тест без урахування стану/.test(opts))score-=5;
+ return score;
+}
 function buildQuestion(skillIndex){
  const L=lessons[skillIndex];
  if(!L||!Array.isArray(L.questions)||!L.questions.length)return null;
- const original=shuffle(L.questions)[0],order=shuffle(original.o.map((_,i)=>i));
+ const ranked=L.questions.map(question=>({question,score:scoreTestQuestion(question)})).filter(x=>x.score>=0).sort((a,b)=>b.score-a.score);
+ const pool=ranked.length?ranked.filter(x=>x.score>=Math.max(0,ranked[0].score-2)).map(x=>x.question):L.questions;
+ const original=shuffle(pool)[0],order=shuffle(original.o.map((_,i)=>i));
  return {skillIndex,q:original.q,o:order.map(i=>original.o[i]),a:order.indexOf(original.a),e:original.e||''};
 }
 function buildTestQuestions(){
