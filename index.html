@@ -744,30 +744,25 @@ function findNextExamUnanswered(fromIndex=-1){
  }
  return -1;
 }
-function showExamReviewPrompt(force=false){
+function showExamReviewPrompt(){
  const unanswered=sessionQuestions.map((q,i)=>({q,i})).filter(x=>sessionAnswers[x.i]===undefined);
  const firstLater=unanswered.find(x=>sessionMarkedLater[x.i]);
  const target=firstLater||unanswered[0];
  const old=$('examReviewPrompt');if(old)old.remove();
  const box=document.createElement('div');box.id='examReviewPrompt';box.className='mistake-box';box.style.marginTop='16px';
  if(!unanswered.length){
-  box.innerHTML='<b>Усі 15 питань мають відповіді!</b><p>Можеш завершити екзамен і переглянути результат.</p><div class="actions"><button type="button" class="btn primary" id="confirmExamFinish">Завершити екзамен</button><button type="button" class="btn" id="returnExamReview">Переглянути відповіді</button></div>';
+  box.innerHTML='<b>Усі 15 питань мають відповіді!</b><p>Тепер можна завершити екзамен кнопкою нижче.</p>';
  }else{
-  box.innerHTML='<b>Ти дійшов до останнього питання.</b><p>Без відповіді залишилося: '+unanswered.length+'. '+(firstLater?'Є питання, які ти позначив «На потім».':'Можеш повернутися до першого питання без відповіді.')+'</p><div class="actions"><button type="button" class="btn primary" id="returnExamReview">'+(firstLater?'Повернутися до першого «На потім»':'Повернутися до першого без відповіді')+'</button><button type="button" class="btn danger" id="confirmExamFinish">Завершити екзамен зараз</button></div>';
+  box.innerHTML='<b>Потрібно відповісти на всі питання.</b><p>Без відповіді залишилося: '+unanswered.length+'. '+(firstLater?'Спочатку повернись до питань, позначених «На потім».':'Повернись до першого питання без відповіді.')+'</p><div class="actions"><button type="button" class="btn primary" id="returnExamReview">'+(firstLater?'Повернутися до першого «На потім»':'Повернутися до першого без відповіді')+'</button></div>';
  }
  $('studyContent').querySelector('.study-card').appendChild(box);
- $('confirmExamFinish').onclick=()=>{box.remove();finish();};
- $('returnExamReview').onclick=()=>{
-  box.remove();
-  if(!target){showExamReviewPrompt();return;}
-  examReviewMode=true;idx=target.i;renderStudy();
- };
- if(force)box.scrollIntoView({behavior:'smooth',block:'center'});
+ const returnButton=$('returnExamReview');
+ if(returnButton)returnButton.onclick=()=>{box.remove();if(!target)return;examReviewMode=true;idx=target.i;renderStudy();};
 }
 function stopExamTimer(){if(examTimer){clearInterval(examTimer);examTimer=null;}}
 function startExamTimer(){
  stopExamTimer();examSecondsLeft=20*60;sessionStartedAt=Date.now();
- examTimer=setInterval(()=>{examSecondsLeft--;const t=$('examClock');if(t)t.textContent='Залишилось: '+Math.floor(examSecondsLeft/60)+':'+String(examSecondsLeft%60).padStart(2,'0');if(examSecondsLeft<=0){stopExamTimer();finish();}},1000);
+ examTimer=setInterval(()=>{examSecondsLeft--;const t=$('examClock');if(t)t.textContent='Залишилось: '+Math.floor(examSecondsLeft/60)+':'+String(examSecondsLeft%60).padStart(2,'0');if(examSecondsLeft<=0){stopExamTimer();const first=findNextExamUnanswered(-1);if(first!==-1){examReviewMode=true;idx=first;renderStudy();showExamReviewPrompt();}else finish();}},1000);
 }
 function start(mode,custom=null){
  stopExamTimer();currentMode=mode;idx=0;sessionAnswers={};sessionMarkedLater={};sessionQuestions=[];examReviewMode=false;
@@ -867,18 +862,19 @@ function renderStudy(){
   const examNavigator=isExam?'<div class="exam-tools"><div class="exam-grid" aria-label="Швидкий перехід до питання">'+sessionQuestions.map((item,i)=>'<button type="button" class="exam-jump '+(sessionAnswers[i]!==undefined?(sessionAnswers[i]===item.a?'answered':'answered-wrong'):'unanswered')+(sessionMarkedLater[i]&&sessionAnswers[i]===undefined?' marked-later':'')+(i===idx?' current':'')+'" data-jump="'+i+'">'+(i+1)+'</button>').join('')+'</div><div class="exam-legend"><span><i class="answered-key"></i>Відповідено</span><span><i class="unanswered-key"></i>Без відповіді</span><span><i class="later-key"></i>На потім</span></div><button type="button" class="btn '+(sessionMarkedLater[idx]?'good':'')+'" id="markLater">'+(sessionMarkedLater[idx]?'Зняти позначку «На потім»':'Позначити на потім')+'</button></div>':'';
   content.innerHTML='<div class="study-card"><div class="label">'+(isExam?'ЕКЗАМЕНАЦІЙНИЙ БІЛЕТ '+ticket+' · НАВИЧКА №'+(skillIndex+1):'ТЕСТУВАННЯ · НАВИЧКА №'+(skillIndex+1))+'</div>'+(isExam?'<div class="pill" id="examClock" style="display:inline-block;margin:8px 0">Залишилось: '+Math.floor(examSecondsLeft/60)+':'+String(examSecondsLeft%60).padStart(2,'0')+'</div>'+examNavigator:'')+(isExam?'<h2>'+skills[skillIndex]+'</h2>':'<h2><button type="button" class="skill-title-link" data-open-skill="'+skillIndex+'" aria-label="Відкрити флеш-картку навички '+(skillIndex+1)+'">'+skills[skillIndex]+'</button></h2>')+'<div class="qtitle">'+q.q+'</div><div class="options">'+q.o.map((v,i)=>'<button class="option '+(selected===i?(i===q.a?'correct':'wrong'):'')+'" data-i="'+i+'" '+(isExam&&selected!==undefined?'':'')+'>'+v+'</button>').join('')+'</div><div id="feedback">'+(isExam?'':feedback)+'</div><div class="actions"><button class="btn" id="prev" '+(idx===0?'disabled':'')+'>← Назад</button><button class="btn primary" id="next">'+(idx===sessionQuestions.length-1?(isExam?'Завершити екзамен':'Завершити тест'):'Далі →')+'</button></div><p class="note">'+(isExam?'Під час екзамену відповіді не пояснюються. Повернутися до попередніх питань можна до завершення.':'Можна переходити між питаннями, змінювати відповіді та проходити тест повторно.')+'</p></div>';
   content.querySelectorAll('.option').forEach(b=>b.onclick=()=>{
-   const choice=Number(b.dataset.i);sessionAnswers[idx]=choice;if(choice!==q.a)rememberMistake(skillIndex,{q:q.q,o:q.o,a:q.a,e:q.e});
+   const choice=Number(b.dataset.i);sessionAnswers[idx]=choice;if(isExam)sessionMarkedLater[idx]=false;if(choice!==q.a)rememberMistake(skillIndex,{q:q.q,o:q.o,a:q.a,e:q.e});
    if(!isExam){content.querySelectorAll('.option').forEach(x=>{const n=Number(x.dataset.i);x.classList.toggle('correct',n===q.a);x.classList.toggle('wrong',n===choice&&choice!==q.a);});$('feedback').innerHTML=choice===q.a?'<div class="feedback">Правильно! '+q.e+'</div>':'<div class="feedback">Неправильно. '+q.e+'</div>';}
-   else{content.querySelectorAll('.option').forEach(x=>x.classList.toggle('selected',Number(x.dataset.i)===choice));if(examReviewMode||sessionMarkedLater[idx]){examReviewMode=true;const nextUnanswered=findNextExamUnanswered(idx);if(nextUnanswered!==-1){idx=nextUnanswered;renderStudy();}else showExamReviewPrompt();}}
+   else{content.querySelectorAll('.option').forEach(x=>x.classList.toggle('selected',Number(x.dataset.i)===choice));if(examReviewMode||sessionMarkedLater[idx]){examReviewMode=true;const nextUnanswered=findNextExamUnanswered(idx);if(nextUnanswered!==-1){idx=nextUnanswered;renderStudy();}else{renderStudy();showExamReviewPrompt();}}}
   });
   if(isExam){
    content.querySelectorAll('[data-jump]').forEach(b=>b.onclick=()=>{idx=Number(b.dataset.jump);renderStudy();});
    $('markLater').onclick=()=>{sessionMarkedLater[idx]=!sessionMarkedLater[idx];renderStudy();};
-   const exit=document.createElement('button');exit.type='button';exit.className='btn danger';exit.textContent='Вийти з екзамену';exit.style.marginTop='12px';exit.onclick=()=>{if(confirm('Вийти з екзамену? Поточна спроба буде перервана без нарахування бонусу.')){stopExamTimer();$('studyPanel').classList.add('hidden');document.querySelectorAll('.mode').forEach(b=>b.classList.remove('active'));}};content.querySelector('.study-card').appendChild(exit);
   }
   $('prev').onclick=()=>{if(idx>0){idx--;renderStudy();}};
-  $('next').onclick=()=>{if(examReviewMode){const nextUnanswered=findNextExamUnanswered(idx);if(nextUnanswered!==-1){idx=nextUnanswered;renderStudy();}else showExamReviewPrompt();}else if(idx<sessionQuestions.length-1){idx++;renderStudy();}else showExamReviewPrompt();};
-  const finishNow=document.createElement('button');finishNow.type='button';finishNow.className='btn danger';finishNow.textContent='Завершити екзамен';finishNow.style.marginTop='10px';finishNow.onclick=()=>showExamReviewPrompt(true);content.querySelector('.study-card').appendChild(finishNow);
+  const allAnswered=()=>sessionQuestions.every((q,i)=>sessionAnswers[i]!==undefined);
+  $('next').textContent=idx===sessionQuestions.length-1&&allAnswered()?'Завершити екзамен':(idx===sessionQuestions.length-1?'Перевірити пропущені':'Далі →');
+  $('next').disabled=idx===sessionQuestions.length-1&&!allAnswered()&&!examReviewMode;
+  $('next').onclick=()=>{if(examReviewMode){const nextUnanswered=findNextExamUnanswered(idx);if(nextUnanswered!==-1){idx=nextUnanswered;renderStudy();}else if(allAnswered())finish();else showExamReviewPrompt();}else if(idx<sessionQuestions.length-1){idx++;renderStudy();}else if(allAnswered())finish();else showExamReviewPrompt();};
   return;
  }else{
   if(currentMode==='challenge'&&lessons[skillIndex]&&lessons[skillIndex].questions&&lessons[skillIndex].questions.length){const L=lessons[skillIndex],q=shuffle(L.questions)[0];content.innerHTML='<div class="study-card"><div class="label">Клінічний навчальний сценарій · навичка №'+(skillIndex+1)+'</div><h2><button type="button" class="skill-title-link" data-open-skill="'+skillIndex+'" aria-label="Відкрити флеш-картку навички '+(skillIndex+1)+'">'+L.title+'</button></h2><div class="mistake-box"><b>Ситуація:</b> Ви працюєте з пацієнтом. Мета оцінювання або втручання: '+L.goal+' Оберіть найбільш доречну відповідь на контрольне питання.</div><div class="qtitle">'+q.q+'</div><div class="options">'+q.o.map((v,i)=>'<button class="option" data-i="'+i+'">'+v+'</button>').join('')+'</div><div id="feedback"></div>'+ratingMarkup(skillIndex)+'</div>';bindRating(content,skillIndex);content.querySelectorAll('.option').forEach(b=>b.onclick=()=>{if(content.querySelector('.option:disabled'))return;const ok=Number(b.dataset.i)===q.a;content.querySelectorAll('.option').forEach(x=>{x.disabled=true;if(Number(x.dataset.i)===q.a)x.classList.add('correct');});if(!ok){b.classList.add('wrong');rememberMistake(skillIndex,q);}state.answered++;if(ok)state.correct++;save();$('feedback').innerHTML='<div class="feedback">'+(ok?'Правильно! +10 балів.':'Правильну відповідь підсвічено.')+' '+(q.e||'')+'<div class="actions"><button class="btn primary" id="next">Далі →</button></div></div>';$('next').onclick=next;});return;}
