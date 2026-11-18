@@ -765,7 +765,7 @@ function renderSkills(){
 }
 function shuffle(a){return [...a].sort(()=>Math.random()-.5)}
 let sessionQuestions=[],sessionAnswers={},sessionMarkedLater={},sessionStartedAt=0,examTimer=null,examSecondsLeft=20*60,examReviewMode=false;
-let matchingSession=null;
+let matchingSession=null,matchingFocusSkill=null;
 function scoreTestQuestion(question){
  const q=String(question.q||'').toLowerCase(),opts=(question.o||[]).join(' ').toLowerCase(),text=q+' '+opts;
  // Не беремо питання, які перевіряють відтворення алгоритму або послідовності дій.
@@ -881,7 +881,7 @@ function start(mode,custom=null){
  if(mode==='quiz')sessionQuestions=buildTestQuestions();
  if(mode==='exam'){sessionQuestions=buildExamQuestions();startExamTimer();}
  if(mode==='mistakes')items=[];
- if(mode==='matching'){matchingSession=null;items=[];}
+ if(mode==='matching'){matchingSession=null;items=[];matchingFocusSkill=custom&&custom.length?custom[0]:null;}
  $('studyPanel').classList.remove('hidden');$('backToModes').style.display=mode==='exam'?'none':'';$('studyPanel').scrollIntoView({behavior:'smooth',block:'start'});
  document.querySelectorAll('.mode').forEach(b=>b.classList.toggle('active',b.dataset.mode===mode));
  $('modeName').textContent={cards:'Флеш-картки',quiz:'Тестування · 52 питання',sequence:'Послідовність',exam:'Екзамен · 5 білетів',challenge:'Клінічні ситуації',matching:'Співвідношення',mistakes:'Мої помилки'}[mode];
@@ -902,7 +902,7 @@ function renderMatchingRound(){
  const eligible=Object.keys(lessons).map(Number).filter(i=>lessons[i]&&lessons[i].title&&lessons[i].goal);
  if(eligible.length<5){content.innerHTML='<div class="study-card"><h2>Ще недостатньо матеріалу</h2><p>Для цього режиму потрібно щонайменше п’ять навичок із визначенням і метою.</p></div>';return;}
  if(!matchingSession){
-  const chosen=shuffle(eligible).slice(0,5);
+  const chosen=matchingFocusSkill!==null&&eligible.includes(matchingFocusSkill)?[matchingFocusSkill,...shuffle(eligible.filter(i=>i!==matchingFocusSkill)).slice(0,4)]:shuffle(eligible).slice(0,5);
   const cards=[];
   chosen.forEach((skillIndex,pair)=>{cards.push({id:'d'+pair,pair,kind:'Визначення',text:lessons[skillIndex].title});cards.push({id:'g'+pair,pair,kind:'Мета',text:lessons[skillIndex].goal});});
   matchingSession={cards:shuffle(cards),leftCards:shuffle(cards.filter(card=>card.kind==='Визначення')),rightCards:shuffle(cards.filter(card=>card.kind==='Мета')),matched:[],selected:null,wrong:false,failedPairs:[],firstTryPairs:[],rewarded:false};
@@ -972,17 +972,30 @@ function renderStudy(){
   }
   bindRating(content,skillIndex);
   $('next').onclick=next;
-  $('lessonQuiz').onclick=()=>{
-   const q=shuffle(L.questions)[0],box=$('lessonQuestion');
-   box.innerHTML=`<div class="qtitle">${q.q}</div><div class="options">${q.o.map((v,i)=>`<button class="option" data-i="${i}">${v}</button>`).join('')}</div><div id="lfeedback"></div>`;
+  let lessonQuizIndex=0,lessonQuizAnswered=new Set();
+  const showLessonQuizQuestion=()=>{
+   if(lessonQuizAnswered.size>=L.questions.length){
+    const box=$('lessonQuestion');
+    box.innerHTML='<div class="answer"><h3>Матеріал за тестами закріплено! 🎉</h3><p>Ти відповів на всі '+L.questions.length+' питання цієї навички. Питання більше не повторюватимуться в цій сесії.</p><p>Продовжуй закріплювати знання в іншому форматі:</p><div class="actions"><button class="btn primary" id="lessonToChallenge">Клінічні ситуації</button><button class="btn" id="lessonToMatching">Співвідношення</button></div></div>';
+    $('lessonToChallenge').onclick=()=>start('challenge',[skillIndex]);
+    $('lessonToMatching').onclick=()=>start('matching',[skillIndex]);
+    $('lessonQuiz').disabled=true;$('lessonQuiz').textContent='Тести пройдено ✓';
+    return;
+   }
+   while(lessonQuizAnswered.has(lessonQuizIndex))lessonQuizIndex=(lessonQuizIndex+1)%L.questions.length;
+   const q=L.questions[lessonQuizIndex],box=$('lessonQuestion');
+   box.innerHTML='<div class="label">Питання '+(lessonQuizAnswered.size+1)+' із '+L.questions.length+'</div><div class="qtitle">'+q.q+'</div><div class="options">'+q.o.map((v,i)=>'<button class="option" data-i="'+i+'">'+v+'</button>').join('')+'</div><div id="lfeedback"></div>';
    box.querySelectorAll('.option').forEach(b=>b.onclick=()=>{
-    if(box.querySelector('.option.correct'))return;
+    if(box.querySelector('.option:disabled'))return;
     const ok=+b.dataset.i===q.a;b.classList.add(ok?'correct':'wrong');if(!ok)rememberMistake(skillIndex,q);
     box.querySelectorAll('.option').forEach(x=>{if(+x.dataset.i===q.a)x.classList.add('correct');x.disabled=true});
+    lessonQuizAnswered.add(lessonQuizIndex);
     state.answered++;if(ok){state.correct++;if(state.needsReview.includes(skillIndex)){reviewVerified=true;$('mark').disabled=false;$('mark').title='Відповідь правильна. Тепер можна підтвердити повторне засвоєння.';}}save();
-    $('lfeedback').innerHTML=`<div class="feedback">${ok?'Правильно! Відповідь зараховано.':'Правильна відповідь підсвічена.'} ${q.e}${!ok&&state.needsReview.includes(skillIndex)?' Повтори матеріал і спробуй контрольне питання ще раз.':''}</div>`;
+    $('lfeedback').innerHTML='<div class="feedback">'+(ok?'Правильно! Відповідь зараховано.':'Правильну відповідь підсвічено.')+' '+(q.e||'')+'</div><div class="actions"><button class="btn primary" id="lessonNextQuestion">'+(lessonQuizAnswered.size===L.questions.length?'Завершити тестування':'Наступне питання →')+'</button></div>';
+    $('lessonNextQuestion').onclick=()=>{lessonQuizIndex++;showLessonQuizQuestion();};
    });
   };
+  $('lessonQuiz').onclick=()=>{lessonQuizIndex=0;lessonQuizAnswered.clear();showLessonQuizQuestion();};
  }else if(currentMode==='sequence'){
   const L=lessons[skillIndex];
   if(!L||!Array.isArray(L.steps)||!L.steps.length){content.innerHTML='<div class="study-card"><h2>'+title+'</h2><p>Для цієї навички алгоритм ще не додано.</p><div class="actions"><button class="btn primary" id="next">Наступна →</button></div></div>';$('next').onclick=next;return;}
