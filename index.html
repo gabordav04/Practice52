@@ -494,13 +494,34 @@ async function syncPublicRank(){
  if(!$('profileVisible').checked){await db.collection('leaderboard').doc(firebaseUser.uid).delete();return;}
  await db.collection('leaderboard').doc(firebaseUser.uid).set({nickname:profile.nickname||'student',avatar:profile.avatar||DEFAULT_AVATAR,points:Number(state.points)||0,completed:Array.isArray(state.done)?state.done.length:0,accuracy:state.answered?Math.round(state.correct/state.answered*100):0,updatedAt:firebase.firestore.FieldValue.serverTimestamp()});
 }
-async function loadLeaderboard(){
+let leaderboardUnsubscribe=null;
+function renderLeaderboardSnapshot(snap){
  const status=$('leaderboardStatus'),list=$('leaderboardList');if(!status||!list)return;
- try{const snap=await db.collection('leaderboard').orderBy('points','desc').limit(10).get();list.innerHTML='';
- if(snap.empty){status.textContent='Поки що немає учасників у рейтингу.';return;}
+ list.innerHTML='';
+ if(snap.empty){status.textContent='Поки що немає учасників у рейтингу. Увійдіть і дозвольте показ профілю, щоб з’явитися тут.';return;}
  status.textContent='Топ учасників за набраними балами';
- let place=0;snap.forEach(doc=>{place++;const d=doc.data()||{},row=document.createElement('div');row.className='rank-row'+(firebaseUser&&doc.id===firebaseUser.uid?' rank-me':'');row.innerHTML='<span class="rank-place">#'+place+'</span><span class="rank-name"></span><span class="rank-points">'+(Number(d.points)||0)+' балів</span>';row.querySelector('.rank-name').textContent=(d.avatar||'⭐')+' '+(d.nickname||'Учасник');list.appendChild(row);});
- }catch(err){status.textContent='Рейтинг поки недоступний: потрібні правила доступу Firestore для leaderboard.';console.warn('Leaderboard unavailable:',err);}
+ let place=0;
+ snap.forEach(doc=>{
+  const d=doc.data()||{},row=document.createElement('div');
+  row.className='rank-row'+(firebaseUser&&doc.id===firebaseUser.uid?' rank-me':'');
+  row.innerHTML='<span class="rank-place">#'+(++place)+'</span><span class="rank-name"></span><span class="rank-points">'+(Number(d.points)||0)+' балів</span>';
+  row.querySelector('.rank-name').textContent=(d.avatar||'⭐')+' '+(d.nickname||'Учасник');
+  list.appendChild(row);
+ });
+}
+async function loadLeaderboard(){
+ const status=$('leaderboardStatus');if(!status)return;
+ try{
+  const snap=await db.collection('leaderboard').orderBy('points','desc').limit(10).get();
+  renderLeaderboardSnapshot(snap);
+ }catch(err){status.textContent='Рейтинг недоступний: перевір правила доступу Firestore для leaderboard.';console.warn('Leaderboard unavailable:',err);}
+}
+function watchLeaderboard(){
+ if(leaderboardUnsubscribe)leaderboardUnsubscribe();
+ leaderboardUnsubscribe=db.collection('leaderboard').orderBy('points','desc').limit(10).onSnapshot(renderLeaderboardSnapshot,err=>{
+  $('leaderboardStatus').textContent='Не вдалося оновити рейтинг у реальному часі. Перевір правила доступу Firestore.';
+  console.warn('Leaderboard listener failed:',err);
+ });
 }
 function queueCloudSave(){
  if(!firebaseUser||!cloudReady)return;
@@ -514,6 +535,7 @@ function queueCloudSave(){
    },{merge:true});
    $('savedLabel').textContent='Синхронізовано ✓';
    await syncPublicRank();
+   await loadLeaderboard();
   }catch(err){console.error('Cloud save failed:',err);$('savedLabel').textContent='Локально збережено';setAuthStatus('Дані збережено на пристрої, але хмарна синхронізація не вдалася. Перевір правила Firestore.',true);}
  },700);
 }
@@ -613,13 +635,14 @@ auth.getRedirectResult().then(result=>{
 $('logoutBtn').addEventListener('click',async()=>{try{await auth.signOut();}catch(err){setAuthStatus(err.message,true);}});
 auth.onAuthStateChanged(async user=>{
  if(window.practice52ProgressUnsubscribe){window.practice52ProgressUnsubscribe();window.practice52ProgressUnsubscribe=null;}
+ if(leaderboardUnsubscribe){leaderboardUnsubscribe();leaderboardUnsubscribe=null;}
  firebaseUser=user;cloudReady=false;renderHeaderIdentity();
  $('rankingJoinPrompt').classList.toggle('hidden',!!user);
  $('logoutBtn').classList.toggle('hidden',!user);
  $('googleLogin').classList.toggle('hidden',!!user);
  $('emailLogin').classList.toggle('hidden',!!user);
  $('registrationForm').querySelector('button[type="submit"]').classList.toggle('hidden',!!user);
- if(!user){setAuthStatus('Увійди або створи акаунт, щоб увімкнути хмарну синхронізацію. Локальний режим працює безкоштовно.');return;}
+ if(!user){loadLeaderboard();watchLeaderboard();setAuthStatus('Увійди або створи акаунт, щоб увімкнути хмарну синхронізацію. Локальний режим працює безкоштовно.');return;}
  try{
   setAuthStatus('Завантажуємо твій профіль і прогрес…');
   const ref=db.collection('users').doc(user.uid),snap=await ref.get();
@@ -645,7 +668,9 @@ auth.onAuthStateChanged(async user=>{
   }
   if(user.email)$('regEmail').value=user.email;$('regNickname').value=(readLocalProfile()||{}).nickname||'';$('regNickname').disabled=!!(readLocalProfile()||{}).nickname;renderAvatar((readLocalProfile()||{}).avatar||DEFAULT_AVATAR);
   $('regPassword').value='';
-  cloudReady=true;renderStats();renderSkills();loadLeaderboard();queueCloudSave();
+  cloudReady=true;renderStats();renderSkills();
+  try{await syncPublicRank();}catch(rankErr){console.warn('Initial public rank sync failed:',rankErr);}
+  await loadLeaderboard();watchLeaderboard();queueCloudSave();
   if(window.practice52ProgressUnsubscribe)window.practice52ProgressUnsubscribe();
   window.practice52ProgressUnsubscribe=ref.onSnapshot(snap=>{if(!snap.exists)return;const remote=(snap.data()||{}).progress;if(!remote)return;const before=JSON.stringify({done:state.done,needsReview:state.needsReview,skillStatusUpdatedAt:state.skillStatusUpdatedAt});mergeCloudSkillStatuses(remote);const after=JSON.stringify({done:state.done,needsReview:state.needsReview,skillStatusUpdatedAt:state.skillStatusUpdatedAt});if(before!==after){localStorage.setItem(KEY,JSON.stringify(state));renderStats();renderSkills();queueCloudSave();}},err=>{console.warn('Progress sync listener failed:',err);setAuthStatus('Не вдалося оновити синхронізацію прогресу в реальному часі.',true);});
   setAuthStatus('Вхід виконано: '+(user.email||user.displayName||'користувач')+'. Прогрес синхронізується між пристроями.');
