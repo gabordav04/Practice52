@@ -31,7 +31,7 @@ header{display:flex;align-items:center;justify-content:space-between;gap:16px;ma
 .match-card .match-kind{display:none}
 .match-card.selected{border-color:#3989bd;background:#eef7fc}
 .match-card.matched{border-color:#61b88a;background:#effaf3;color:#216746;cursor:default}
-.match-card.wrong{border-color:#d96f6f;background:#fff1f1}
+.match-card.wrong{border-color:#d96f6f;background:#fff1f1}.match-card.shake{animation:matchShake .38s ease-in-out}@keyframes matchShake{0%,100%{transform:translateX(0)}20%,60%{transform:translateX(-6px)}40%,80%{transform:translateX(6px)}}
 .match-feedback{min-height:26px;margin:10px 0;font-weight:700;color:var(--muted)}
 @media(max-width:520px){.matching-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.match-column{gap:8px}.match-card{min-height:92px;padding:10px;font-size:13px}.match-column-head{font-size:11px;padding:7px 4px}}
 
@@ -905,12 +905,12 @@ function renderMatchingRound(){
   const chosen=shuffle(eligible).slice(0,5);
   const cards=[];
   chosen.forEach((skillIndex,pair)=>{cards.push({id:'d'+pair,pair,kind:'Визначення',text:lessons[skillIndex].title});cards.push({id:'g'+pair,pair,kind:'Мета',text:lessons[skillIndex].goal});});
-  matchingSession={cards:shuffle(cards),matched:[],selected:null,wrong:false,rewarded:false};
+  matchingSession={cards:shuffle(cards),leftCards:shuffle(cards.filter(card=>card.kind==='Визначення')),rightCards:shuffle(cards.filter(card=>card.kind==='Мета')),matched:[],selected:null,wrong:false,failedPairs:[],firstTryPairs:[],rewarded:false};
  }
  const session=matchingSession,done=session.matched.length/2;
  $('counter').textContent=done+' / 5 пар';
  $('bar').style.width=(done/5*100)+'%';
- content.innerHTML='<div class="study-card" style="text-align:left"><div class="label">🧩 ТРЕНУВАННЯ НА ВІДПОВІДНІСТЬ</div><h2>Знайди правильні пари</h2><p>Перед тобою 5 визначень і 5 відповідних цілей. Картки перемішані. Натисни спочатку на визначення, а потім на мету, яка йому відповідає.</p><div class="matching-grid" id="matchingGrid"><div class="match-column"><div class="match-column-head">ВИЗНАЧЕННЯ</div>'+shuffle(session.cards.filter(card=>card.kind==='Визначення')).map(card=>'<button type="button" class="match-card '+(session.matched.includes(card.pair)?'matched':'')+'" data-card="'+card.id+'" '+(session.matched.includes(card.pair)?'disabled':'')+'>'+card.text+'</button>').join('')+'</div><div class="match-column"><div class="match-column-head">МЕТА</div>'+shuffle(session.cards.filter(card=>card.kind==='Мета')).map(card=>'<button type="button" class="match-card '+(session.matched.includes(card.pair)?'matched':'')+'" data-card="'+card.id+'" '+(session.matched.includes(card.pair)?'disabled':'')+'>'+card.text+'</button>').join('')+'</div></div><div class="match-feedback" id="matchingFeedback">'+(session.wrong?'Ця пара не підходить. Спробуй ще раз.':'Обери дві картки, які відповідають одна одній.')+'</div><div class="actions" id="matchingActions"></div><p class="note">За повністю правильно складені 5 пар нараховується +10 балів.</p></div>';
+ content.innerHTML='<div class="study-card" style="text-align:left"><div class="label">🧩 ТРЕНУВАННЯ НА ВІДПОВІДНІСТЬ</div><h2>Знайди правильні пари</h2><p>Перед тобою 5 визначень і 5 відповідних цілей. Картки перемішані. Натисни спочатку на визначення, а потім на мету, яка йому відповідає.</p><div class="matching-grid" id="matchingGrid"><div class="match-column"><div class="match-column-head">ВИЗНАЧЕННЯ</div>'+session.leftCards.map(card=>'<button type="button" class="match-card '+(session.matched.includes(card.pair)?'matched':'')+'" data-card="'+card.id+'" '+(session.matched.includes(card.pair)?'disabled':'')+'>'+card.text+'</button>').join('')+'</div><div class="match-column"><div class="match-column-head">МЕТА</div>'+session.rightCards.map(card=>'<button type="button" class="match-card '+(session.matched.includes(card.pair)?'matched':'')+'" data-card="'+card.id+'" '+(session.matched.includes(card.pair)?'disabled':'')+'>'+card.text+'</button>').join('')+'</div></div><div class="match-feedback" id="matchingFeedback">'+(session.wrong?'Ця пара не підходить. Спробуй ще раз.':'Обери дві картки, які відповідають одна одній.')+'</div><div class="actions" id="matchingActions"></div><p class="note">За повністю правильно складені 5 пар нараховується +10 балів.</p></div>';
  const feedback=$('matchingFeedback');
  $('matchingGrid').querySelectorAll('.match-card:not(:disabled)').forEach(button=>button.onclick=()=>{
   const card=session.cards.find(x=>x.id===button.dataset.card);if(!card||session.matched.includes(card.pair))return;
@@ -920,17 +920,27 @@ function renderMatchingRound(){
   if(first.id===card.id){session.selected=null;renderMatchingRound();return;}
   if(first.kind===card.kind){session.selected=card.id;renderMatchingRound();const selected=$('matchingGrid').querySelector('[data-card="'+card.id+'"]');if(selected)selected.classList.add('selected');feedback.textContent='Обирай картку іншого типу.';return;}
   if(first.pair===card.pair){
+   if(!session.failedPairs.includes(card.pair))session.firstTryPairs.push(card.pair);
    session.matched.push(card.pair);session.selected=null;session.wrong=false;
-   if(session.matched.length===5&&!session.rewarded){session.rewarded=true;state.points+=10;save();}
    renderMatchingRound();
-   if(session.rewarded){$('matchingFeedback').textContent='Чудово! Усі 5 пар правильно поєднано. +10 балів! 🎉';$('matchingActions').innerHTML='<button type="button" class="btn primary" id="matchingAgain">Наступні 5 пар →</button>';$('matchingAgain').onclick=()=>{matchingSession=null;renderMatchingRound();};}
+   if(session.matched.length===5&&!session.rewarded){
+    const firstTryCount=session.firstTryPairs.length;
+    const earned=firstTryCount===5?10:firstTryCount===4?8:firstTryCount===3?2:0;
+    session.rewarded=true;session.earned=earned;state.points+=earned;save();
+    $('matchingFeedback').textContent='Усі 5 пар зібрано! З першої спроби: '+firstTryCount+'/5. Нараховано +'+earned+' балів. '+(earned===10?'Ідеально! 🏆':earned===0?'Спробуй ще раз і покращ результат!':'Гарна робота! 💚');
+    $('matchingActions').innerHTML='<button type="button" class="btn primary" id="matchingAgain">Наступні 5 пар →</button>';$('matchingAgain').onclick=()=>{matchingSession=null;renderMatchingRound();};
+   }
   }else{
-   session.wrong=true;const firstButton=$('matchingGrid').querySelector('[data-card="'+first.id+'"]');if(firstButton)firstButton.classList.add('wrong');button.classList.add('wrong');feedback.textContent='Не збігається. Спробуй іншу пару.';
-   setTimeout(()=>{if(matchingSession!==session)return;session.selected=null;session.wrong=false;renderMatchingRound();},750);
+   session.wrong=true;if(!session.failedPairs.includes(first.pair))session.failedPairs.push(first.pair);
+   const grid=$('matchingGrid'),firstButton=grid.querySelector('[data-card="'+first.id+'"]');
+   if(firstButton)firstButton.classList.add('wrong','shake');button.classList.add('wrong','shake');
+   if(navigator.vibrate)navigator.vibrate([90,45,90]);
+   feedback.textContent='Це не пара. Спробуй ще раз.';
+   setTimeout(()=>{if(matchingSession!==session)return;session.selected=null;session.wrong=false;renderMatchingRound();},650);
   }
  });
  if(session.selected){const selected=$('matchingGrid').querySelector('[data-card="'+session.selected+'"]');if(selected)selected.classList.add('selected');}
- if(session.rewarded){feedback.textContent='Чудово! Усі 5 пар правильно поєднано. +10 балів! 🎉';$('matchingActions').innerHTML='<button type="button" class="btn primary" id="matchingAgain">Наступні 5 пар →</button>';$('matchingAgain').onclick=()=>{matchingSession=null;renderMatchingRound();};}
+ if(session.rewarded){feedback.textContent='Усі 5 пар зібрано! З першої спроби: '+session.firstTryPairs.length+'/5. Нараховано +'+(session.earned||0)+' балів.';$('matchingActions').innerHTML='<button type="button" class="btn primary" id="matchingAgain">Наступні 5 пар →</button>';$('matchingAgain').onclick=()=>{matchingSession=null;renderMatchingRound();};}
 }
 function renderStudy(){
  $('counter').textContent=`${Math.min(idx+1,items.length)} / ${items.length}`;
