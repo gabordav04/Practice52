@@ -448,9 +448,9 @@ const lessons = {0:{title:"Життєві показники: АТ, ЧСС, ЧД
 const $=id=>document.getElementById(id);
 const PROFILE_KEY='practice52_profile_v1';
 const KEY='practice52_v1';
-let state={done:[],needsReview:[],skillStatusUpdatedAt:{},points:0,correct:0,answered:0,mistakes:[],ratings:{}};
+let state={done:[],needsReview:[],skillStatusUpdatedAt:{},lessonTestsCompleted:{},points:0,correct:0,answered:0,mistakes:[],ratings:{}};
 try{state={...state,...JSON.parse(localStorage.getItem(KEY)||'{}')}}catch(e){}
-if(!Array.isArray(state.mistakes))state.mistakes=[];if(!Array.isArray(state.done))state.done=[];if(!Array.isArray(state.needsReview))state.needsReview=[];if(!state.ratings||typeof state.ratings!=='object')state.ratings={};if(!state.skillStatusUpdatedAt||typeof state.skillStatusUpdatedAt!=='object')state.skillStatusUpdatedAt={};
+if(!Array.isArray(state.mistakes))state.mistakes=[];if(!Array.isArray(state.done))state.done=[];if(!Array.isArray(state.needsReview))state.needsReview=[];if(!state.ratings||typeof state.ratings!=='object')state.ratings={};if(!state.skillStatusUpdatedAt||typeof state.skillStatusUpdatedAt!=='object')state.skillStatusUpdatedAt={};if(!state.lessonTestsCompleted||typeof state.lessonTestsCompleted!=='object')state.lessonTestsCompleted={};
 let currentMode='',items=[],idx=0;
 function setSkillStatus(skillIndex,status){state.done=state.done.filter(i=>i!==skillIndex);state.needsReview=state.needsReview.filter(i=>i!==skillIndex);if(status==='done')state.done.push(skillIndex);if(status==='review')state.needsReview.push(skillIndex);state.skillStatusUpdatedAt[String(skillIndex)]=Date.now();}
 function mergeCloudSkillStatuses(remote){const localDone=[...state.done],localReview=[...state.needsReview],localTimes={...state.skillStatusUpdatedAt};const remoteTimes=remote.skillStatusUpdatedAt&&typeof remote.skillStatusUpdatedAt==='object'?remote.skillStatusUpdatedAt:{};const remoteDone=Array.isArray(remote.done)?remote.done:[],remoteReview=Array.isArray(remote.needsReview)?remote.needsReview:[];for(let i=0;i<skills.length;i++){const k=String(i),lt=Number(localTimes[k])||0,rt=Number(remoteTimes[k])||0;const status=lt>rt?(localDone.includes(i)?'done':localReview.includes(i)?'review':'todo'):(remoteDone.includes(i)?'done':remoteReview.includes(i)?'review':'todo');state.done=state.done.filter(x=>x!==i);state.needsReview=state.needsReview.filter(x=>x!==i);if(status==='done')state.done.push(i);if(status==='review')state.needsReview.push(i);state.skillStatusUpdatedAt[k]=Math.max(lt,rt);}}
@@ -669,6 +669,7 @@ auth.onAuthStateChanged(async user=>{
     if(!Array.isArray(state.mistakes))state.mistakes=Array.isArray(data.progress.mistakes)?data.progress.mistakes:[];
     if(!state.ratings||typeof state.ratings!=='object')state.ratings=data.progress.ratings||{};
     if(!state.skillStatusUpdatedAt||typeof state.skillStatusUpdatedAt!=='object')state.skillStatusUpdatedAt={};
+    state.lessonTestsCompleted={...(data.progress.lessonTestsCompleted||{}),...(localState.lessonTestsCompleted||{})};
     mergeCloudSkillStatuses(data.progress);
     state.points=Math.max(Number(localState.points)||0,Number(data.progress.points)||0);state.correct=Math.max(Number(localState.correct)||0,Number(data.progress.correct)||0);state.answered=Math.max(Number(localState.answered)||0,Number(data.progress.answered)||0);
     localStorage.setItem(KEY,JSON.stringify(state));
@@ -687,7 +688,7 @@ auth.onAuthStateChanged(async user=>{
   try{await syncPublicRank();}catch(rankErr){console.warn('Initial public rank sync failed:',rankErr);}
   await loadLeaderboard();watchLeaderboard();queueCloudSave();
   if(window.practice52ProgressUnsubscribe)window.practice52ProgressUnsubscribe();
-  window.practice52ProgressUnsubscribe=ref.onSnapshot(snap=>{if(!snap.exists)return;const remote=(snap.data()||{}).progress;if(!remote)return;const before=JSON.stringify({done:state.done,needsReview:state.needsReview,skillStatusUpdatedAt:state.skillStatusUpdatedAt});mergeCloudSkillStatuses(remote);const after=JSON.stringify({done:state.done,needsReview:state.needsReview,skillStatusUpdatedAt:state.skillStatusUpdatedAt});if(before!==after){localStorage.setItem(KEY,JSON.stringify(state));renderStats();renderSkills();queueCloudSave();}},err=>{console.warn('Progress sync listener failed:',err);setAuthStatus('Не вдалося оновити синхронізацію прогресу в реальному часі.',true);});
+  window.practice52ProgressUnsubscribe=ref.onSnapshot(snap=>{if(!snap.exists)return;const remote=(snap.data()||{}).progress;if(!remote)return;const before=JSON.stringify({done:state.done,needsReview:state.needsReview,skillStatusUpdatedAt:state.skillStatusUpdatedAt,lessonTestsCompleted:state.lessonTestsCompleted});mergeCloudSkillStatuses(remote);state.lessonTestsCompleted={...(remote.lessonTestsCompleted||{}),...(state.lessonTestsCompleted||{})};const after=JSON.stringify({done:state.done,needsReview:state.needsReview,skillStatusUpdatedAt:state.skillStatusUpdatedAt,lessonTestsCompleted:state.lessonTestsCompleted});if(before!==after){localStorage.setItem(KEY,JSON.stringify(state));renderStats();renderSkills();queueCloudSave();}},err=>{console.warn('Progress sync listener failed:',err);setAuthStatus('Не вдалося оновити синхронізацію прогресу в реальному часі.',true);});
   setAuthStatus('Вхід виконано: '+(user.email||user.displayName||'користувач')+'. Прогрес синхронізується між пристроями.');
   $('savedLabel').textContent='Firebase ✓';renderHeaderIdentity();
  }catch(err){console.error('Firebase load failed:',err);setAuthStatus('Авторизація є, але не вдалося прочитати дані. Перевір правила Firestore.',true);}
@@ -978,14 +979,18 @@ function renderStudy(){
   bindRating(content,skillIndex);
   $('next').onclick=next;
   let lessonQuizIndex=0,lessonQuizAnswered=new Set();
+  const showLessonCompletionActions=()=>{
+   const box=$('lessonQuestion');
+   box.innerHTML='<div class="answer"><h3>Матеріал за тестами закріплено! 🎉</h3><p>Ти вже пройшов усі '+L.questions.length+' із '+L.questions.length+' питань цієї навички. Прогрес збережено — тести не запускатимуться автоматично під час наступного входу.</p><p>Обери, що опрацьовувати далі:</p><div class="actions"><button class="btn primary" id="lessonToSequence">Послідовність</button><button class="btn" id="lessonToChallenge">Клінічні ситуації</button><button class="btn" id="lessonReplayTests">Повернутися до тестів ('+L.questions.length+'/'+L.questions.length+')</button></div></div>';
+   $('lessonToSequence').onclick=()=>start('sequence',[skillIndex]);
+   $('lessonToChallenge').onclick=()=>start('challenge',[skillIndex]);
+   $('lessonReplayTests').onclick=()=>{lessonQuizIndex=0;lessonQuizAnswered.clear();showLessonQuizQuestion();};
+   $('lessonQuiz').disabled=true;$('lessonQuiz').textContent='Тести пройдено ✓';
+  };
   const showLessonQuizQuestion=()=>{
    if(lessonQuizAnswered.size>=L.questions.length){
-    const box=$('lessonQuestion');
-    box.innerHTML='<div class="answer"><h3>Матеріал за тестами закріплено! 🎉</h3><p>Ти відповів на всі '+L.questions.length+' питання цієї навички. Питання більше не повторюватимуться в цій сесії.</p><p>Продовжуй закріплювати знання в іншому форматі:</p><div class="actions"><button class="btn primary" id="lessonToChallenge">Клінічні ситуації</button><button class="btn" id="lessonToMatching">Співвідношення</button></div></div>';
-    $('lessonToChallenge').onclick=()=>start('challenge',[skillIndex]);
-    $('lessonToMatching').onclick=()=>start('matching',[skillIndex]);
-    $('lessonQuiz').disabled=true;$('lessonQuiz').textContent='Тести пройдено ✓';
-    return;
+    state.lessonTestsCompleted[String(skillIndex)]={completed:true,total:L.questions.length,completedAt:Date.now()};
+    save();showLessonCompletionActions();return;
    }
    while(lessonQuizAnswered.has(lessonQuizIndex))lessonQuizIndex=(lessonQuizIndex+1)%L.questions.length;
    const q=L.questions[lessonQuizIndex],box=$('lessonQuestion');
@@ -1000,7 +1005,11 @@ function renderStudy(){
     setTimeout(()=>{lessonQuizIndex++;showLessonQuizQuestion();},1400);
    });
   };
-  $('lessonQuiz').onclick=()=>{lessonQuizIndex=0;lessonQuizAnswered.clear();showLessonQuizQuestion();};
+  if(state.lessonTestsCompleted[String(skillIndex)]&&state.lessonTestsCompleted[String(skillIndex)].completed){
+   showLessonCompletionActions();
+  }else{
+   $('lessonQuiz').onclick=()=>{lessonQuizIndex=0;lessonQuizAnswered.clear();showLessonQuizQuestion();};
+  }
  }else if(currentMode==='sequence'){
   const L=lessons[skillIndex];
   if(!L||!Array.isArray(L.steps)||!L.steps.length){content.innerHTML='<div class="study-card"><h2>'+title+'</h2><p>Для цієї навички алгоритм ще не додано.</p><div class="actions"><button class="btn primary" id="next">Наступна →</button></div></div>';$('next').onclick=next;return;}
