@@ -724,7 +724,7 @@ function renderSkills(){
  });
 }
 function shuffle(a){return [...a].sort(()=>Math.random()-.5)}
-let sessionQuestions=[],sessionAnswers={},sessionMarkedLater={},sessionStartedAt=0,examTimer=null,examSecondsLeft=20*60;
+let sessionQuestions=[],sessionAnswers={},sessionMarkedLater={},sessionStartedAt=0,examTimer=null,examSecondsLeft=20*60,examReviewMode=false;
 function buildQuestion(skillIndex){
  const L=lessons[skillIndex];
  if(!L||!Array.isArray(L.questions)||!L.questions.length)return null;
@@ -738,9 +738,11 @@ function buildExamQuestions(){
  return shuffle(skills.map((_,i)=>buildQuestion(i)).filter(Boolean)).slice(0,15);
 }
 function findNextExamUnanswered(fromIndex=-1){
- const later=sessionQuestions.findIndex((q,i)=>i>fromIndex&&sessionMarkedLater[i]&&sessionAnswers[i]===undefined);
- if(later!==-1)return later;
- return sessionQuestions.findIndex((q,i)=>i>fromIndex&&sessionAnswers[i]===undefined);
+ for(let step=1;step<=sessionQuestions.length;step++){
+  const i=(fromIndex+step)%sessionQuestions.length;
+  if(sessionAnswers[i]===undefined)return i;
+ }
+ return -1;
 }
 function showExamReviewPrompt(force=false){
  const unanswered=sessionQuestions.map((q,i)=>({q,i})).filter(x=>sessionAnswers[x.i]===undefined);
@@ -758,7 +760,7 @@ function showExamReviewPrompt(force=false){
  $('returnExamReview').onclick=()=>{
   box.remove();
   if(!target){showExamReviewPrompt();return;}
-  idx=target.i;renderStudy();
+  examReviewMode=true;idx=target.i;renderStudy();
  };
  if(force)box.scrollIntoView({behavior:'smooth',block:'center'});
 }
@@ -768,7 +770,7 @@ function startExamTimer(){
  examTimer=setInterval(()=>{examSecondsLeft--;const t=$('examClock');if(t)t.textContent='Залишилось: '+Math.floor(examSecondsLeft/60)+':'+String(examSecondsLeft%60).padStart(2,'0');if(examSecondsLeft<=0){stopExamTimer();finish();}},1000);
 }
 function start(mode,custom=null){
- stopExamTimer();currentMode=mode;idx=0;sessionAnswers={};sessionMarkedLater={};sessionQuestions=[];
+ stopExamTimer();currentMode=mode;idx=0;sessionAnswers={};sessionMarkedLater={};sessionQuestions=[];examReviewMode=false;
  items=custom||(mode==='exam'?shuffle(skills.map((_,i)=>i)).slice(0,15):shuffle(skills.map((_,i)=>i)));
  if(mode==='quiz')sessionQuestions=buildTestQuestions();
  if(mode==='exam'){sessionQuestions=buildExamQuestions();startExamTimer();}
@@ -867,7 +869,7 @@ function renderStudy(){
   content.querySelectorAll('.option').forEach(b=>b.onclick=()=>{
    const choice=Number(b.dataset.i);sessionAnswers[idx]=choice;if(choice!==q.a)rememberMistake(skillIndex,{q:q.q,o:q.o,a:q.a,e:q.e});
    if(!isExam){content.querySelectorAll('.option').forEach(x=>{const n=Number(x.dataset.i);x.classList.toggle('correct',n===q.a);x.classList.toggle('wrong',n===choice&&choice!==q.a);});$('feedback').innerHTML=choice===q.a?'<div class="feedback">Правильно! '+q.e+'</div>':'<div class="feedback">Неправильно. '+q.e+'</div>';}
-   else{content.querySelectorAll('.option').forEach(x=>x.classList.toggle('selected',Number(x.dataset.i)===choice));if(sessionMarkedLater[idx]){const nextUnanswered=findNextExamUnanswered(idx);if(nextUnanswered!==-1){idx=nextUnanswered;renderStudy();}else showExamReviewPrompt();}}
+   else{content.querySelectorAll('.option').forEach(x=>x.classList.toggle('selected',Number(x.dataset.i)===choice));if(examReviewMode||sessionMarkedLater[idx]){examReviewMode=true;const nextUnanswered=findNextExamUnanswered(idx);if(nextUnanswered!==-1){idx=nextUnanswered;renderStudy();}else showExamReviewPrompt();}}
   });
   if(isExam){
    content.querySelectorAll('[data-jump]').forEach(b=>b.onclick=()=>{idx=Number(b.dataset.jump);renderStudy();});
@@ -875,7 +877,7 @@ function renderStudy(){
    const exit=document.createElement('button');exit.type='button';exit.className='btn danger';exit.textContent='Вийти з екзамену';exit.style.marginTop='12px';exit.onclick=()=>{if(confirm('Вийти з екзамену? Поточна спроба буде перервана без нарахування бонусу.')){stopExamTimer();$('studyPanel').classList.add('hidden');document.querySelectorAll('.mode').forEach(b=>b.classList.remove('active'));}};content.querySelector('.study-card').appendChild(exit);
   }
   $('prev').onclick=()=>{if(idx>0){idx--;renderStudy();}};
-  $('next').onclick=()=>{if(idx<sessionQuestions.length-1){idx++;renderStudy();}else showExamReviewPrompt();};
+  $('next').onclick=()=>{if(examReviewMode){const nextUnanswered=findNextExamUnanswered(idx);if(nextUnanswered!==-1){idx=nextUnanswered;renderStudy();}else showExamReviewPrompt();}else if(idx<sessionQuestions.length-1){idx++;renderStudy();}else showExamReviewPrompt();};
   const finishNow=document.createElement('button');finishNow.type='button';finishNow.className='btn danger';finishNow.textContent='Завершити екзамен';finishNow.style.marginTop='10px';finishNow.onclick=()=>showExamReviewPrompt(true);content.querySelector('.study-card').appendChild(finishNow);
   return;
  }else{
