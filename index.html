@@ -39,7 +39,7 @@ header{display:flex;align-items:center;justify-content:space-between;gap:16px;ma
 .mode .ico{font-size:22px;margin-bottom:8px}.mode b{display:block}.mode span{display:block;color:var(--muted);font-size:12px;margin-top:3px}
 .toolbar{display:flex;gap:10px;flex-wrap:wrap;margin:12px 0}.search{flex:1;min-width:190px;border:1px solid var(--line);background:#fff;border-radius:11px;padding:10px 13px;color:var(--ink);font:inherit}
 select{border:1px solid var(--line);background:#fff;border-radius:11px;padding:10px;color:var(--ink);font:inherit}
-.skills{display:grid;grid-template-columns:repeat(2,1fr);gap:9px}.skill{display:flex;align-items:center;gap:12px;padding:12px 14px;text-align:left;color:var(--ink);box-shadow:none}.skill:hover{border-color:#9fc5d8;background:#fbfdfe}.num{width:31px;height:31px;flex:0 0 31px;border-radius:10px;background:#edf4f8;color:var(--blue);display:grid;place-items:center;font-weight:700;font-size:12px}.skill-title{font-size:13px;line-height:1.35;flex:1}.status{font-size:11px;color:var(--muted)}.done .num{background:#e8f6ef;color:var(--green)}
+.skills{display:grid;grid-template-columns:minmax(0,1fr);gap:6px;max-width:900px;margin:0 auto}.skill{display:flex;align-items:center;gap:10px;min-width:0;padding:8px 11px;text-align:left;color:var(--ink);box-shadow:none;border-radius:12px;min-height:54px}.skill:hover{border-color:#9fc5d8;background:#fbfdfe}.num{width:30px;height:30px;flex:0 0 30px;border-radius:9px;background:#edf4f8;color:var(--blue);display:grid;place-items:center;font-weight:700;font-size:12px}.skill-title{font-size:13px;line-height:1.3;flex:1;min-width:0;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}.status{font-size:11px;color:var(--muted);white-space:nowrap}.done .num{background:#e8f6ef;color:var(--green)}.number-search{max-width:190px;flex:0 1 190px}
 .panel{padding:22px;margin-top:18px}.hidden{display:none!important}
 .panel-actions{display:flex;align-items:center;gap:10px;flex-wrap:wrap;justify-content:flex-end}.panel-actions .btn{padding:8px 12px;font-size:13px;white-space:nowrap}@media(max-width:600px){.mode[data-mode="cards"]{grid-column:1/-1;min-height:88px}.panel-top{align-items:flex-start;gap:10px}.panel-actions{align-items:flex-end;flex-direction:column;gap:7px}.panel-actions .btn{font-size:12px;padding:8px 10px}}
 .panel-top{display:flex;justify-content:space-between;gap:10px;align-items:center;color:var(--muted);font-size:13px}
@@ -190,7 +190,8 @@ select{border:1px solid var(--line);background:#fff;border-radius:11px;padding:1
 </div>
 <div class="section-head"><h3>Каталог 52 практичних навичок</h3><small>Обери навичку для опрацювання</small></div>
 <div class="toolbar">
- <input id="search" class="search" placeholder="Пошук навички…">
+ <input id="searchNumber" class="search number-search" type="number" min="1" max="52" step="1" inputmode="numeric" placeholder="Номер навички (1–52)" aria-label="Пошук за номером навички">
+ <input id="search" class="search" placeholder="Або пошук за назвою…" aria-label="Пошук навички за назвою">
  <select id="filter"><option value="all">Усі навички</option><option value="done">Вивчені</option><option value="review">Потребують повторення</option><option value="todo">Ще не опрацьовані</option></select>
 </div>
 <div class="skills" id="skills"></div>
@@ -754,10 +755,10 @@ function renderStats(){
  $('sAccuracy').textContent=state.answered?Math.round(state.correct/state.answered*100)+'%':'—';
 }
 function renderSkills(){
- const q=$('search').value.toLowerCase(),f=$('filter').value;$('skills').innerHTML='';
+ const q=$('search').value.trim().toLowerCase(),rawNumber=$('searchNumber').value.trim(),number=rawNumber===''?null:Number(rawNumber),f=$('filter').value;$('skills').innerHTML='';
  skills.forEach((s,i)=>{
   const done=state.done.includes(i),review=state.needsReview.includes(i);
-  if(!s.toLowerCase().includes(q)||(f==='done'&&!done)||(f==='review'&&!review)||(f==='todo'&&(done||review)))return;
+  if((q&&!s.toLowerCase().includes(q))||(number!==null&&(!Number.isInteger(number)||number!==i+1))||(f==='done'&&!done)||(f==='review'&&!review)||(f==='todo'&&(done||review)))return;
   const b=document.createElement('button');b.className='skill'+(done?' done':review?' needs-review':'');
   const status=done?'✓ Вивчено':review?'↻ Потребує повторення':'Вчити';
   b.innerHTML=`<span class="num">${String(i+1).padStart(2,'0')}</span><span class="skill-title">${s}</span><span class="status">${status}</span>`;
@@ -1119,7 +1120,7 @@ function finish(){
 document.querySelectorAll('.mode').forEach(b=>b.onclick=()=>start(b.dataset.mode));
 const guidePanel=$('userGuide'),guideToggle=$('guideToggle');
 if(guideToggle&&guidePanel){guideToggle.addEventListener('click',()=>{const collapsed=guidePanel.classList.toggle('collapsed');guideToggle.setAttribute('aria-expanded',String(!collapsed));});}
-$('search').addEventListener('input',renderSkills);$('filter').addEventListener('change',renderSkills);
+$('search').addEventListener('input',renderSkills);$('searchNumber').addEventListener('input',renderSkills);$('filter').addEventListener('change',renderSkills);
 renderStats();renderSkills();renderHeaderIdentity();
 
 </script>
