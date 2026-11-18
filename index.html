@@ -24,14 +24,16 @@ header{display:flex;align-items:center;justify-content:space-between;gap:16px;ma
 .mode[data-mode="cards"]{grid-column:span 2;min-height:92px;display:flex;flex-direction:column;justify-content:center}
 .mode[data-mode="cards"] .ico{font-size:26px;margin-bottom:5px}
 
-.matching-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin:18px 0}
-.match-card{min-height:116px;padding:16px;text-align:left;border:2px solid var(--line);border-radius:15px;background:#fff;color:var(--ink);font:inherit;line-height:1.4;cursor:pointer;transition:.15s}
-.match-card .match-kind{display:block;margin-bottom:8px;font-size:11px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.matching-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin:18px 0;align-items:start}
+.match-column{display:grid;grid-template-columns:minmax(0,1fr);gap:12px;min-width:0}
+.match-column-head{padding:8px 10px;text-align:center;font-size:12px;font-weight:800;letter-spacing:.04em;color:var(--muted);background:#f2f6f8;border-radius:10px}
+.match-card{width:100%;min-width:0;min-height:116px;padding:16px;text-align:left;border:2px solid var(--line);border-radius:15px;background:#fff;color:var(--ink);font:inherit;line-height:1.4;cursor:pointer;transition:.15s;overflow-wrap:anywhere}
+.match-card .match-kind{display:none}
 .match-card.selected{border-color:#3989bd;background:#eef7fc}
 .match-card.matched{border-color:#61b88a;background:#effaf3;color:#216746;cursor:default}
 .match-card.wrong{border-color:#d96f6f;background:#fff1f1}
 .match-feedback{min-height:26px;margin:10px 0;font-weight:700;color:var(--muted)}
-@media(max-width:520px){.matching-grid{grid-template-columns:1fr}.match-card{min-height:82px}}
+@media(max-width:520px){.matching-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.match-column{gap:8px}.match-card{min-height:92px;padding:10px;font-size:13px}.match-column-head{font-size:11px;padding:7px 4px}}
 
 .mode{padding:17px;text-align:left;transition:.15s;color:var(--ink)}.mode:hover,.mode.active{border-color:#8bbbd3;background:#f5fbfe;transform:translateY(-1px)}
 .mode .ico{font-size:22px;margin-bottom:8px}.mode b{display:block}.mode span{display:block;color:var(--muted);font-size:12px;margin-top:3px}
@@ -908,7 +910,7 @@ function renderMatchingRound(){
  const session=matchingSession,done=session.matched.length/2;
  $('counter').textContent=done+' / 5 пар';
  $('bar').style.width=(done/5*100)+'%';
- content.innerHTML='<div class="study-card" style="text-align:left"><div class="label">🧩 ТРЕНУВАННЯ НА ВІДПОВІДНІСТЬ</div><h2>Знайди правильні пари</h2><p>Перед тобою 5 визначень і 5 відповідних цілей. Картки перемішані. Натисни спочатку на визначення, а потім на мету, яка йому відповідає.</p><div class="matching-grid" id="matchingGrid">'+session.cards.map(card=>'<button type="button" class="match-card '+(session.matched.includes(card.pair)?'matched':'')+'" data-card="'+card.id+'" '+(session.matched.includes(card.pair)?'disabled':'')+'><span class="match-kind">'+card.kind+'</span>'+card.text+'</button>').join('')+'</div><div class="match-feedback" id="matchingFeedback">'+(session.wrong?'Ця пара не підходить. Спробуй ще раз.':'Обери дві картки, які відповідають одна одній.')+'</div><div class="actions" id="matchingActions"></div><p class="note">За повністю правильно складені 5 пар нараховується +10 балів.</p></div>';
+ content.innerHTML='<div class="study-card" style="text-align:left"><div class="label">🧩 ТРЕНУВАННЯ НА ВІДПОВІДНІСТЬ</div><h2>Знайди правильні пари</h2><p>Перед тобою 5 визначень і 5 відповідних цілей. Картки перемішані. Натисни спочатку на визначення, а потім на мету, яка йому відповідає.</p><div class="matching-grid" id="matchingGrid"><div class="match-column"><div class="match-column-head">ВИЗНАЧЕННЯ</div>'+shuffle(session.cards.filter(card=>card.kind==='Визначення')).map(card=>'<button type="button" class="match-card '+(session.matched.includes(card.pair)?'matched':'')+'" data-card="'+card.id+'" '+(session.matched.includes(card.pair)?'disabled':'')+'>'+card.text+'</button>').join('')+'</div><div class="match-column"><div class="match-column-head">МЕТА</div>'+shuffle(session.cards.filter(card=>card.kind==='Мета')).map(card=>'<button type="button" class="match-card '+(session.matched.includes(card.pair)?'matched':'')+'" data-card="'+card.id+'" '+(session.matched.includes(card.pair)?'disabled':'')+'>'+card.text+'</button>').join('')+'</div></div><div class="match-feedback" id="matchingFeedback">'+(session.wrong?'Ця пара не підходить. Спробуй ще раз.':'Обери дві картки, які відповідають одна одній.')+'</div><div class="actions" id="matchingActions"></div><p class="note">За повністю правильно складені 5 пар нараховується +10 балів.</p></div>';
  const feedback=$('matchingFeedback');
  $('matchingGrid').querySelectorAll('.match-card:not(:disabled)').forEach(button=>button.onclick=()=>{
   const card=session.cards.find(x=>x.id===button.dataset.card);if(!card||session.matched.includes(card.pair))return;
