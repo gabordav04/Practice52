@@ -608,11 +608,18 @@ function queueCloudSave(){
   }catch(err){console.error('Cloud save failed:',err);$('savedLabel').textContent='Локально збережено';setAuthStatus('Дані збережено на пристрої, але хмарна синхронізація не вдалася. Перевір правила Firestore.',true);}
  },700);
 }
+const NICKNAME_BLOCKED_TERMS=['хуй','хуи','пизд','єб','еба','ебл','бля','манда','мудак','гандон','залуп','сука','сук','соси','шлюх','педик','fuck','shit','bitch','asshole','bastard','cunt','dick','pussy','motherfucker','fck','wtf'];
+function isInappropriateNickname(value){
+ const normalized=String(value||'').toLowerCase().replace(/0/g,'o').replace(/[1!]/g,'i').replace(/3/g,'e').replace(/4/g,'a').replace(/5/g,'s').replace(/7/g,'t').replace(/[_\W]/g,'');
+ return NICKNAME_BLOCKED_TERMS.some(term=>normalized.includes(term));
+}
+function assertNicknamePolicy(value){if(isInappropriateNickname(value))throw new Error('Цей нікнейм порушує політику сайту. Обери, будь ласка, інший нікнейм без нецензурної лексики та образливих слів.');}
 function validateProfile(){
  const name=$('regName').value.trim().replace(/\\s+/g,' ');
  const phone=$('regPhone').value.trim(),digits=phone.replace(/\\D/g,'');
  const nickname=$('regNickname').value.trim();
- if(nickname&&!/^[A-Za-z0-9_]{3,20}$/.test(nickname))throw new Error('Нікнейм: 3–20 символів, лише латинські літери, цифри або _ .');
+ if(nickname&&!/^[A-Za-z0-9_]{3,20}$/.test(nickname))throw new Error('Нікнейм: 3–20 символів, лише латинські літери, цифри або _.');
+ if(nickname)assertNicknamePolicy(nickname);
  if(name&&name.split(' ').length<2)throw new Error('Вкажи щонайменше прізвище та ім’я.');
  if(phone&&(digits.length<10||digits.length>15))throw new Error('Перевір номер телефону: має бути від 10 до 15 цифр.');
  return {name,phone,nickname};
@@ -627,6 +634,7 @@ $('saveProfileBtn').addEventListener('click',async()=>{
   if(!nickname||nickname==='student'){
    if(!enteredNickname)throw new Error('Введи власний нікнейм і натисни «Зберегти зміни».');
    if(!/^[A-Za-z0-9_]{3,20}$/.test(enteredNickname))throw new Error('Нікнейм: 3–20 символів, лише латинські літери, цифри або _.');
+   assertNicknamePolicy(enteredNickname);
    nickname=enteredNickname;
   }else if(enteredNickname!==nickname){
    $('regNickname').value=nickname;
