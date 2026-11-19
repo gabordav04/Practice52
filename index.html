@@ -584,6 +584,7 @@ function renderMyRank(){const el=$('myRank');if(el)el.textContent='Твій рі
 async function syncPublicRank(){
  if(!firebaseUser||!cloudReady)return;
  const profile=readLocalProfile()||{};
+ if(!profile.nickname||normalizeNickname(profile.nickname)==='student'){await db.collection('leaderboard').doc(firebaseUser.uid).delete();return;}
  if(!$('profileVisible').checked){await db.collection('leaderboard').doc(firebaseUser.uid).delete();return;}
  const completed=Array.isArray(state.done)?state.done.length:0;await db.collection('leaderboard').doc(firebaseUser.uid).set({nickname:profile.nickname||'student',avatar:profile.avatar||DEFAULT_AVATAR,points:Number(state.points)||0,completed,progressPercent:Math.round(completed/52*100),correct:Number(state.correct)||0,answered:Number(state.answered)||0,accuracy:state.answered?Math.round(state.correct/state.answered*100):0,level:rankTitle(Number(state.points)||0),updatedAt:firebase.firestore.FieldValue.serverTimestamp()});
 }
@@ -679,6 +680,18 @@ function isInappropriateNickname(value){
  return NICKNAME_BLOCKED_TERMS.some(term=>normalized.includes(term));
 }
 function assertNicknamePolicy(value){if(isInappropriateNickname(value))throw new Error('Цей нікнейм порушує політику сайту. Обери, будь ласка, інший нікнейм без нецензурної лексики та образливих слів.');}
+function normalizeNickname(value){return String(value||'').trim().toLowerCase();}
+async function claimUniqueNickname(value,user){
+ const nickname=String(value||'').trim(),key=normalizeNickname(nickname);
+ if(!nickname||key==='student')throw new Error('Нікнейм обов’язковий. Значення «student» використовувати не можна.');
+ assertNicknamePolicy(nickname);
+ const ref=db.collection('nicknames').doc(key);
+ await db.runTransaction(async tx=>{
+  const snap=await tx.get(ref);
+  if(snap.exists&&(snap.data()||{}).uid!==user.uid)throw new Error('Цей нікнейм уже зайнятий. Обери інший.');
+  if(!snap.exists)tx.set(ref,{uid:user.uid,nickname,createdAt:firebase.firestore.FieldValue.serverTimestamp()});
+ });
+}
 function validateProfile(){
  const name=$('regName').value.trim().replace(/\\s+/g,' ');
  const phone=$('regPhone').value.trim(),digits=phone.replace(/\\D/g,'');
@@ -705,6 +718,7 @@ $('saveProfileBtn').addEventListener('click',async()=>{
    $('regNickname').value=nickname;
    throw new Error('Нікнейм уже закріплений за акаунтом і не змінюється.');
   }
+  await claimUniqueNickname(nickname,firebaseUser);
   const profile={...current,name,phone,nickname,publicProfile:$('profileVisible').checked};
   localStorage.setItem(PROFILE_KEY,JSON.stringify(profile));
   await db.collection('users').doc(firebaseUser.uid).set({profile,updatedAt:firebase.firestore.FieldValue.serverTimestamp()},{merge:true});
@@ -737,6 +751,7 @@ $('registrationForm').addEventListener('submit',async e=>{
   if(!profile.nickname)throw new Error('Придумай нікнейм. Після створення акаунта його не можна буде змінити.');
   setAuthStatus('Створюємо акаунт…');
   const credential=await auth.createUserWithEmailAndPassword(email,password);
+  await claimUniqueNickname(profile.nickname,credential.user);
   localStorage.setItem(PROFILE_KEY,JSON.stringify(profile));
   await db.collection('users').doc(credential.user.uid).set({profile,progress:state,createdAt:firebase.firestore.FieldValue.serverTimestamp(),updatedAt:firebase.firestore.FieldValue.serverTimestamp()},{merge:true});
   setAuthStatus('Акаунт створено. Прогрес синхронізується з Firebase.');
@@ -973,7 +988,14 @@ auth.onAuthStateChanged(async user=>{
   }
   if(user.email)$('regEmail').value=user.email;$('regNickname').value=(readLocalProfile()||{}).nickname||'';$('regNickname').disabled=!!(readLocalProfile()||{}).nickname;renderAvatar((readLocalProfile()||{}).avatar||DEFAULT_AVATAR);
   $('regPassword').value='';
-  cloudReady=true;renderStats();renderSkills();
+  cloudReady=true;
+  const signedProfile=readLocalProfile()||{};
+  if(!signedProfile.nickname||normalizeNickname(signedProfile.nickname)==='student'){
+   $('regNickname').disabled=false;
+   setAuthStatus('Обов’язково створи унікальний нікнейм (3–20 символів), а потім натисни «Зберегти зміни». До цього профіль не з’явиться в рейтингу.');
+   $('accountPanel').classList.remove('hidden');
+  }
+  renderStats();renderSkills();
   try{await syncPublicRank();}catch(rankErr){console.warn('Initial public rank sync failed:',rankErr);}
   await loadLeaderboard();watchLeaderboard();queueCloudSave();
   if(window.practice52ProgressUnsubscribe)window.practice52ProgressUnsubscribe();
