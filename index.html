@@ -918,7 +918,7 @@ async function assignTeacher(user){
  if(practice52CurrentRole!=='admin'||!firebaseUser)return;
  if(user.uid===firebaseUser.uid){setAdminStatus('Цей акаунт уже є адміністратором.',true);return;}
  try{
-  await db.collection('roles').doc(user.uid).set({role:'teacher',createdAt:firebase.firestore.FieldValue.serverTimestamp(),createdBy:firebaseUser.uid});
+  await db.collection('roles').doc(user.uid).set({role:'teacher',active:true,createdAt:firebase.firestore.FieldValue.serverTimestamp(),createdBy:firebaseUser.uid});
   setAdminStatus('Для '+user.nickname+' призначено роль викладача.');
   await loadAdminRoles();await loadAdminTeacherOptions();
  }catch(err){console.error(err);setAdminStatus('Не вдалося призначити роль. Перевір правила Firestore.',true);}
@@ -931,13 +931,15 @@ async function loadAdminRoles(){
   if(snap.empty){list.textContent='Поки немає призначених ролей.';return;}
   snap.forEach(doc=>{
    const data=doc.data()||{},row=adminNode('div','p52-admin-row'),info=adminNode('div');
-   const label=data.role==='admin'?'Адміністратор':data.role==='teacher'?'Викладач':'Невідома роль';
+   const isTeacher=data.role==='teacher',isActive=data.active!==false;
+   const label=data.role==='admin'?'Адміністратор':isTeacher?(isActive?'Викладач':'Викладач · доступ призупинено'):'Невідома роль';
    info.append(adminNode('strong','',label),adminNode('small','','UID: '+doc.id));row.appendChild(info);
-   if(data.role==='teacher'){const remove=adminNode('button','btn','Зняти роль');remove.type='button';remove.addEventListener('click',async()=>{
-    if(!confirm('Зняти роль викладача для цього UID?'))return;
-    try{await db.collection('roles').doc(doc.id).delete();setAdminStatus('Роль викладача знято.');await loadAdminRoles();await loadAdminTeacherOptions();}
-    catch(err){setAdminStatus('Не вдалося зняти роль.',true);}
-   });row.appendChild(remove);}
+   if(isTeacher){const action=adminNode('button','btn',isActive?'Звільнити':'Відновити доступ');action.type='button';action.addEventListener('click',async()=>{
+    const verb=isActive?'призупинити доступ викладача':'відновити доступ викладача';
+    if(!confirm('Точно '+verb+' для цього акаунта?'))return;
+    try{await db.collection('roles').doc(doc.id).update({active:!isActive,updatedAt:firebase.firestore.FieldValue.serverTimestamp(),updatedBy:firebaseUser.uid});setAdminStatus(isActive?'Доступ викладача призупинено.':'Доступ викладача відновлено.');await loadAdminRoles();await loadAdminTeacherOptions();}
+    catch(err){console.error(err);setAdminStatus('Не вдалося змінити доступ викладача.',true);}
+   });row.appendChild(action);}
    list.appendChild(row);
   });
  }catch(err){list.textContent='Не вдалося завантажити ролі.';console.error(err);}
@@ -946,7 +948,7 @@ async function loadAdminTeacherOptions(){
  const select=document.getElementById('p52GroupTeacher');if(!select)return;
  select.innerHTML='<option value="">Оберіть викладача</option>';
  const snap=await db.collection('roles').where('role','==','teacher').get();
- snap.forEach(doc=>{const opt=document.createElement('option');opt.value=doc.id;opt.textContent=doc.id;select.appendChild(opt);});
+ snap.forEach(doc=>{const data=doc.data()||{};if(data.active===false)return;const opt=document.createElement('option');opt.value=doc.id;opt.textContent=doc.id;select.appendChild(opt);});
 }
 async function createAdminGroup(e){
  e.preventDefault();const name=document.getElementById('p52GroupName').value.trim(),teacherUid=document.getElementById('p52GroupTeacher').value;
@@ -1007,7 +1009,7 @@ async function loadAdminDashboard(){
 }
 async function refreshPractice52Role(user){
  practice52CurrentRole=null;const toggle=document.getElementById('p52AdminToggle');if(toggle)toggle.classList.add('hidden');if(!user)return;
- try{if(user.uid==='NIXSOWQ2c1Tkh5TVGU6z9zkbhOp2'){practice52CurrentRole='admin';}else{const snap=await db.collection('roles').doc(user.uid).get();practice52CurrentRole=snap.exists?(snap.data()||{}).role:null;}ensureAdminPanel();const button=document.getElementById('p52AdminToggle');if(button)button.classList.toggle('hidden',practice52CurrentRole!=='admin');}
+ try{if(user.uid==='NIXSOWQ2c1Tkh5TVGU6z9zkbhOp2'){practice52CurrentRole='admin';}else{const snap=await db.collection('roles').doc(user.uid).get();const roleData=snap.exists?(snap.data()||{}):{};practice52CurrentRole=roleData.role==='teacher'&&roleData.active===false?null:(snap.exists?roleData.role:null);}ensureAdminPanel();const button=document.getElementById('p52AdminToggle');if(button)button.classList.toggle('hidden',practice52CurrentRole!=='admin');}
  catch(err){console.warn('Role lookup failed:',err);}
 }
 
