@@ -765,7 +765,7 @@ function buildTeacherVisibleStudentProfile(profile){
  return {nickname:String(p.nickname||''),name:String(p.name||''),avatar:typeof p.avatar==='string'?p.avatar:DEFAULT_AVATAR};
 }
 async function publishStudentProgressForTeacher(){
- if(!firebaseUser||!cloudReady||practice52CurrentRole==='teacher'||practice52CurrentRole==='admin')return;
+ if(!firebaseUser||!cloudReady||practice52CurrentRole==='teacher')return;
  // Прогрес дублюється окремо всередині кожної групи: правила Firestore
  // можуть перевірити teacherUid батьківської групи без глобального доступу.
  const groupsSnap=await db.collection('groups').where('studentUids','array-contains',firebaseUser.uid).get();
@@ -955,9 +955,12 @@ function ensureAdminPanel(){
  toggle.type='button';toggle.id='p52AdminToggle';toggle.setAttribute('aria-expanded','false');
  toggle.addEventListener('click',()=>{
   const panel=document.getElementById('p52AdminPanel'),opening=panel.classList.contains('hidden');
-  panel.classList.toggle('hidden',!opening);toggle.setAttribute('aria-expanded',String(opening));
-  toggle.textContent=opening?'⚙ Приховати керування':'⚙ Адміністрування';
+  panel.classList.toggle('hidden',!opening);
+  document.body.classList.toggle('p52-admin-mode',opening);
+  toggle.setAttribute('aria-expanded',String(opening));
+  toggle.textContent=opening?'⚙ Повернутися до навчання':'⚙ Адміністрування';
   if(opening){panel.scrollIntoView({behavior:'smooth',block:'start'});loadAdminDashboard();}
+  else{document.querySelector('header')?.scrollIntoView({behavior:'smooth',block:'start'});}
  });
  document.querySelector('.header-right')?.appendChild(toggle);
  const panel=adminNode('section','p52-admin-panel hidden');panel.id='p52AdminPanel';
@@ -1136,7 +1139,7 @@ async function loadAdminDashboard(){
  catch(err){console.error(err);setAdminStatus('Не вдалося завантажити відкриті профілі рейтингу.',true);}
 }
 async function refreshPractice52Role(user){
- practice52CurrentRole=null;document.body.classList.remove('p52-admin-mode');const toggle=document.getElementById('p52AdminToggle');if(toggle)toggle.classList.add('hidden');if(!user)return;
+ practice52CurrentRole=null;document.body.classList.remove('p52-admin-mode');const toggle=document.getElementById('p52AdminToggle');if(toggle){toggle.classList.add('hidden');toggle.textContent='⚙ Адміністрування';toggle.setAttribute('aria-expanded','false');}if(!user)return;
  try{
   if(user.uid==='NIXSOWQ2c1Tkh5TVGU6z9zkbhOp2')practice52CurrentRole='admin';
   else{
@@ -1150,13 +1153,15 @@ async function refreshPractice52Role(user){
    catch(rankError){console.warn('Could not remove non-student from public ranking:',rankError);}
   }
   ensureAdminPanel();
-  document.body.classList.toggle('p52-admin-mode',practice52CurrentRole==='admin');
   const button=document.getElementById('p52AdminToggle');
   if(button){
    button.classList.toggle('hidden',practice52CurrentRole!=='admin');
    const panel=document.getElementById('p52AdminPanel');
-   if(practice52CurrentRole==='admin'&&panel){panel.classList.remove('hidden');button.textContent='⚙ Приховати керування';button.setAttribute('aria-expanded','true');}
-   else if(panel){panel.classList.add('hidden');button.textContent='⚙ Адміністрування';button.setAttribute('aria-expanded','false');}
+   // Адміністраторський акаунт одночасно є студентським: навчальний інтерфейс відкривається за замовчуванням.
+   document.body.classList.remove('p52-admin-mode');
+   if(panel)panel.classList.add('hidden');
+   button.textContent='⚙ Адміністрування';
+   button.setAttribute('aria-expanded','false');
   }
  }catch(err){console.warn('Role lookup failed:',err);}
 }
