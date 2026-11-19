@@ -781,7 +781,7 @@ $('googleLogin').addEventListener('click',async()=>{
  }catch(err){
   console.error('Google sign-in failed:',err);
   if(err.code==='auth/popup-blocked'||err.code==='auth/operation-not-supported-in-this-environment'){
-   try{setAuthStatus('Відкриваємо сторінку Google для входу…');await auth.signInWithRedirect(new firebase.auth.GoogleAuthProvider());return;}
+   try{setAuthStatus('Відкриваємо сторінку Google для входу…');const redirectProvider=new firebase.auth.GoogleAuthProvider();redirectProvider.setCustomParameters({prompt:'select_account'});await auth.signInWithRedirect(redirectProvider);return;}
    catch(redirectError){console.error('Google redirect failed:',redirectError);err=redirectError;}
   }
   const messages={
@@ -1824,7 +1824,7 @@ renderStats();renderSkills();renderHeaderIdentity();
    document.getElementById('regTitle').textContent=selected==='teacher'?'Реєстрація / вхід викладача PRACTICE 52':selected==='admin'?'Вхід адміністратора PRACTICE 52':'Реєстрація / вхід студента PRACTICE 52';
    const createButton=document.querySelector('#registrationForm button[type="submit"]');
    if(createButton)createButton.classList.toggle('hidden',selected==='admin');
-   const google=document.getElementById('googleLogin');if(google)google.classList.toggle('hidden',selected==='teacher');
+   const google=document.getElementById('googleLogin');if(google)google.classList.remove('hidden');
    document.getElementById('regStatus').textContent=selected==='admin'?'Увійди у свій наявний адміністративний акаунт.':'Локальні дані попереднього користувача очищено. Створи власний акаунт або увійди, щоб завантажити лише свої дані.';
    document.getElementById('regEmail').value='';document.getElementById('regPassword').value='';
    document.getElementById('regName').value='';document.getElementById('regPhone').value='';
