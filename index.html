@@ -754,6 +754,18 @@ function watchLeaderboard(){
   console.warn('Leaderboard listener failed:',err);
  });
 }
+function buildTeacherVisibleStudentProfile(profile){
+ const p=profile||{};
+ return {nickname:String(p.nickname||''),name:String(p.name||''),avatar:typeof p.avatar==='string'?p.avatar:DEFAULT_AVATAR};
+}
+async function publishStudentProgressForTeacher(){
+ if(!firebaseUser||!cloudReady||practice52CurrentRole==='teacher'||practice52CurrentRole==='admin')return;
+ const profile=buildTeacherVisibleStudentProfile(readLocalProfile()||{});
+ await db.collection('studentProgress').doc(firebaseUser.uid).set({
+  studentUid:firebaseUser.uid,profile,progress:state,
+  updatedAt:firebase.firestore.FieldValue.serverTimestamp()
+ },{merge:true});
+}
 function queueCloudSave(){
  if(!firebaseUser||!cloudReady)return;
  clearTimeout(cloudSaveTimer);
@@ -764,6 +776,7 @@ function queueCloudSave(){
     profile, progress:state,
     updatedAt:firebase.firestore.FieldValue.serverTimestamp()
    },{merge:true});
+   await publishStudentProgressForTeacher();
    $('savedLabel').textContent='✓';
    await syncPublicRank();
    await loadLeaderboard();
@@ -846,6 +859,7 @@ $('registrationForm').addEventListener('submit',async e=>{
   await claimUniqueNickname(profile.nickname,credential.user);
   writeLocalProfile(profile);
   await db.collection('users').doc(credential.user.uid).set({profile,progress:state,createdAt:firebase.firestore.FieldValue.serverTimestamp(),updatedAt:firebase.firestore.FieldValue.serverTimestamp()},{merge:true});
+  await db.collection('studentProgress').doc(credential.user.uid).set({studentUid:credential.user.uid,profile:buildTeacherVisibleStudentProfile(profile),progress:state,updatedAt:firebase.firestore.FieldValue.serverTimestamp()},{merge:true});
   setAuthStatus('Акаунт створено. Прогрес синхронізується з Firebase.');
  }catch(err){console.error(err);setAuthStatus(err.message||'Не вдалося створити акаунт.',true);}
 });
@@ -1154,8 +1168,8 @@ async function loadPractice52TeacherDashboard(){
   practice52TeacherGroups=groupSnap.docs.map(doc=>({id:doc.id,...(doc.data()||{})}));
   const studentIds=[...new Set(practice52TeacherGroups.flatMap(g=>Array.isArray(g.studentUids)?g.studentUids:[]))];
   const userDocs=await Promise.all(studentIds.map(async uid=>{
-   const snap=await db.collection('users').doc(uid).get();
-   if(!snap.exists)return {uid,profile:{nickname:'Профіль недоступний'},progress:null};
+   const snap=await db.collection('studentProgress').doc(uid).get();
+   if(!snap.exists)return {uid,profile:{nickname:'Ще немає опублікованих результатів'},progress:null};
    const d=snap.data()||{};return {uid,profile:d.profile||{},progress:d.progress||null};
   }));
   practice52TeacherStudents=userDocs.map(u=>({...u,groups:practice52TeacherGroups.filter(g=>(g.studentUids||[]).includes(u.uid)).map(g=>g.name||'Без назви')}));
@@ -1286,6 +1300,10 @@ auth.onAuthStateChanged(async user=>{
   if(user.email)$('regEmail').value=user.email;$('regNickname').value=(readLocalProfile()||{}).nickname||'';$('regNickname').disabled=false;renderAvatar((readLocalProfile()||{}).avatar||DEFAULT_AVATAR);
   $('regPassword').value='';
   cloudReady=true;
+  if(practice52CurrentRole!=='teacher'&&practice52CurrentRole!=='admin'){
+   try{await publishStudentProgressForTeacher();}
+   catch(progressPublishError){console.warn('Teacher-visible progress mirror is not available yet:',progressPublishError);}
+  }
   const signedProfile=readLocalProfile()||{};
   if(!signedProfile.nickname||normalizeNickname(signedProfile.nickname)==='student'){
    $('regNickname').disabled=false;
