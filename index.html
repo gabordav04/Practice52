@@ -632,22 +632,29 @@ function renderLeaderboardSnapshot(snap){
  if(snap.empty){status.textContent='Поки що немає учасників у рейтингу. Увійдіть і дозвольте показ профілю, щоб з’явитися тут.';return;}
  status.textContent='Натисни на учасника, щоб переглянути його навчальний профіль';
  let place=0;
+ const seenNicknames=new Set();
  snap.forEach(doc=>{
-  const d=doc.data()||{},row=document.createElement('button');
+  const d=doc.data()||{};
+  const nickname=typeof d.nickname==='string'&&d.nickname.trim()?d.nickname.trim():'Учасник';
+  const nicknameKey=nickname.toLocaleLowerCase('uk-UA');
+  if(seenNicknames.has(nicknameKey))return;
+  seenNicknames.add(nicknameKey);
+  const row=document.createElement('button');
   row.type='button';row.className='rank-row rank-row-button'+(firebaseUser&&doc.id===firebaseUser.uid?' rank-me':'');
-  row.setAttribute('aria-label','Відкрити навчальний профіль '+(d.nickname||'учасника'));
-  row.addEventListener('click',()=>openPublicRankProfile({id:doc.id,data:d,place:placeNumber}));
+  row.setAttribute('aria-label','Відкрити навчальний профіль '+nickname);
   const placeNumber=++place;
+  row.addEventListener('click',()=>openPublicRankProfile({id:doc.id,data:d,place:placeNumber}));
   const placeEl=document.createElement('span');placeEl.className='rank-place';placeEl.textContent='#'+placeNumber;
   const nameEl=document.createElement('span');nameEl.className='rank-name';
   const avatar=typeof d.avatar==='string'?d.avatar:'⭐';
   if(avatar.startsWith('data:image/')){
    const img=document.createElement('img');img.className='rank-avatar';img.src=avatar;img.alt='';img.loading='lazy';img.onerror=()=>{img.replaceWith(document.createTextNode('⭐'));};nameEl.appendChild(img);
   }else{nameEl.appendChild(document.createTextNode(avatar||'⭐'));}
-  nameEl.appendChild(document.createTextNode(' '+(typeof d.nickname==='string'&&d.nickname.trim()?d.nickname.trim():'Учасник')));
+  nameEl.appendChild(document.createTextNode(' '+nickname));
   const pointsEl=document.createElement('span');pointsEl.className='rank-points';pointsEl.textContent=(Number(d.points)||0)+' балів';
   row.append(placeEl,nameEl,pointsEl);list.appendChild(row);
  });
+ if(!list.children.length)status.textContent='Поки що немає учасників у рейтингу.';
 }
 async function loadLeaderboard(){
  const status=$('leaderboardStatus');if(!status)return;
