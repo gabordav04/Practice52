@@ -198,7 +198,7 @@ body.p52-teacher-mode #skillCatalog{margin-top:18px}
 <section id="p52TeacherDashboard" class="p52-teacher-dashboard hidden" aria-label="Кабінет викладача">
  <div class="eyebrow">РОБОЧИЙ ПРОСТІР ВИКЛАДАЧА</div>
  <h2>Кабінет викладача</h2>
- <p class="teacher-lead">Перегляд навчального прогресу студентів призначених груп. Дані студентів доступні лише для читання.</p>
+ <p class="teacher-lead">Перегляд навчального прогресу, екзаменаційних етапів та результатів студентів призначених груп.</p>
  <div class="p52-teacher-kpis">
   <div class="p52-teacher-kpi"><strong id="p52TeacherGroupCount">—</strong><span>Мої групи</span></div>
   <div class="p52-teacher-kpi"><strong id="p52TeacherStudentCount">—</strong><span>Студентів</span></div>
@@ -207,6 +207,7 @@ body.p52-teacher-mode #skillCatalog{margin-top:18px}
  <div class="p52-teacher-tabs">
   <button type="button" class="active" data-teacher-tab="groups">Мої групи</button>
   <button type="button" data-teacher-tab="students">Студенти</button>
+  <button type="button" data-teacher-tab="exams">Екзамени</button>
   <button type="button" data-teacher-tab="analytics">Аналітика</button>
   <button type="button" data-teacher-tab="guide">Інструкція</button>
   <button type="button" id="p52TeacherRefresh">Оновити дані</button>
@@ -214,8 +215,9 @@ body.p52-teacher-mode #skillCatalog{margin-top:18px}
  <div id="p52TeacherStatus" class="p52-teacher-status" role="status">Завантажуємо призначені групи…</div>
  <section data-teacher-section="groups"><h3>Мої навчальні групи</h3><div id="p52TeacherGroups" class="p52-teacher-list"></div></section>
  <section data-teacher-section="students" class="hidden"><h3>Студенти моїх груп</h3><div id="p52TeacherStudents" class="p52-teacher-list"></div><div id="p52TeacherStudentDetail"></div></section>
+ <section data-teacher-section="exams" class="hidden"><h3>Результати екзаменаційних етапів</h3><p class="p52-teacher-muted">Тут відображаються позначені студентами завершені екзаменаційні етапи за кожною навичкою. Це не окрема оцінка викладача.</p><div id="p52TeacherExams" class="p52-teacher-list"></div></section>
  <section data-teacher-section="analytics" class="hidden"><h3>Аналітика навчання</h3><div id="p52TeacherAnalytics"></div></section>
- <section data-teacher-section="guide" class="hidden"><h3>Інструкція для викладача</h3><div class="p52-teacher-guide"><b>Як працювати з кабінетом</b><ol><li>У розділі «Мої групи» переглядай групи, призначені адміністратором.</li><li>У розділі «Студенти» відкривай профіль студента, щоб переглянути доступні результати та прогрес.</li><li>В «Аналітиці» переглядай загальні показники своїх груп.</li><li>Каталог 52 навичок нижче можна використовувати як довідник навчальних матеріалів.</li></ol><p class="p52-teacher-muted">Кабінет працює в режимі перегляду: викладач не змінює бали, відповіді чи прогрес студентів.</p></div></section>
+ <section data-teacher-section="guide" class="hidden"><h3>Інструкція для викладача</h3><div class="p52-teacher-guide"><b>Як працювати з кабінетом</b><ol><li>У розділі «Мої групи» переглядай групи, призначені адміністратором.</li><li>У розділі «Студенти» відкривай профіль студента, щоб переглянути доступні результати та прогрес.</li><li>У розділі «Екзамени» переглядай завершені екзаменаційні етапи за навичками.</li><li>В «Аналітиці» переглядай загальні показники своїх груп.</li><li>Каталог 52 навичок нижче можна використовувати як довідник навчальних матеріалів.</li></ol><p class="p52-teacher-muted">Зміни результатів студентів будуть доступні після підключення захищених прав запису для викладача.</p></div></section>
 </section>
 <section class="registration hidden" id="accountPanel" aria-labelledby="regTitle">
  <h3 id="regTitle">Обліковий запис PRACTICE 52</h3>
@@ -1193,7 +1195,7 @@ async function loadPractice52TeacherDashboard(){
   document.getElementById('p52TeacherGroupCount').textContent=practice52TeacherGroups.length;
   document.getElementById('p52TeacherStudentCount').textContent=practice52TeacherStudents.length;
   document.getElementById('p52TeacherActiveCount').textContent=active;
-  renderPractice52TeacherGroups();renderPractice52TeacherStudents();renderPractice52TeacherAnalytics();
+  renderPractice52TeacherGroups();renderPractice52TeacherStudents();renderPractice52TeacherExams();renderPractice52TeacherAnalytics();
   setTeacherStatus('Дані оновлено. Показано лише групи, призначені цьому викладачу.');
  }catch(err){
   console.error('Teacher dashboard load failed:',err);
@@ -1230,7 +1232,22 @@ function openPractice52TeacherStudent(uid){
  const p=u.profile||{},pr=u.progress||{},done=Array.isArray(pr.done)?pr.done.length:0,review=Array.isArray(pr.needsReview)?pr.needsReview.length:0,answered=Number(pr.answered)||0,correct=Number(pr.correct)||0,accuracy=answered?Math.round(correct/answered*100):null;
  const el=document.getElementById('p52TeacherStudentDetail');if(!el)return;
  const skillNames=Array.isArray(pr.done)?pr.done.map(i=>skills[i]).filter(Boolean):[];
- el.innerHTML='<div class="p52-teacher-detail"><h3>'+p52TeacherText(p.nickname||p.name||'Студент')+'</h3><div class="p52-teacher-muted">'+p52TeacherText(p.name||'')+' · '+p52TeacherText(u.groups.join(', '))+'</div><div class="p52-teacher-detail-grid"><div><strong>'+done+'/52</strong><span>Опрацьовано навичок</span></div><div><strong>'+Number(pr.points||0)+'</strong><span>Балів</span></div><div><strong>'+correct+'/'+answered+'</strong><span>Правильних відповідей</span></div><div><strong>'+(accuracy===null?'—':accuracy+'%')+'</strong><span>Точність</span></div><div><strong>'+review+'</strong><span>Потребують повторення</span></div><div><strong>'+(Array.isArray(pr.mistakes)?pr.mistakes.length:0)+'</strong><span>Помилок для повторення</span></div></div><b>Опрацьовані навички</b><p>'+p52TeacherText(skillNames.length?skillNames.join(' · '):'Поки немає позначених опрацьованих навичок.')+'</p><p class="p52-teacher-muted">Деталі окремих відповідей доступні лише якщо вони зберігаються в прогресі студента.</p></div>';
+ el.innerHTML='<div class="p52-teacher-detail"><h3>'+p52TeacherText(p.nickname||p.name||'Студент')+'</h3><div class="p52-teacher-muted">'+p52TeacherText(p.name||'')+' · '+p52TeacherText(u.groups.join(', '))+'</div><div class="p52-teacher-detail-grid"><div><strong>'+done+'/52</strong><span>Опрацьовано навичок</span></div><div><strong>'+Number(pr.points||0)+'</strong><span>Балів</span></div><div><strong>'+correct+'/'+answered+'</strong><span>Правильних відповідей</span></div><div><strong>'+(accuracy===null?'—':accuracy+'%')+'</strong><span>Точність</span></div><div><strong>'+review+'</strong><span>Потребують повторення</span></div><div><strong>'+(Array.isArray(pr.mistakes)?pr.mistakes.length:0)+'</strong><span>Помилок для повторення</span></div><div><strong>'+Object.values(pr.lessonTestsCompleted||{}).filter(x=>x&&x.completed).length+'</strong><span>Завершено навчальних тестів</span></div><div><strong>'+Object.values(pr.learningProgress||{}).filter(x=>x&&x.exam).length+'</strong><span>Завершено екзаменаційних етапів</span></div></div><b>Опрацьовані навички</b><p>'+p52TeacherText(skillNames.length?skillNames.join(' · '):'Поки немає позначених опрацьованих навичок.')+'</p><p class="p52-teacher-muted">Деталі окремих відповідей доступні лише якщо вони зберігаються в прогресі студента.</p></div>';
+}
+function renderPractice52TeacherExams(){
+ const el=document.getElementById('p52TeacherExams');if(!el)return;el.innerHTML='';
+ if(!practice52TeacherStudents.length){el.textContent='У призначених групах поки немає студентів.';return;}
+ const rows=[];
+ practice52TeacherStudents.forEach(u=>{
+  const p=u.progress||{},learning=p.learningProgress||{};
+  const completed=Object.entries(learning).filter(([,v])=>v&&v.exam===true).map(([key])=>Number(key)).filter(i=>Number.isInteger(i)&&i>=0&&i<52);
+  const card=document.createElement('article');card.className='p52-teacher-card';
+  const info=document.createElement('div');
+  const title=document.createElement('b');title.textContent=(u.profile||{}).nickname||(u.profile||{}).name||'Студент';
+  const detail=document.createElement('div');detail.className='p52-teacher-muted';detail.textContent='Екзаменаційні етапи: '+completed.length+'/52';
+  const names=document.createElement('div');names.className='p52-teacher-muted';names.textContent=completed.length?completed.map(i=>skills[i]).filter(Boolean).join(' · '):'Поки немає завершених екзаменаційних етапів.';
+  info.append(title,detail,names);card.appendChild(info);el.appendChild(card);
+ });
 }
 function renderPractice52TeacherAnalytics(){
  const el=document.getElementById('p52TeacherAnalytics');if(!el)return;
