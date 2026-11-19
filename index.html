@@ -1275,8 +1275,8 @@ renderStats();renderSkills();renderHeaderIdentity();
   let bonus=0,grade='';
   if(skillIndex!==null&&passed){
    const p=progressFor(skillIndex);setPart(skillIndex,'exam',true);
-   if(!p.examRewarded){state.points=(Number(state.points)||0)+50;p.examRewarded=true;p.examRewardedAt=Date.now();save();}
-   bonus=p.examRewarded?50:0;grade='Етап екзамену зараховано.';
+   if(!p.examRewarded){state.points=(Number(state.points)||0)+50;p.examRewarded=true;p.examRewardedAt=Date.now();save();bonus=50;}
+   grade='Етап екзамену зараховано.';
   }else if(skillIndex===null){
    bonus=pct>=90?100:pct>=80?75:pct>=70?50:0;
    grade='Оцінка: '+(pct>=90?'Відмінно':pct>=80?'Добре':pct>=70?'Задовільно':'Не складено')+'.';
