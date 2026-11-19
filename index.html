@@ -1272,13 +1272,14 @@ renderStats();renderSkills();renderHeaderIdentity();
  function finishMixedExam(){
   if(!mixedExam)return;
   clearInterval(examTimer);examTimer=null;
+  const skillIndex=mixedExam.skillIndex;
   const total=mixedExam.tasks.length,correct=mixedExam.tasks.filter(t=>t.passed).length,pct=total?Math.round(correct/total*100):0,passed=pct>=70;
-  if(mixedExam.skillIndex!==null&&passed)setPart(mixedExam.skillIndex,'exam',true);
+  if(skillIndex!==null&&passed)setPart(skillIndex,'exam',true);
   const content=$('studyContent');
   $('counter').textContent='Результат екзамену';$('bar').style.width='100%';
-  content.innerHTML='<div class="study-card"><div class="label">КОМПЛЕКСНИЙ ЕКЗАМЕН ЗАВЕРШЕНО</div><h2>'+(passed?'Екзамен складено! 🎉':'Потрібно ще потренуватися')+'</h2><div class="answer"><b>'+correct+' із '+total+' завдань · '+pct+'%</b><br>Перевірялися теорія, алгоритм і клінічне мислення.<br>Пороговий результат: 70%.<br>'+(mixedExam.skillIndex!==null?(passed?'Етап екзамену зараховано.':'Етап екзамену не зараховано.'):'Загальний екзамен не змінює статус окремих навичок.')+'</div><div class="p52-exam-actions"><button class="btn primary" id="p52ExamAgain">Пройти ще раз</button>'+(mixedExam.skillIndex!==null?'<button class="btn" id="p52BackCard">До флеш-картки</button>':'<button class="btn" id="p52ExamCatalog">До каталогу</button>')+'</div></div>';
-  $('p52ExamAgain').onclick=()=>start(mixedExam.skillIndex===null?'exam':'skillExam',mixedExam.skillIndex===null?null:[mixedExam.skillIndex]);
-  const back=$('p52BackCard')||$('p52ExamCatalog');if(back)back.onclick=()=>{if(mixedExam.skillIndex!==null)start('cards',[mixedExam.skillIndex]);else returnToModes();};
+  content.innerHTML='<div class="study-card"><div class="label">КОМПЛЕКСНИЙ ЕКЗАМЕН ЗАВЕРШЕНО</div><h2>'+(passed?'Екзамен складено! 🎉':'Потрібно ще потренуватися')+'</h2><div class="answer"><b>'+correct+' із '+total+' завдань · '+pct+'%</b><br>Перевірялися теорія, алгоритм і клінічне мислення.<br>Пороговий результат: 70%.<br>'+(mixedExam.skillIndex!==null?(passed?'Етап екзамену зараховано.':'Етап екзамену не зараховано.'):'Загальний екзамен не змінює статус окремих навичок.')+'</div><div class="p52-exam-actions"><button class="btn primary" id="p52ExamAgain">Пройти ще раз</button>'+(skillIndex!==null?'<button class="btn" id="p52BackCard">До флеш-картки</button>':'<button class="btn" id="p52ExamCatalog">До каталогу</button>')+'</div></div>';
+  $('p52ExamAgain').onclick=()=>start(skillIndex===null?'exam':'skillExam',skillIndex===null?null:[skillIndex]);
+  const back=$('p52BackCard')||$('p52ExamCatalog');if(back)back.onclick=()=>{if(skillIndex!==null)start('cards',[skillIndex]);else returnToModes();};
   mixedExam=null;
  }
  function renderMixedExam(){
