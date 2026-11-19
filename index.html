@@ -599,10 +599,29 @@ function rankTitle(points){return points>=1000?'Експерт':points>=500?'М�
 function renderMyRank(){const el=$('myRank');if(el)el.textContent='Твій рівень: '+rankTitle(state.points)+' · '+state.points+' балів';}
 async function syncPublicRank(){
  if(!firebaseUser||!cloudReady)return;
+ const rankRef=db.collection('leaderboard').doc(firebaseUser.uid);
+ // Викладачі та адміністратор ніколи не беруть участі в студентському рейтингу.
+ try{
+  let accountRole=practice52CurrentRole;
+  if(firebaseUser.uid==='NIXSOWQ2c1Tkh5TVGU6z9zkbhOp2')accountRole='admin';
+  else{
+   const roleSnap=await db.collection('roles').doc(firebaseUser.uid).get();
+   const roleData=roleSnap.exists?(roleSnap.data()||{}):{};
+   if(roleData.role==='teacher'||roleData.role==='admin')accountRole=roleData.role;
+  }
+  if(accountRole==='teacher'||accountRole==='admin'){
+   await rankRef.delete();
+   return;
+  }
+ }catch(roleError){
+  console.warn('Role verification failed; public ranking is disabled for safety:',roleError);
+  try{await rankRef.delete();}catch(deleteError){console.warn('Could not remove public rank entry:',deleteError);}
+  return;
+ }
  const profile=readLocalProfile()||{};
- if(!profile.nickname||normalizeNickname(profile.nickname)==='student'){await db.collection('leaderboard').doc(firebaseUser.uid).delete();return;}
- if(!$('profileVisible').checked){await db.collection('leaderboard').doc(firebaseUser.uid).delete();return;}
- const completed=Array.isArray(state.done)?state.done.length:0;await db.collection('leaderboard').doc(firebaseUser.uid).set({nickname:profile.nickname||'student',avatar:profile.avatar||DEFAULT_AVATAR,points:Number(state.points)||0,completed,progressPercent:Math.round(completed/52*100),correct:Number(state.correct)||0,answered:Number(state.answered)||0,accuracy:state.answered?Math.round(state.correct/state.answered*100):0,level:rankTitle(Number(state.points)||0),updatedAt:firebase.firestore.FieldValue.serverTimestamp()});
+ if(!profile.nickname||normalizeNickname(profile.nickname)==='student'){await rankRef.delete();return;}
+ if(!$('profileVisible').checked){await rankRef.delete();return;}
+ const completed=Array.isArray(state.done)?state.done.length:0;await rankRef.set({nickname:profile.nickname||'student',avatar:profile.avatar||DEFAULT_AVATAR,points:Number(state.points)||0,completed,progressPercent:Math.round(completed/52*100),correct:Number(state.correct)||0,answered:Number(state.answered)||0,accuracy:state.answered?Math.round(state.correct/state.answered*100):0,level:rankTitle(Number(state.points)||0),updatedAt:firebase.firestore.FieldValue.serverTimestamp()});
 }
 let leaderboardUnsubscribe=null;
 let selectedPublicRankProfile=null;
@@ -1038,8 +1057,20 @@ async function loadAdminDashboard(){
 }
 async function refreshPractice52Role(user){
  practice52CurrentRole=null;const toggle=document.getElementById('p52AdminToggle');if(toggle)toggle.classList.add('hidden');if(!user)return;
- try{if(user.uid==='NIXSOWQ2c1Tkh5TVGU6z9zkbhOp2'){practice52CurrentRole='admin';}else{const snap=await db.collection('roles').doc(user.uid).get();const roleData=snap.exists?(snap.data()||{}):{};practice52CurrentRole=roleData.role==='teacher'&&roleData.active===false?null:(snap.exists?roleData.role:null);}ensureAdminPanel();const button=document.getElementById('p52AdminToggle');if(button)button.classList.toggle('hidden',practice52CurrentRole!=='admin');}
- catch(err){console.warn('Role lookup failed:',err);}
+ try{
+  if(user.uid==='NIXSOWQ2c1Tkh5TVGU6z9zkbhOp2')practice52CurrentRole='admin';
+  else{
+   const snap=await db.collection('roles').doc(user.uid).get();
+   const roleData=snap.exists?(snap.data()||{}):{};
+   practice52CurrentRole=roleData.role==='teacher'&&roleData.active===false?null:(snap.exists?roleData.role:null);
+  }
+  // При вході або зміні ролі одразу прибираємо викладача/адміністратора з публічного рейтингу.
+  if(practice52CurrentRole==='teacher'||practice52CurrentRole==='admin'){
+   try{await db.collection('leaderboard').doc(user.uid).delete();}
+   catch(rankError){console.warn('Could not remove non-student from public ranking:',rankError);}
+  }
+  ensureAdminPanel();const button=document.getElementById('p52AdminToggle');if(button)button.classList.toggle('hidden',practice52CurrentRole!=='admin');
+ }catch(err){console.warn('Role lookup failed:',err);}
 }
 
 auth.onAuthStateChanged(async user=>{
