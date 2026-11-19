@@ -123,6 +123,8 @@ select{border:1px solid var(--line);background:#fff;border-radius:11px;padding:1
 .p52-ambient-toggle[aria-pressed=true]{background:#e5f4ee;border-color:#a9d8c0;color:#176b50}
 @media(max-width:760px){header{position:relative}.p52-ambient-toggle{position:absolute;top:3px;right:0;width:38px;height:38px;flex-basis:38px;font-size:18px;z-index:2}.header-right{padding-right:0}}
 @media(max-width:600px){.header-right{gap:7px}.p52-ambient-toggle{width:38px;height:38px;flex-basis:38px;font-size:18px}}
+
+.rank-row-button{width:100%;border:0;text-align:left;font:inherit;color:inherit;cursor:pointer;transition:background .15s,transform .15s}.rank-row-button:hover,.rank-row-button:focus-visible{background:#eaf4f9;transform:translateY(-1px);outline:2px solid #8bbbd3;outline-offset:1px}.public-profile-backdrop{position:fixed;inset:0;z-index:10020;display:grid;place-items:center;padding:18px;background:rgba(18,39,55,.48);backdrop-filter:blur(4px)}.public-profile-backdrop.hidden{display:none}.public-profile-card{position:relative;width:min(100%,480px);max-height:min(88vh,760px);overflow:auto;padding:25px;border:1px solid var(--line);border-radius:22px;background:#fff;box-shadow:0 22px 70px rgba(16,43,62,.25)}.public-profile-close{position:absolute;top:12px;right:14px;width:36px;height:36px;border-radius:50%;background:#edf3f6;color:var(--ink);font-size:25px;line-height:1}.public-profile-heading{display:flex;align-items:center;gap:14px;padding-right:35px;margin-bottom:20px}.public-profile-avatar{width:66px;height:66px;flex:0 0 66px;display:grid;place-items:center;overflow:hidden;border-radius:50%;background:#edf5f8;font-size:32px}.public-profile-avatar img{width:100%;height:100%;object-fit:cover}.public-profile-heading h3{margin:0 0 3px;overflow-wrap:anywhere}.public-profile-heading p{margin:0;color:var(--muted)}.public-profile-stats{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.public-profile-stats>div{padding:14px;border-radius:13px;background:#f3f7f9}.public-profile-stats strong{display:block;font-size:25px;color:var(--ink)}.public-profile-stats span{font-size:12px;color:var(--muted)}.public-profile-progress{margin-top:18px;padding:16px;border:1px solid var(--line);border-radius:14px}.public-profile-progress-label{display:flex;justify-content:space-between;gap:10px}.public-profile-progress-track{height:9px;margin-top:10px;overflow:hidden;border-radius:20px;background:#eaf0f3}.public-profile-progress-track i{display:block;height:100%;width:0;border-radius:20px;background:linear-gradient(90deg,#168b83,#55b879);transition:width .3s}.public-profile-progress p{margin:10px 0 0;color:var(--muted);font-size:13px}.public-profile-note{margin:14px 0 0;color:var(--muted);font-size:11px}@media(max-width:520px){.public-profile-card{padding:20px}.public-profile-stats strong{font-size:22px}}
 </style>
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
@@ -561,19 +563,54 @@ async function syncPublicRank(){
  if(!firebaseUser||!cloudReady)return;
  const profile=readLocalProfile()||{};
  if(!$('profileVisible').checked){await db.collection('leaderboard').doc(firebaseUser.uid).delete();return;}
- await db.collection('leaderboard').doc(firebaseUser.uid).set({nickname:profile.nickname||'student',avatar:profile.avatar||DEFAULT_AVATAR,points:Number(state.points)||0,completed:Array.isArray(state.done)?state.done.length:0,accuracy:state.answered?Math.round(state.correct/state.answered*100):0,updatedAt:firebase.firestore.FieldValue.serverTimestamp()});
+ const completed=Array.isArray(state.done)?state.done.length:0;await db.collection('leaderboard').doc(firebaseUser.uid).set({nickname:profile.nickname||'student',avatar:profile.avatar||DEFAULT_AVATAR,points:Number(state.points)||0,completed,progressPercent:Math.round(completed/52*100),correct:Number(state.correct)||0,answered:Number(state.answered)||0,accuracy:state.answered?Math.round(state.correct/state.answered*100):0,level:rankTitle(Number(state.points)||0),updatedAt:firebase.firestore.FieldValue.serverTimestamp()});
 }
 let leaderboardUnsubscribe=null;
+let selectedPublicRankProfile=null;
+function closePublicRankProfile(){
+ const modal=$('publicRankProfileModal');if(!modal)return;
+ modal.classList.add('hidden');modal.setAttribute('aria-hidden','true');selectedPublicRankProfile=null;
+}
+function openPublicRankProfile(profile){
+ selectedPublicRankProfile=profile;
+ let modal=$('publicRankProfileModal');
+ if(!modal){
+  modal=document.createElement('div');modal.id='publicRankProfileModal';modal.className='public-profile-backdrop hidden';modal.setAttribute('aria-hidden','true');
+  modal.innerHTML='<section class="public-profile-card" role="dialog" aria-modal="true" aria-labelledby="publicProfileTitle"><button type="button" class="public-profile-close" aria-label="Закрити профіль">×</button><div class="public-profile-heading"><div class="public-profile-avatar" id="publicProfileAvatar">⭐</div><div><h3 id="publicProfileTitle">Профіль учасника</h3><p id="publicProfileLevel">Початківець</p></div></div><div class="public-profile-stats"><div><strong id="publicProfilePoints">0</strong><span>Балів рейтингу</span></div><div><strong id="publicProfileAccuracy">—</strong><span>Точність відповідей</span></div><div><strong id="publicProfileCompleted">0/52</strong><span>Навичок опрацьовано</span></div><div><strong id="publicProfileAnswered">—</strong><span>Відповідей надано</span></div></div><div class="public-profile-progress"><div class="public-profile-progress-label"><b>Прогрес навчання</b><strong id="publicProfilePercent">0%</strong></div><div class="public-profile-progress-track"><i id="publicProfileProgressBar"></i></div><p id="publicProfileStatus"></p></div><p class="public-profile-note">Показано лише навчальну статистику, доступну в публічному рейтингу.</p></section>';
+  document.body.appendChild(modal);
+  modal.addEventListener('click',e=>{if(e.target===modal||e.target.closest('.public-profile-close'))closePublicRankProfile();});
+ }
+ const d=profile.data||{},completed=Math.max(0,Math.min(52,Number(d.completed)||0));
+ const percent=Math.max(0,Math.min(100,Number.isFinite(Number(d.progressPercent))?Number(d.progressPercent):Math.round(completed/52*100)));
+ const answered=Math.max(0,Number(d.answered)||0),accuracy=answered?Math.max(0,Math.min(100,Number(d.accuracy)||0)):null;
+ const avatar=typeof d.avatar==='string'&&d.avatar?d.avatar:'⭐';
+ const avatarEl=$('publicProfileAvatar');avatarEl.textContent='';if(avatar.startsWith('data:image/')){const img=document.createElement('img');img.src=avatar;img.alt='';img.onerror=()=>{avatarEl.textContent='⭐';};avatarEl.appendChild(img);}else avatarEl.textContent=avatar;
+ $('publicProfileTitle').textContent=typeof d.nickname==='string'&&d.nickname.trim()?d.nickname.trim():'Учасник';
+ $('publicProfileLevel').textContent=d.level||rankTitle(Number(d.points)||0);
+ $('publicProfilePoints').textContent=String(Number(d.points)||0);
+ $('publicProfileAccuracy').textContent=accuracy===null?'—':accuracy+'%';
+ $('publicProfileCompleted').textContent=completed+'/52';
+ $('publicProfileAnswered').textContent=answered?String(answered):'—';
+ $('publicProfilePercent').textContent=percent+'%';
+ $('publicProfileProgressBar').style.width=percent+'%';
+ $('publicProfileStatus').textContent=completed>=52?'Каталог навичок опрацьовано повністю':completed>0?'У процесі навчання · опрацьовано '+completed+' із 52 навичок':'Навчання ще не розпочато';
+ modal.classList.remove('hidden');modal.setAttribute('aria-hidden','false');
+ const close=modal.querySelector('.public-profile-close');if(close)close.focus();
+}
+document.addEventListener('keydown',e=>{if(e.key==='Escape')closePublicRankProfile();});
 function renderLeaderboardSnapshot(snap){
  const status=$('leaderboardStatus'),list=$('leaderboardList');if(!status||!list)return;
  list.innerHTML='';
  if(snap.empty){status.textContent='Поки що немає учасників у рейтингу. Увійдіть і дозвольте показ профілю, щоб з’явитися тут.';return;}
- status.textContent='Топ учасників за набраними балами';
+ status.textContent='Натисни на учасника, щоб переглянути його навчальний профіль';
  let place=0;
  snap.forEach(doc=>{
-  const d=doc.data()||{},row=document.createElement('div');
-  row.className='rank-row'+(firebaseUser&&doc.id===firebaseUser.uid?' rank-me':'');
-  const placeEl=document.createElement('span');placeEl.className='rank-place';placeEl.textContent='#'+(++place);
+  const d=doc.data()||{},row=document.createElement('button');
+  row.type='button';row.className='rank-row rank-row-button'+(firebaseUser&&doc.id===firebaseUser.uid?' rank-me':'');
+  row.setAttribute('aria-label','Відкрити навчальний профіль '+(d.nickname||'учасника'));
+  row.addEventListener('click',()=>openPublicRankProfile({id:doc.id,data:d,place:placeNumber}));
+  const placeNumber=++place;
+  const placeEl=document.createElement('span');placeEl.className='rank-place';placeEl.textContent='#'+placeNumber;
   const nameEl=document.createElement('span');nameEl.className='rank-name';
   const avatar=typeof d.avatar==='string'?d.avatar:'⭐';
   if(avatar.startsWith('data:image/')){
