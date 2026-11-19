@@ -147,6 +147,9 @@ select{border:1px solid var(--line);background:#fff;border-radius:11px;padding:1
 .p52-admin-group{padding:12px;margin:10px 0;border:1px solid var(--line);border-radius:13px;background:#fbfdfe}
 .p52-admin-stats{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.p52-admin-stat{padding:15px;border:1px solid var(--line);border-radius:12px;background:#f5f9fb}.p52-admin-stat strong{display:block;font-size:25px}.p52-admin-stat span{font-size:12px;color:var(--muted)}
 
+
+/* Вибір ролі та запрошення викладачів */
+.p52-entry-backdrop{position:fixed;inset:0;z-index:10000;display:grid;place-items:center;padding:18px;background:rgba(12,35,52,.68);backdrop-filter:blur(5px)}.p52-entry-card{width:min(520px,100%);padding:26px;border-radius:22px;background:#fff;box-shadow:0 24px 80px #061b2b55}.p52-entry-card h2{margin:4px 0 8px;font-size:25px}.p52-entry-card p{color:var(--muted);margin:0 0 18px}.p52-entry-choices{display:grid;grid-template-columns:1fr 1fr;gap:10px}.p52-entry-choice{padding:18px 12px;border:1px solid var(--line);border-radius:14px;background:#f8fbfd;color:var(--ink);font-weight:750;font-size:16px}.p52-entry-choice:hover,.p52-entry-choice.selected{border-color:var(--blue);background:#eef7fc}.p52-entry-actions{display:grid;gap:9px;margin-top:16px}.p52-entry-actions button{width:100%;padding:12px}.p52-entry-code{margin:12px 0;padding:12px;border:1px solid #cfe3ed;border-radius:12px;background:#f3f9fc}.p52-entry-code code{font-weight:800;letter-spacing:.08em;overflow-wrap:anywhere}.p52-invite-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:10px;border:1px solid var(--line);border-radius:11px;margin:7px 0;background:#fff}.p52-invite-row code{font-weight:800;letter-spacing:.05em}.p52-invite-row small{color:var(--muted);flex:1}.p52-invite-row button{padding:7px 10px;border-radius:8px;background:#edf3f6}.p52-admin-subhead{margin:18px 0 8px}@media(max-width:420px){.p52-entry-choices{grid-template-columns:1fr}.p52-entry-card{padding:20px}}
 </style>
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
@@ -154,9 +157,11 @@ select{border:1px solid var(--line);background:#fff;border-radius:11px;padding:1
 </head>
 <body>
 <div class="app">
+<div id="p52EntryBackdrop" class="p52-entry-backdrop hidden" role="dialog" aria-modal="true" aria-labelledby="p52EntryTitle"><div class="p52-entry-card"><div class="eyebrow">ЛАСКАВО ПРОСИМО</div><h2 id="p52EntryTitle">Як ти плануєш користуватися PRACTICE 52?</h2><p>Обери свою роль. Це налаштування інтерфейсу; права викладача підтверджуються окремим запрошенням.</p><div class="p52-entry-choices"><button type="button" class="p52-entry-choice" data-entry-role="student">🎓 Я — учень</button><button type="button" class="p52-entry-choice" data-entry-role="teacher">👩‍🏫 Я — викладач</button></div><div class="p52-entry-actions hidden" id="p52EntryActions"><button type="button" class="btn primary" id="p52EntryGuest">Продовжити як гість</button><button type="button" class="btn" id="p52EntryAccount">Створити акаунт / увійти</button><button type="button" class="btn" id="p52EntryBack">Змінити роль</button></div><p class="note" id="p52EntryNote">Гостьовий режим доступний для обох ролей. Прогрес зберігається на цьому пристрої.</p></div></div>
+
 <header>
  <div class="brand"><div class="logo">＋</div><div><h1>PRACTICE 52</h1><p>Навчальний тренажер практичних навичок</p></div></div>
- <div class="header-right"><button type="button" class="student-identity" id="studentIdentity" aria-controls="accountPanel" aria-expanded="false" title="Відкрити профіль або увійти"><span class="student-avatar" id="headerAvatar">🦊</span><span class="student-nickname" id="headerNickname">Гість</span><span class="sync-check" id="savedLabel" role="status" aria-label="Синхронізовано" title="Синхронізовано">✓</span></button></div>
+ <div class="header-right"><button type="button" class="student-identity" id="studentIdentity" aria-controls="accountPanel" aria-expanded="false" title="Відкрити профіль або увійти; для зміни ролі натисни й утримуй"><span class="student-avatar" id="headerAvatar">🦊</span><span class="student-nickname" id="headerNickname">Гість</span><span class="sync-check" id="savedLabel" role="status" aria-label="Синхронізовано" title="Синхронізовано">✓</span></button></div>
 </header>
 <section class="registration hidden" id="accountPanel" aria-labelledby="regTitle">
  <h3 id="regTitle">Обліковий запис PRACTICE 52</h3>
@@ -842,7 +847,7 @@ function ensureAdminPanel(){
  });
  document.querySelector('.header-right')?.appendChild(toggle);
  const panel=adminNode('section','p52-admin-panel hidden');panel.id='p52AdminPanel';
- panel.innerHTML='<h2>Адміністрування PRACTICE 52</h2><p>Керуйте викладачами та навчальними групами. Пошук зараз охоплює користувачів із відкритими профілями в публічному рейтингу.</p><div class="p52-admin-tabs"><button type="button" class="p52-admin-tab active" data-admin-tab="teachers">Викладачі</button><button type="button" class="p52-admin-tab" data-admin-tab="groups">Навчальні групи</button><button type="button" class="p52-admin-tab" data-admin-tab="analytics">Аналітика</button></div><div class="p52-admin-status" id="p52AdminStatus" role="status"></div><section data-admin-section="teachers"><h3>Призначити викладача</h3><input class="p52-admin-search" id="p52TeacherSearch" placeholder="Пошук за нікнеймом або UID"><div class="p52-admin-list" id="p52TeacherSearchResults"></div><h3>Викладачі платформи</h3><div class="p52-admin-list" id="p52AdminRoleList">Завантаження…</div></section><section data-admin-section="groups" class="hidden"><h3>Створити навчальну групу</h3><form class="p52-admin-form" id="p52GroupForm"><input id="p52GroupName" maxlength="80" placeholder="Назва групи" required><select id="p52GroupTeacher" required><option value="">Оберіть викладача</option></select><button class="btn primary" type="submit">Створити групу</button></form><h3>Навчальні групи</h3><div class="p52-admin-list" id="p52GroupList">Завантаження…</div></section><section data-admin-section="analytics" class="hidden"><h3>Загальна картина</h3><div class="p52-admin-stats" id="p52AdminStats">Завантаження…</div><p>Аналітика наразі використовує лише відкриті профілі рейтингу. Детальні результати всіх студентів додамо окремо з відповідними правами доступу.</p></section>';
+ panel.innerHTML='<h2>Адміністрування PRACTICE 52</h2><p>Керуйте викладачами та навчальними групами. Пошук зараз охоплює користувачів із відкритими профілями в публічному рейтингу.</p><div class="p52-admin-tabs"><button type="button" class="p52-admin-tab active" data-admin-tab="teachers">Викладачі</button><button type="button" class="p52-admin-tab" data-admin-tab="groups">Навчальні групи</button><button type="button" class="p52-admin-tab" data-admin-tab="analytics">Аналітика</button></div><div class="p52-admin-status" id="p52AdminStatus" role="status"></div><section data-admin-section="teachers"><h3 class="p52-admin-subhead">Коди запрошення викладачів</h3><p>Одноразові коди діють 7 днів. Надішли код конкретному викладачу; після використання він стане недійсним.</p><form class="p52-admin-form" id="p52InviteForm"><button class="btn primary" type="submit">＋ Створити код запрошення</button></form><div class="p52-admin-list" id="p52InviteList">Завантаження…</div><h3>Призначити викладача</h3><input class="p52-admin-search" id="p52TeacherSearch" placeholder="Пошук за нікнеймом або UID"><div class="p52-admin-list" id="p52TeacherSearchResults"></div><h3>Викладачі платформи</h3><div class="p52-admin-list" id="p52AdminRoleList">Завантаження…</div></section><section data-admin-section="groups" class="hidden"><h3>Створити навчальну групу</h3><form class="p52-admin-form" id="p52GroupForm"><input id="p52GroupName" maxlength="80" placeholder="Назва групи" required><select id="p52GroupTeacher" required><option value="">Оберіть викладача</option></select><button class="btn primary" type="submit">Створити групу</button></form><h3>Навчальні групи</h3><div class="p52-admin-list" id="p52GroupList">Завантаження…</div></section><section data-admin-section="analytics" class="hidden"><h3>Загальна картина</h3><div class="p52-admin-stats" id="p52AdminStats">Завантаження…</div><p>Аналітика наразі використовує лише відкриті профілі рейтингу. Детальні результати всіх студентів додамо окремо з відповідними правами доступу.</p></section>';
  header.insertAdjacentElement('afterend',panel);
  panel.querySelectorAll('[data-admin-tab]').forEach(btn=>btn.addEventListener('click',()=>{
   panel.querySelectorAll('[data-admin-tab]').forEach(b=>b.classList.toggle('active',b===btn));
@@ -850,10 +855,64 @@ function ensureAdminPanel(){
   if(btn.dataset.adminTab==='groups')loadAdminGroups();
   if(btn.dataset.adminTab==='analytics')loadAdminAnalytics();
  }));
- document.getElementById('p52TeacherSearch').addEventListener('input',e=>renderAdminUserSearch(e.target.value,'p52TeacherSearchResults',assignTeacher,'Немає відкритих профілів за цим запитом.'));
+ document.getElementById('p52InviteForm').addEventListener('submit',createTeacherInvite);\n  document.getElementById('p52TeacherSearch').addEventListener('input',e=>renderAdminUserSearch(e.target.value,'p52TeacherSearchResults',assignTeacher,'Немає відкритих профілів за цим запитом.'));
  document.getElementById('p52GroupForm').addEventListener('submit',createAdminGroup);
  practice52AdminPanelReady=true;
 }
+
+function makeTeacherInviteCode(){
+ const alphabet='ABCDEFGHJKLMNPQRSTUVWXYZ23456789';const bytes=new Uint8Array(8);crypto.getRandomValues(bytes);
+ const raw=Array.from(bytes,b=>alphabet[b%alphabet.length]).join('');
+ return 'P52-TEACH-'+raw.slice(0,4)+'-'+raw.slice(4);
+}
+async function createTeacherInvite(e){
+ e.preventDefault();if(practice52CurrentRole!=='admin')return;
+ const btn=e.currentTarget.querySelector('button[type="submit"]');btn.disabled=true;
+ try{
+  let code=makeTeacherInviteCode(),ref=db.collection('teacherInvites').doc(code),exists=await ref.get();
+  while(exists.exists){code=makeTeacherInviteCode();ref=db.collection('teacherInvites').doc(code);exists=await ref.get();}
+  const expiresAt=firebase.firestore.Timestamp.fromDate(new Date(Date.now()+7*24*60*60*1000));
+  await ref.set({createdBy:firebaseUser.uid,createdAt:firebase.firestore.FieldValue.serverTimestamp(),expiresAt,used:false});
+  await loadTeacherInvites();
+  const status=document.getElementById('p52AdminStatus');
+  if(status)status.innerHTML='Створено код: <span class="p52-entry-code"><code>'+code+'</code></span> <button type="button" class="btn" id="p52CopyNewInvite">Копіювати</button>';
+  document.getElementById('p52CopyNewInvite')?.addEventListener('click',async()=>{try{await navigator.clipboard.writeText(code);setAdminStatus('Код скопійовано. Надішли його викладачу.');}catch(err){setAdminStatus('Код: '+code);}});
+ }catch(err){console.error(err);setAdminStatus('Не вдалося створити код. Перевір правила Firestore.',true);}
+ finally{btn.disabled=false;}
+}
+async function loadTeacherInvites(){
+ if(practice52CurrentRole!=='admin')return;
+ const el=document.getElementById('p52InviteList');if(!el)return;
+ try{
+  const snap=await db.collection('teacherInvites').orderBy('createdAt','desc').limit(30).get();
+  if(snap.empty){el.textContent='Поки немає кодів запрошення.';return;}
+  el.innerHTML='';
+  snap.forEach(doc=>{
+   const d=doc.data()||{},row=adminNode('div','p52-invite-row');
+   const code=adminNode('code','',doc.id),meta=adminNode('small','',d.used?'Використаний':(d.expiresAt&&d.expiresAt.toDate()<=new Date()?'Термін дії минув':'Активний · до '+(d.expiresAt?d.expiresAt.toDate().toLocaleDateString('uk-UA'):'—')));
+   row.append(code,meta);
+   if(!d.used){const copy=adminNode('button','','Копіювати');copy.type='button';copy.onclick=async()=>{try{await navigator.clipboard.writeText(doc.id);setAdminStatus('Код скопійовано.');}catch(e){setAdminStatus('Код: '+doc.id);}};const revoke=adminNode('button','','Відкликати');revoke.type='button';revoke.onclick=async()=>{if(!confirm('Відкликати код '+doc.id+'?'))return;try{await db.collection('teacherInvites').doc(doc.id).delete();await loadTeacherInvites();}catch(e){setAdminStatus('Не вдалося відкликати код.',true);}};row.append(copy,revoke);}
+   el.appendChild(row);
+  });
+ }catch(err){console.error(err);el.textContent='Не вдалося завантажити коди. Перевір правила Firestore.';}
+}
+async function redeemTeacherInvite(rawCode,user){
+ const code=String(rawCode||'').trim().toUpperCase();
+ if(!/^P52-TEACH-[A-HJ-NP-Z2-9]{4}-[A-HJ-NP-Z2-9]{4}$/.test(code))throw new Error('Введи коректний код запрошення викладача.');
+ const inviteRef=db.collection('teacherInvites').doc(code),roleRef=db.collection('roles').doc(user.uid);
+ await db.runTransaction(async tx=>{
+  const inviteSnap=await tx.get(inviteRef),roleSnap=await tx.get(roleRef);
+  if(!inviteSnap.exists)throw new Error('Код запрошення не знайдено.');
+  const invite=inviteSnap.data()||{};
+  if(invite.used)throw new Error('Цей код уже використаний.');
+  if(!invite.expiresAt||invite.expiresAt.toDate()<=new Date())throw new Error('Термін дії коду завершився. Попроси адміністратора створити новий.');
+  if(roleSnap.exists&&(roleSnap.data()||{}).role==='admin')throw new Error('Обліковий запис адміністратора не потребує коду викладача.');
+  tx.update(inviteRef,{used:true,usedBy:user.uid,usedAt:firebase.firestore.FieldValue.serverTimestamp()});
+  tx.set(roleRef,{role:'teacher',inviteCode:code,assignedAt:firebase.firestore.FieldValue.serverTimestamp()});
+ });
+ await refreshPractice52Role(user);
+}
+
 async function assignTeacher(user){
  if(practice52CurrentRole!=='admin'||!firebaseUser)return;
  if(user.uid===firebaseUser.uid){setAdminStatus('Цей акаунт уже є адміністратором.',true);return;}
@@ -942,7 +1001,7 @@ async function loadAdminAnalytics(){
 async function loadAdminDashboard(){
  if(practice52CurrentRole!=='admin')return;
  setAdminStatus('Завантажуємо дані…');
- try{await loadAdminPublicUsers();renderAdminUserSearch('','p52TeacherSearchResults',assignTeacher);await loadAdminRoles();await loadAdminTeacherOptions();setAdminStatus('Дані завантажено.');}
+ try{await loadAdminPublicUsers();renderAdminUserSearch('','p52TeacherSearchResults',assignTeacher);await loadAdminRoles();await loadAdminTeacherOptions();await loadTeacherInvites();setAdminStatus('Дані завантажено.');}
  catch(err){console.error(err);setAdminStatus('Не вдалося завантажити відкриті профілі рейтингу.',true);}
 }
 async function refreshPractice52Role(user){
@@ -1722,5 +1781,33 @@ renderStats();renderSkills();renderHeaderIdentity();
  try{if(localStorage.getItem(KEY)==='1')button.title='Натисни, щоб увімкнути фонову музику';}catch(e){}
 })();</script>
 
+<script>
+(function(){
+ const ROLE_KEY='practice52_entry_role_v1',DONE_KEY='practice52_entry_done_v1';
+ const backdrop=document.getElementById('p52EntryBackdrop'),actions=document.getElementById('p52EntryActions');
+ let selected=localStorage.getItem(ROLE_KEY)||'';
+ function updateRoleUI(){
+  document.querySelectorAll('[data-entry-role]').forEach(b=>b.classList.toggle('selected',b.dataset.entryRole===selected));
+  actions.classList.toggle('hidden',!selected);
+  const field=document.getElementById('teacherInviteField');
+  if(field){field.classList.toggle('hidden',selected!=='teacher');document.getElementById('teacherInviteCode').required=selected==='teacher';}
+ }
+ function openEntry(){backdrop.classList.remove('hidden');selected=localStorage.getItem(ROLE_KEY)||'';updateRoleUI();}
+ document.querySelectorAll('[data-entry-role]').forEach(b=>b.addEventListener('click',()=>{selected=b.dataset.entryRole;updateRoleUI();}));
+ document.getElementById('p52EntryBack').addEventListener('click',()=>{selected='';updateRoleUI();});
+ document.getElementById('p52EntryGuest').addEventListener('click',()=>{
+  if(!selected)return;localStorage.setItem(ROLE_KEY,selected);localStorage.setItem(DONE_KEY,'1');backdrop.classList.add('hidden');
+  document.getElementById('regStatus').textContent=selected==='teacher'?'Гостьовий режим викладача: доступний навчальний тренажер. Для кабінету викладача потрібен акаунт із підтвердженою роллю.':'Гостьовий режим учня. Прогрес зберігається на цьому пристрої.';
+ });
+ document.getElementById('p52EntryAccount').addEventListener('click',()=>{
+  if(!selected)return;localStorage.setItem(ROLE_KEY,selected);localStorage.setItem(DONE_KEY,'1');backdrop.classList.add('hidden');
+  const panel=document.getElementById('accountPanel');panel.classList.remove('hidden');panel.scrollIntoView({behavior:'smooth',block:'start'});updateRoleUI();
+  document.getElementById('regTitle').textContent=selected==='teacher'?'Реєстрація викладача PRACTICE 52':'Обліковий запис учня PRACTICE 52';
+ });
+ document.getElementById('studentIdentity').addEventListener('contextmenu',e=>{e.preventDefault();openEntry();});
+ if(!localStorage.getItem(DONE_KEY)&&!firebase.auth().currentUser)setTimeout(openEntry,250);
+ window.practice52OpenEntry=openEntry;
+})();
+</script>
 </body>
 </html>
