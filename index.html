@@ -1791,6 +1791,7 @@ renderStats();renderSkills();renderHeaderIdentity();
   actions.classList.toggle('hidden',!selected);
   const field=document.getElementById('teacherInviteField');
   if(field){field.classList.toggle('hidden',selected!=='teacher');document.getElementById('teacherInviteCode').required=selected==='teacher';}
+  const google=document.getElementById('googleLogin');if(google)google.classList.toggle('hidden',selected==='teacher'||!!firebase.auth().currentUser);
  }
  function openEntry(){backdrop.classList.remove('hidden');selected=localStorage.getItem(ROLE_KEY)||'';updateRoleUI();}
  document.querySelectorAll('[data-entry-role]').forEach(b=>b.addEventListener('click',()=>{selected=b.dataset.entryRole;updateRoleUI();}));
@@ -1807,6 +1808,7 @@ renderStats();renderSkills();renderHeaderIdentity();
  document.getElementById('studentIdentity').addEventListener('contextmenu',e=>{e.preventDefault();openEntry();});
  if(!localStorage.getItem(DONE_KEY)&&!firebase.auth().currentUser)setTimeout(openEntry,250);
  window.practice52OpenEntry=openEntry;
+ const roleButton=document.createElement('button');roleButton.type='button';roleButton.className='btn';roleButton.textContent='Змінити роль';roleButton.title='Змінити роль учня або викладача';roleButton.addEventListener('click',openEntry);document.querySelector('.header-right')?.appendChild(roleButton);
 })();
 </script>
 </body>
