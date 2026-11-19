@@ -732,6 +732,7 @@ auth.onAuthStateChanged(async user=>{
     if(!state.ratings||typeof state.ratings!=='object')state.ratings=data.progress.ratings||{};
     if(!state.skillStatusUpdatedAt||typeof state.skillStatusUpdatedAt!=='object')state.skillStatusUpdatedAt={};
     state.lessonTestsCompleted={...(data.progress.lessonTestsCompleted||{}),...(localState.lessonTestsCompleted||{})};
+    state.learningProgress={...(data.progress.learningProgress||{}),...(localState.learningProgress||{})};
     mergeCloudSkillStatuses(data.progress);
     state.points=Math.max(Number(localState.points)||0,Number(data.progress.points)||0);state.correct=Math.max(Number(localState.correct)||0,Number(data.progress.correct)||0);state.answered=Math.max(Number(localState.answered)||0,Number(data.progress.answered)||0);
     localStorage.setItem(KEY,JSON.stringify(state));
@@ -750,7 +751,7 @@ auth.onAuthStateChanged(async user=>{
   try{await syncPublicRank();}catch(rankErr){console.warn('Initial public rank sync failed:',rankErr);}
   await loadLeaderboard();watchLeaderboard();queueCloudSave();
   if(window.practice52ProgressUnsubscribe)window.practice52ProgressUnsubscribe();
-  window.practice52ProgressUnsubscribe=ref.onSnapshot(snap=>{if(!snap.exists)return;const remote=(snap.data()||{}).progress;if(!remote)return;const before=JSON.stringify({done:state.done,needsReview:state.needsReview,skillStatusUpdatedAt:state.skillStatusUpdatedAt,lessonTestsCompleted:state.lessonTestsCompleted});mergeCloudSkillStatuses(remote);state.lessonTestsCompleted={...(remote.lessonTestsCompleted||{}),...(state.lessonTestsCompleted||{})};const after=JSON.stringify({done:state.done,needsReview:state.needsReview,skillStatusUpdatedAt:state.skillStatusUpdatedAt,lessonTestsCompleted:state.lessonTestsCompleted});if(before!==after){localStorage.setItem(KEY,JSON.stringify(state));renderStats();renderSkills();queueCloudSave();}},err=>{console.warn('Progress sync listener failed:',err);setAuthStatus('Не вдалося оновити синхронізацію прогресу в реальному часі.',true);});
+  window.practice52ProgressUnsubscribe=ref.onSnapshot(snap=>{if(!snap.exists)return;const remote=(snap.data()||{}).progress;if(!remote)return;const before=JSON.stringify({done:state.done,needsReview:state.needsReview,skillStatusUpdatedAt:state.skillStatusUpdatedAt,lessonTestsCompleted:state.lessonTestsCompleted,learningProgress:state.learningProgress});mergeCloudSkillStatuses(remote);state.lessonTestsCompleted={...(remote.lessonTestsCompleted||{}),...(state.lessonTestsCompleted||{})};state.learningProgress={...(remote.learningProgress||{}),...(state.learningProgress||{})};const after=JSON.stringify({done:state.done,needsReview:state.needsReview,skillStatusUpdatedAt:state.skillStatusUpdatedAt,lessonTestsCompleted:state.lessonTestsCompleted,learningProgress:state.learningProgress});if(before!==after){localStorage.setItem(KEY,JSON.stringify(state));renderStats();renderSkills();queueCloudSave();}},err=>{console.warn('Progress sync listener failed:',err);setAuthStatus('Не вдалося оновити синхронізацію прогресу в реальному часі.',true);});
   setAuthStatus('Вхід виконано: '+(user.email||user.displayName||'користувач')+'. Прогрес синхронізується між пристроями.');
   $('savedLabel').textContent='Firebase ✓';renderHeaderIdentity();
  }catch(err){console.error('Firebase load failed:',err);setAuthStatus('Авторизація є, але не вдалося прочитати дані. Перевір правила Firestore.',true);}
@@ -1188,6 +1189,194 @@ if(catalogToggle&&catalogPanel){catalogToggle.addEventListener('click',()=>{cons
 $('search').addEventListener('input',renderSkills);$('searchNumber').addEventListener('input',renderSkills);$('filter').addEventListener('change',renderSkills);
 renderStats();renderSkills();renderHeaderIdentity();
 
+
+</script>
+<script>
+/* PRACTICE 52 — послідовний маршрут навички та комплексний екзамен */
+(function(){
+ 'use strict';
+ if(!state.learningProgress||typeof state.learningProgress!=='object')state.learningProgress={};
+ const originalStart=start;
+ let mixedExam=null, examTimer=null, examSeconds=0;
+ const progressFor=i=>{
+  const key=String(i);
+  if(!state.learningProgress[key])state.learningProgress[key]={tests:false,sequence:false,clinical:false,exam:false,updatedAt:0};
+  return state.learningProgress[key];
+ };
+ const allPartsDone=i=>{const p=progressFor(i);return !!(p.tests&&p.sequence&&p.clinical&&p.exam);};
+ const updateSkillCompletion=i=>{
+  const was=state.done.includes(i);
+  state.done=state.done.filter(x=>x!==i);
+  if(allPartsDone(i))state.done.push(i);
+  state.skillStatusUpdatedAt[String(i)]=Date.now();
+  save();
+  if(typeof renderSkills==='function')renderSkills();
+  if(!was&&state.done.includes(i)&&typeof showCompletionCelebration==='function')showCompletionCelebration(i);
+ };
+ const setPart=(i,part,value=true)=>{
+  const p=progressFor(i);p[part]=!!value;p.updatedAt=Date.now();
+  if(part==='tests'&&value)state.lessonTestsCompleted[String(i)]={completed:true,total:(lessons[i]?.questions||[]).length,completedAt:Date.now()};
+  updateSkillCompletion(i);
+ };
+ const statusHtml=i=>{
+  const p=progressFor(i);
+  const labels=[['tests','Тести'],['sequence','Послідовність'],['clinical','Клінічні ситуації'],['exam','Екзамен']];
+  return '<div class="p52-progress"><b>Маршрут навички</b><div class="p52-progress-grid">'+labels.map(([k,n])=>'<span class="'+(p[k]?'is-done':'')+'">'+(p[k]?'✓':'○')+' '+n+'</span>').join('')+'</div><small>'+(allPartsDone(i)?'Усі етапи завершено — навичку вивчено.':'Для статусу «Вивчено» потрібно завершити всі чотири етапи.')+'</small></div>';
+ };
+ const css=document.createElement('style');
+ css.textContent='.p52-progress{margin:18px 0;padding:15px;border:1px solid #d7e5ec;border-radius:14px;background:#f7fafc}.p52-progress-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin:10px 0}.p52-progress-grid span{padding:9px 10px;border-radius:9px;background:#edf2f5;color:#617789;font-size:13px}.p52-progress-grid span.is-done{background:#e8f6ee;color:#19744d;font-weight:700}.p52-progress small{color:#718394}.p52-exam-btn{margin-top:10px}.p52-exam-task{max-width:760px;margin:0 auto;text-align:left}.p52-exam-step{display:flex;align-items:center;gap:10px;padding:11px;margin:8px 0;border:1px solid #dce7ee;border-radius:10px;background:#fff}.p52-exam-step span{flex:1}.p52-exam-step button{padding:7px 11px;border-radius:8px;background:#edf3f6}.p52-exam-clock{display:inline-block;margin:8px 0;padding:8px 12px;border-radius:20px;background:#fff0c2;color:#775300;font-weight:700}.p52-exam-actions{display:flex;gap:9px;flex-wrap:wrap;margin-top:16px}@media(max-width:520px){.p52-progress-grid{grid-template-columns:1fr}.p52-exam-step{gap:6px}.p52-exam-step button{padding:7px}}';
+ document.head.appendChild(css);
+ function addCardProgress(){
+  if(currentMode!=='cards'||!Array.isArray(items)||!items.length)return;
+  const i=items[idx]??items[0],content=$('studyContent');
+  if(!content||!content.querySelector('.study-card'))return;
+  const card=content.querySelector('.study-card');
+  if(card.querySelector('.p52-progress'))return;
+  const oldMark=card.querySelector('#mark');if(oldMark)oldMark.style.display='none';
+  const oldReturn=card.querySelector('#returnToStudy');if(oldReturn)oldReturn.style.display='none';
+  const block=document.createElement('div');block.innerHTML=statusHtml(i);
+  const exam=document.createElement('button');exam.type='button';exam.className='btn primary p52-exam-btn';exam.textContent='🎓 Комплексний екзамен';exam.onclick=()=>start('skillExam',[i]);
+  block.appendChild(exam);
+  const actions=card.querySelector('.actions');
+  if(actions)actions.insertAdjacentElement('afterend',block);else card.appendChild(block);
+ }
+ function addPostTestExam(){
+  if(currentMode!=='cards')return;
+  const box=$('lessonQuestion');if(!box||!box.querySelector('#lessonToSequence')||box.querySelector('#lessonToSkillExam'))return;
+  const i=items[idx]??items[0],actions=box.querySelector('.actions');if(!actions)return;
+  const b=document.createElement('button');b.id='lessonToSkillExam';b.type='button';b.className='btn primary';b.textContent='🎓 Комплексний екзамен';b.onclick=()=>start('skillExam',[i]);actions.appendChild(b);
+  const back=document.createElement('button');back.type='button';back.className='btn';back.textContent='↩ До флеш-картки';back.onclick=()=>start('cards',[i]);actions.appendChild(back);
+ }
+ const observer=new MutationObserver(()=>{
+  try{addCardProgress();addPostTestExam();}catch(e){console.warn('PRACTICE 52 progress UI:',e);}
+ });
+ observer.observe($('studyContent'),{childList:true,subtree:true});
+ const oldRenderSkills=renderSkills;
+ renderSkills=function(){oldRenderSkills();};
+ const oldRenderStudy=renderStudy;
+ renderStudy=function(){
+  oldRenderStudy();
+  if(currentMode==='cards')requestAnimationFrame(addCardProgress);
+ };
+ function makeExamTasks(skillIndexes,perSkill){
+  const tasks=[];
+  skillIndexes.forEach(i=>{
+   const L=lessons[i];if(!L)return;
+   const qs=Array.isArray(L.questions)?L.questions.slice():[];
+   const count=perSkill?Math.min(5,qs.length):Math.min(1,qs.length);
+   shuffle(qs).slice(0,count).forEach(q=>tasks.push({kind:'test',skillIndex:i,q,options:shuffle(q.o.map((v,n)=>({v,n}))).map(x=>x.v),answer:null,correct:q.a}));
+   if(Array.isArray(L.steps)&&L.steps.length>1)tasks.push({kind:'sequence',skillIndex:i,steps:shuffle(L.steps.map((v,n)=>({v,original:n}))),checked:false});
+   if(qs.length){const cq=shuffle(qs)[0];tasks.push({kind:'clinical',skillIndex:i,q:cq,options:shuffle(cq.o.map((v,n)=>({v,n}))).map(x=>x.v),answer:null,correct:cq.a});}
+  });
+  return tasks;
+ }
+ function finishMixedExam(){
+  if(!mixedExam)return;
+  clearInterval(examTimer);examTimer=null;
+  const skillIndex=mixedExam.skillIndex;
+  const total=mixedExam.tasks.length,correct=mixedExam.tasks.filter(t=>t.passed).length,pct=total?Math.round(correct/total*100):0,passed=pct>=70;
+  if(skillIndex!==null&&passed)setPart(skillIndex,'exam',true);
+  const content=$('studyContent');
+  $('counter').textContent='Результат екзамену';$('bar').style.width='100%';
+  content.innerHTML='<div class="study-card"><div class="label">КОМПЛЕКСНИЙ ЕКЗАМЕН ЗАВЕРШЕНО</div><h2>'+(passed?'Екзамен складено! 🎉':'Потрібно ще потренуватися')+'</h2><div class="answer"><b>'+correct+' із '+total+' завдань · '+pct+'%</b><br>Перевірялися теорія, алгоритм і клінічне мислення.<br>Пороговий результат: 70%.<br>'+(mixedExam.skillIndex!==null?(passed?'Етап екзамену зараховано.':'Етап екзамену не зараховано.'):'Загальний екзамен не змінює статус окремих навичок.')+'</div><div class="p52-exam-actions"><button class="btn primary" id="p52ExamAgain">Пройти ще раз</button>'+(skillIndex!==null?'<button class="btn" id="p52BackCard">До флеш-картки</button>':'<button class="btn" id="p52ExamCatalog">До каталогу</button>')+'</div></div>';
+  $('p52ExamAgain').onclick=()=>start(skillIndex===null?'exam':'skillExam',skillIndex===null?null:[skillIndex]);
+  const back=$('p52BackCard')||$('p52ExamCatalog');if(back)back.onclick=()=>{if(skillIndex!==null)start('cards',[skillIndex]);else returnToModes();};
+  mixedExam=null;
+ }
+ function renderMixedExam(){
+  if(!mixedExam)return;
+  const task=mixedExam.tasks[mixedExam.index],content=$('studyContent'),i=task.skillIndex,L=lessons[i];
+  $('counter').textContent='Завдання '+(mixedExam.index+1)+' із '+mixedExam.tasks.length+' · '+skills[i];
+  $('bar').style.width=((mixedExam.index+1)/mixedExam.tasks.length*100)+'%';
+  const clock='<div class="p52-exam-clock" id="p52ExamClock">Залишилось: '+Math.floor(examSeconds/60)+':'+String(examSeconds%60).padStart(2,'0')+'</div>';
+  let body='';
+  if(task.kind==='sequence'){
+   body='<div class="label">ЧАСТИНА 2 · ПОСЛІДОВНІСТЬ</div><h2>'+L.title+'</h2><p>Розташуй кроки алгоритму в правильному порядку.</p><div id="p52Steps">'+task.steps.map((s,n)=>'<div class="p52-exam-step" data-index="'+n+'"><span>'+s.v+'</span><button type="button" data-move="-1">↑</button><button type="button" data-move="1">↓</button></div>').join('')+'</div><div id="p52TaskFeedback"></div>';
+  }else{
+   body='<div class="label">'+(task.kind==='clinical'?'ЧАСТИНА 3 · КЛІНІЧНА СИТУАЦІЯ':'ЧАСТИНА 1 · ТЕСТУВАННЯ')+'</div><h2>'+L.title+'</h2>'+(task.kind==='clinical'?'<div class="mistake-box"><b>Клінічна ситуація:</b> Ви працюєте з пацієнтом. Мета втручання: '+L.goal+'</div>':'')+'<div class="qtitle">'+task.q.q+'</div><div class="options">'+task.options.map((v,n)=>'<button class="option" data-choice="'+n+'">'+v+'</button>').join('')+'</div><div id="p52TaskFeedback"></div>';
+  }
+  content.innerHTML='<div class="study-card p52-exam-task">'+clock+body+'<div class="p52-exam-actions"><button class="btn primary" id="p52TaskNext">'+(mixedExam.index===mixedExam.tasks.length-1?'Завершити екзамен':'Наступне завдання →')+'</button><button class="btn" id="p52TaskExit">Вийти з екзамену</button></div></div>';
+  if(task.kind==='sequence'){
+   const list=$('p52Steps');
+   list.querySelectorAll('.p52-exam-step').forEach(row=>row.querySelectorAll('button').forEach(btn=>btn.onclick=()=>{
+    const from=Number(row.dataset.index),to=from+Number(btn.dataset.move);if(to<0||to>=task.steps.length)return;
+    [task.steps[from],task.steps[to]]=[task.steps[to],task.steps[from]];renderMixedExam();
+   }));
+   task.passed=task.steps.every((s,n)=>s.original===n);
+   $('p52TaskNext').onclick=()=>{task.passed=task.steps.every((s,n)=>s.original===n);if(!task.passed){$('p52TaskFeedback').textContent='Алгоритм розташовано неправильно. Завдання не зараховано.';}mixedExam.index++;if(mixedExam.index>=mixedExam.tasks.length)finishMixedExam();else renderMixedExam();};
+  }else{
+   content.querySelectorAll('[data-choice]').forEach(btn=>btn.onclick=()=>{
+    if(task.answer!==null)return;
+    const chosen=Number(btn.dataset.choice),correctValue=task.q.o[task.q.a],selected=task.options[chosen];
+    task.answer=chosen;task.passed=selected===correctValue;
+    content.querySelectorAll('[data-choice]').forEach(x=>{x.disabled=true;if(x.textContent===correctValue)x.classList.add('correct');});
+    if(!task.passed)btn.classList.add('wrong');
+    $('p52TaskFeedback').innerHTML='<div class="feedback">'+(task.passed?'Правильно!':'Неправильно.')+' '+(task.q.e||'')+'</div>';
+   });
+   $('p52TaskNext').onclick=()=>{if(task.answer===null){$('p52TaskFeedback').textContent='Спочатку обери відповідь. Завдання не зараховано.';return;}mixedExam.index++;if(mixedExam.index>=mixedExam.tasks.length)finishMixedExam();else renderMixedExam();};
+  }
+  $('p52TaskExit').onclick=()=>{clearInterval(examTimer);examTimer=null;const si=mixedExam.skillIndex;mixedExam=null;if(si!==null)start('cards',[si]);else returnToModes();};
+ }
+ function startMixedExam(skillIndex){
+  const skillsToTest=skillIndex===null?shuffle(skills.map((_,i)=>i).filter(i=>lessons[i]&&lessons[i].questions?.length&&lessons[i].steps?.length)).slice(0,5):[skillIndex];
+  mixedExam={skillIndex,tasks:makeExamTasks(skillsToTest,skillIndex!==null),index:0};
+  if(skillIndex!==null){
+   const only=mixedExam.tasks;
+   if(!only.some(t=>t.kind==='test')||!only.some(t=>t.kind==='sequence')||!only.some(t=>t.kind==='clinical')){
+    $('studyContent').innerHTML='<div class="study-card"><h2>Екзамен ще не готовий</h2><p>Для цієї навички мають бути доступні тестові питання, алгоритм і клінічний матеріал.</p><button class="btn" id="p52ExamBack">До флеш-картки</button></div>';$('p52ExamBack').onclick=()=>start('cards',[skillIndex]);return;
+   }
+  }
+  if(!mixedExam.tasks.length){$('studyContent').innerHTML='<div class="study-card"><h2>Не вдалося сформувати екзамен</h2><p>Перевір наявність навчальних матеріалів.</p></div>';return;}
+  examSeconds=skillIndex===null?20*60:10*60;
+  clearInterval(examTimer);examTimer=setInterval(()=>{examSeconds--;const c=$('p52ExamClock');if(c)c.textContent='Залишилось: '+Math.floor(examSeconds/60)+':'+String(examSeconds%60).padStart(2,'0');if(examSeconds<=0){clearInterval(examTimer);examTimer=null;finishMixedExam();}},1000);
+  renderMixedExam();
+ }
+ start=function(mode,custom=null){
+  if(mode==='exam'||mode==='skillExam'){
+   stopExamTimer();currentMode='mixedExam';idx=0;items=custom||[];sessionQuestions=[];
+   $('studyPanel').classList.remove('hidden');$('backToModes').style.display='none';
+   document.querySelectorAll('.mode').forEach(b=>b.classList.toggle('active',b.dataset.mode===mode));
+   $('modeName').textContent=mode==='skillExam'?'Комплексний екзамен · навичка':'Комплексний екзамен';
+   $('studyPanel').scrollIntoView({behavior:'smooth',block:'start'});
+   startMixedExam(mode==='skillExam'?(custom?.[0]??null):null);return;
+  }
+  return originalStart(mode,custom);
+ };
+ const originalSetStatus=setSkillStatus;
+ setSkillStatus=function(i,s){
+  if(s==='done'&&!allPartsDone(i)){const p=progressFor(i);p.legacyOverride=false;return;}
+  return originalSetStatus(i,s);
+ };
+ document.addEventListener('click',e=>{
+  const target=e.target;
+  if(target&&target.id==='checkSequence'){
+   const skillIndex=Array.isArray(items)&&items.length===1?items[0]:null;
+   if(skillIndex!==null)setTimeout(()=>{
+    const result=$('sequenceResult');
+    if(result&&result.textContent.includes('Усі кроки на своїх місцях')){setPart(skillIndex,'sequence',true);if(!result.querySelector('#p52SequenceNext')){const nav=document.createElement('div');nav.className='p52-exam-actions';nav.innerHTML='<button type="button" class="btn primary" id="p52SequenceNext">Клінічні ситуації →</button><button type="button" class="btn" id="p52SequenceCard">До флеш-картки</button><button type="button" class="btn" id="p52SequenceExam">Комплексний екзамен</button>';result.appendChild(nav);$('p52SequenceNext').onclick=()=>start('challenge',[skillIndex]);$('p52SequenceCard').onclick=()=>start('cards',[skillIndex]);$('p52SequenceExam').onclick=()=>start('skillExam',[skillIndex]);}}
+   },0);
+  }
+  if(target&&target.id==='lessonToSequence'||target&&target.id==='lessonToChallenge'){
+   const i=Array.isArray(items)&&items.length?items[0]:null;
+   if(i!==null)setTimeout(()=>{const p=progressFor(i);if(p.tests){}},0);
+  }
+ },true);
+ const oldChallengeStart=start;
+ // Track the clinical-scenario completion for a single-skill route when its answer is correct.
+ const clinicalObserver=new MutationObserver(()=>{
+  if(currentMode!=='challenge'||!Array.isArray(items)||items.length!==1)return;
+  const i=items[0],feedback=$('feedback');
+  if(feedback&&feedback.textContent.includes('Правильно!')){setPart(i,'clinical',true);if(!feedback.querySelector('#p52ClinicalCard')){const nav=document.createElement('div');nav.className='p52-exam-actions';nav.innerHTML='<button type="button" class="btn primary" id="p52ClinicalCard">До флеш-картки</button><button type="button" class="btn" id="p52ClinicalExam">Комплексний екзамен</button>';feedback.appendChild(nav);$('p52ClinicalCard').onclick=()=>start('cards',[i]);$('p52ClinicalExam').onclick=()=>start('skillExam',[i]);}}
+ });
+ clinicalObserver.observe($('studyContent'),{childList:true,subtree:true,characterData:true});
+ // When the in-card test bank is already completed, sync it into the new pathway state.
+ const progressObserver=new MutationObserver(()=>{
+  if(currentMode!=='cards'||!Array.isArray(items)||!items.length)return;
+  const i=items[idx]??items[0],done=state.lessonTestsCompleted[String(i)]?.completed;
+  if(done&&!progressFor(i).tests)setPart(i,'tests',true);
+ });
+ progressObserver.observe($('studyContent'),{childList:true,subtree:true});
+})();
 </script>
 
 <footer class="site-footer" style="margin:36px auto 18px;padding:22px 16px;text-align:center;color:var(--muted,#71869a);font-size:14px;border-top:1px solid var(--line,#dce7ee);max-width:1200px">
