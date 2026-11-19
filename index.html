@@ -1272,7 +1272,7 @@ renderStats();renderSkills();renderHeaderIdentity();
   clearInterval(examTimer);examTimer=null;
   const skillIndex=mixedExam.skillIndex;
   const total=mixedExam.tasks.length,correct=mixedExam.tasks.filter(t=>t.passed).length,pct=total?Math.round(correct/total*100):0,passed=pct>=70;
-  if(skillIndex!==null&&passed)setPart(skillIndex,'exam',true);
+  if(skillIndex!==null&&passed){const p=progressFor(skillIndex);setPart(skillIndex,'exam',true);if(!p.examRewarded){state.points=(Number(state.points)||0)+50;p.examRewarded=true;p.examRewardedAt=Date.now();save();}}
   const content=$('studyContent');
   $('counter').textContent='Результат екзамену';$('bar').style.width='100%';
   content.innerHTML='<div class="study-card"><div class="label">КОМПЛЕКСНИЙ ЕКЗАМЕН ЗАВЕРШЕНО</div><h2>'+(passed?'Екзамен складено! 🎉':'Потрібно ще потренуватися')+'</h2><div class="answer"><b>'+correct+' із '+total+' завдань · '+pct+'%</b><br>Перевірялися теорія, алгоритм і клінічне мислення.<br>Пороговий результат: 70%.<br>'+(mixedExam.skillIndex!==null?(passed?'Етап екзамену зараховано.':'Етап екзамену не зараховано.'):'Загальний екзамен не змінює статус окремих навичок.')+'</div><div class="p52-exam-actions"><button class="btn primary" id="p52ExamAgain">Пройти ще раз</button>'+(skillIndex!==null?'<button class="btn" id="p52BackCard">До флеш-картки</button>':'<button class="btn" id="p52ExamCatalog">До каталогу</button>')+'</div></div>';
@@ -1350,7 +1350,7 @@ renderStats();renderSkills();renderHeaderIdentity();
    const skillIndex=Array.isArray(items)&&items.length===1?items[0]:null;
    if(skillIndex!==null)setTimeout(()=>{
     const result=$('sequenceResult');
-    if(result&&result.textContent.includes('Усі кроки на своїх місцях')){setPart(skillIndex,'sequence',true);if(!result.querySelector('#p52SequenceNext')){const nav=document.createElement('div');nav.className='p52-exam-actions';nav.innerHTML='<button type="button" class="btn" id="p52SequenceNext">Клінічні ситуації →</button><button type="button" class="btn" id="p52SequenceCard">До флеш-картки</button><button type="button" class="btn" id="p52SequenceExam">Комплексний екзамен</button>';result.appendChild(nav);$('p52SequenceNext').onclick=()=>start('challenge',[skillIndex]);$('p52SequenceCard').onclick=()=>start('cards',[skillIndex]);$('p52SequenceExam').onclick=()=>start('skillExam',[skillIndex]);}}
+    if(result&&result.textContent.includes('Усі кроки на своїх місцях')){setPart(skillIndex,'sequence',true);if(!result.querySelector('#p52SequenceNext')){const nav=document.createElement('div');nav.className='p52-exam-actions';nav.innerHTML='<button type="button" class="btn primary" id="p52SequenceCard">↩ До флеш-картки</button><button type="button" class="btn" id="p52SequenceExam">🎓 Комплексний екзамен</button>';result.appendChild(nav);$('p52SequenceCard').onclick=()=>start('cards',[skillIndex]);$('p52SequenceExam').onclick=()=>start('skillExam',[skillIndex]);}}
    },0);
   }
   if(target&&target.id==='lessonToSequence'||target&&target.id==='lessonToChallenge'){
