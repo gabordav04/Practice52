@@ -999,9 +999,9 @@ function renderMatchingRound(){
    renderMatchingRound();
    if(session.matched.length===5&&!session.rewarded){
     const firstTryCount=session.firstTryPairs.length;
-    const earned=firstTryCount===5?10:firstTryCount===4?8:firstTryCount===3?2:0;
+    const earned=firstTryCount>=4?10:firstTryCount===3?5:0;
     session.rewarded=true;session.earned=earned;state.points+=earned;save();
-    $('matchingFeedback').textContent='Усі 5 пар зібрано! З першої спроби: '+firstTryCount+'/5. Нараховано +'+earned+' балів. '+(earned===10?'Ідеально! 🏆':earned===0?'Спробуй ще раз і покращ результат!':'Гарна робота! 💚');
+    $('matchingFeedback').textContent='Усі 5 пар зібрано! З першої спроби: '+firstTryCount+'/5. Нараховано +'+earned+' балів. '+(earned===10?'Чудовий результат! 🏆':earned===5?'Гарна робота! 💚':'Спробуй ще раз і покращ результат!');
     $('matchingActions').innerHTML='<button type="button" class="btn primary" id="matchingAgain">Наступні 5 пар →</button>';$('matchingAgain').onclick=()=>{matchingSession=null;renderMatchingRound();};
    }
   }else{
