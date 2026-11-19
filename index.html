@@ -150,6 +150,49 @@ select{border:1px solid var(--line);background:#fff;border-radius:11px;padding:1
 
 /* Вибір ролі та запрошення викладачів */
 .p52-entry-backdrop{position:fixed;inset:0;z-index:10000;display:grid;place-items:center;padding:18px;background:rgba(12,35,52,.68);backdrop-filter:blur(5px)}.p52-entry-card{width:min(520px,100%);padding:26px;border-radius:22px;background:#fff;box-shadow:0 24px 80px #061b2b55}.p52-entry-card h2{margin:4px 0 8px;font-size:25px}.p52-entry-card p{color:var(--muted);margin:0 0 18px}.p52-entry-choices{display:grid;grid-template-columns:1fr 1fr;gap:10px}.p52-entry-choice{padding:18px 12px;border:1px solid var(--line);border-radius:14px;background:#f8fbfd;color:var(--ink);font-weight:750;font-size:16px}.p52-entry-choice:hover,.p52-entry-choice.selected{border-color:var(--blue);background:#eef7fc}.p52-entry-actions{display:grid;gap:9px;margin-top:16px}.p52-entry-actions button{width:100%;padding:12px}.p52-entry-code{margin:12px 0;padding:12px;border:1px solid #cfe3ed;border-radius:12px;background:#f3f9fc}.p52-entry-code code{font-weight:800;letter-spacing:.08em;overflow-wrap:anywhere}.p52-invite-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:10px;border:1px solid var(--line);border-radius:11px;margin:7px 0;background:#fff}.p52-invite-row code{font-weight:800;letter-spacing:.05em}.p52-invite-row small{color:var(--muted);flex:1}.p52-invite-row button{padding:7px 10px;border-radius:8px;background:#edf3f6}.p52-admin-subhead{margin:18px 0 8px}@media(max-width:420px){.p52-entry-choices{grid-template-columns:1fr}.p52-entry-card{padding:20px}}
+
+/* PRACTICE 52 teacher workspace */
+body.p52-teacher-mode .hero,
+body.p52-teacher-mode .stats,
+body.p52-teacher-mode #userGuide,
+body.p52-teacher-mode #rankingPanel,
+body.p52-teacher-mode .modes,
+body.p52-teacher-mode #studyPanel,
+body.p52-teacher-mode #skillCatalog,
+body.p52-teacher-mode .section-head:not(#skillCatalog .section-head){display:none!important}
+body.p52-admin-mode .hero,
+body.p52-admin-mode .stats,
+body.p52-admin-mode #userGuide,
+body.p52-admin-mode #rankingPanel,
+body.p52-admin-mode .modes,
+body.p52-admin-mode #studyPanel,
+body.p52-admin-mode #skillCatalog,
+body.p52-admin-mode .section-head{display:none!important}
+body.p52-admin-mode .app{max-width:900px}
+.p52-admin-heading{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
+.p52-admin-heading h2{margin:4px 0 0}
+body.p52-teacher-mode #skillCatalog{margin-top:18px}
+.p52-teacher-dashboard{margin:18px 0 22px;padding:20px;background:#fff;border:1px solid var(--line);border-radius:20px;box-shadow:var(--shadow)}
+.p52-teacher-dashboard h2{margin:0 0 6px;font-size:24px}
+.p52-teacher-dashboard .teacher-lead{margin:0 0 16px;color:var(--muted)}
+.p52-teacher-kpis{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin:16px 0}
+.p52-teacher-kpi{padding:14px;border:1px solid var(--line);border-radius:14px;background:#f6fafc}
+.p52-teacher-kpi strong{display:block;font-size:25px}.p52-teacher-kpi span{font-size:12px;color:var(--muted)}
+.p52-teacher-tabs{display:flex;gap:8px;flex-wrap:wrap;margin:16px 0}
+.p52-teacher-tabs button,.p52-teacher-action{border:1px solid var(--line);border-radius:11px;padding:10px 13px;background:#f4f8fa;color:var(--ink);font:inherit;font-weight:700}
+.p52-teacher-tabs button.active{background:#e5f2f7;border-color:#a9cfdf}
+.p52-teacher-list{display:grid;gap:9px;margin-top:12px}
+.p52-teacher-card{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:13px;border:1px solid var(--line);border-radius:13px;background:#fbfdfe}
+.p52-teacher-card button{flex:0 0 auto}
+.p52-teacher-muted{color:var(--muted);font-size:13px}
+.p52-teacher-status{padding:11px 13px;border-radius:10px;background:#f3f8fa;color:var(--muted);font-size:13px}
+.p52-teacher-detail{margin-top:14px;padding:16px;border:1px solid #dceaf0;border-radius:14px;background:#f8fbfc}
+.p52-teacher-detail-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px;margin:12px 0}
+.p52-teacher-detail-grid>div{padding:11px;border-radius:10px;background:#fff;border:1px solid var(--line)}
+.p52-teacher-detail-grid strong{display:block;font-size:20px}
+.p52-teacher-guide{padding:14px;border-radius:13px;background:#f5f9fb;margin-top:12px}
+@media(max-width:600px){.p52-teacher-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}.p52-teacher-card{align-items:flex-start;flex-direction:column}.p52-teacher-card button{width:100%}}
+
 </style>
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
@@ -163,6 +206,23 @@ select{border:1px solid var(--line);background:#fff;border-radius:11px;padding:1
  <div class="brand"><div class="logo">＋</div><div><h1>PRACTICE 52</h1><p>Навчальний тренажер практичних навичок</p></div></div>
  <div class="header-right"><button type="button" class="student-identity" id="studentIdentity" aria-controls="accountPanel" aria-expanded="false" title="Відкрити профіль або увійти; для зміни ролі натисни й утримуй"><span class="student-avatar" id="headerAvatar">🦊</span><span class="student-nickname" id="headerNickname">Гість</span><span class="sync-check" id="savedLabel" role="status" aria-label="Синхронізовано" title="Синхронізовано">✓</span></button></div>
 </header>
+
+<section id="p52TeacherDashboard" class="p52-teacher-dashboard hidden" aria-label="Кабінет викладача">
+ <div class="eyebrow">РОБОЧИЙ ПРОСТІР</div>
+ <h2>Кабінет викладача</h2>
+ <p class="teacher-lead">Перегляд груп, навчального прогресу студентів та екзаменаційних результатів.</p>
+ <div class="p52-teacher-tabs">
+  <button type="button" class="active" data-teacher-tab="groups">Мої групи</button>
+  <button type="button" data-teacher-tab="students">Студенти</button>
+  <button type="button" data-teacher-tab="exams">Екзамени</button>
+  <button type="button" id="p52TeacherRefresh">Оновити дані</button>
+ </div>
+ <div id="p52TeacherStatus" class="p52-teacher-status" role="status">Завантажуємо призначені групи…</div>
+ <section data-teacher-section="groups"><h3>Мої навчальні групи</h3><div id="p52TeacherGroups" class="p52-teacher-list"></div></section>
+ <section data-teacher-section="students" class="hidden"><h3>Студенти моїх груп</h3><div id="p52TeacherStudents" class="p52-teacher-list"></div><div id="p52TeacherStudentDetail"></div></section>
+ <section data-teacher-section="exams" class="hidden"><h3>Результати екзаменаційних етапів</h3><p class="p52-teacher-muted">Тут відображаються позначені студентами завершені екзаменаційні етапи за кожною навичкою. Це не окрема оцінка викладача.</p><div id="p52TeacherExams" class="p52-teacher-list"></div></section>
+
+</section>
 <section class="registration hidden" id="accountPanel" aria-labelledby="regTitle">
  <h3 id="regTitle">Обліковий запис PRACTICE 52</h3>
  <p>Створи акаунт або увійди, щоб синхронізувати профіль і навчальний прогрес між пристроями.</p>
@@ -700,6 +760,25 @@ function watchLeaderboard(){
   console.warn('Leaderboard listener failed:',err);
  });
 }
+function buildTeacherVisibleStudentProfile(profile){
+ const p=profile||{};
+ return {nickname:String(p.nickname||''),name:String(p.name||''),avatar:typeof p.avatar==='string'?p.avatar:DEFAULT_AVATAR};
+}
+async function publishStudentProgressForTeacher(){
+ if(!firebaseUser||!cloudReady||practice52CurrentRole==='teacher'||practice52CurrentRole==='admin')return;
+ // Прогрес дублюється окремо всередині кожної групи: правила Firestore
+ // можуть перевірити teacherUid батьківської групи без глобального доступу.
+ const groupsSnap=await db.collection('groups').where('studentUids','array-contains',firebaseUser.uid).get();
+ if(groupsSnap.empty)return;
+ const profile=buildTeacherVisibleStudentProfile(readLocalProfile()||{});
+ const payload={
+  studentUid:firebaseUser.uid,profile,progress:state,
+  updatedAt:firebase.firestore.FieldValue.serverTimestamp()
+ };
+ await Promise.all(groupsSnap.docs.map(groupDoc=>
+  groupDoc.ref.collection('studentProgress').doc(firebaseUser.uid).set(payload,{merge:true})
+ ));
+}
 function queueCloudSave(){
  if(!firebaseUser||!cloudReady)return;
  clearTimeout(cloudSaveTimer);
@@ -710,6 +789,7 @@ function queueCloudSave(){
     profile, progress:state,
     updatedAt:firebase.firestore.FieldValue.serverTimestamp()
    },{merge:true});
+   await publishStudentProgressForTeacher();
    $('savedLabel').textContent='✓';
    await syncPublicRank();
    await loadLeaderboard();
@@ -876,17 +956,17 @@ function ensureAdminPanel(){
  toggle.addEventListener('click',()=>{
   const panel=document.getElementById('p52AdminPanel'),opening=panel.classList.contains('hidden');
   panel.classList.toggle('hidden',!opening);toggle.setAttribute('aria-expanded',String(opening));
+  toggle.textContent=opening?'⚙ Приховати керування':'⚙ Адміністрування';
   if(opening){panel.scrollIntoView({behavior:'smooth',block:'start'});loadAdminDashboard();}
  });
  document.querySelector('.header-right')?.appendChild(toggle);
  const panel=adminNode('section','p52-admin-panel hidden');panel.id='p52AdminPanel';
- panel.innerHTML='<h2>Адміністрування PRACTICE 52</h2><p>Керуйте викладачами та навчальними групами. Пошук зараз охоплює користувачів із відкритими профілями в публічному рейтингу.</p><div class="p52-admin-tabs"><button type="button" class="p52-admin-tab active" data-admin-tab="teachers">Викладачі</button><button type="button" class="p52-admin-tab" data-admin-tab="groups">Навчальні групи</button><button type="button" class="p52-admin-tab" data-admin-tab="analytics">Аналітика</button></div><div class="p52-admin-status" id="p52AdminStatus" role="status"></div><section data-admin-section="teachers"><h3 class="p52-admin-subhead">Коди запрошення викладачів</h3><p>Одноразові коди діють 7 днів. Надішли код конкретному викладачу; після використання він стане недійсним.</p><form class="p52-admin-form" id="p52InviteForm"><button class="btn primary" type="submit">＋ Створити код запрошення</button></form><div class="p52-admin-list" id="p52InviteList">Завантаження…</div><h3>Призначити викладача</h3><input class="p52-admin-search" id="p52TeacherSearch" placeholder="Пошук за нікнеймом або UID"><div class="p52-admin-list" id="p52TeacherSearchResults"></div><h3>Викладачі платформи</h3><div class="p52-admin-list" id="p52AdminRoleList">Завантаження…</div></section><section data-admin-section="groups" class="hidden"><h3>Створити навчальну групу</h3><form class="p52-admin-form" id="p52GroupForm"><input id="p52GroupName" maxlength="80" placeholder="Назва групи" required><select id="p52GroupTeacher" required><option value="">Оберіть викладача</option></select><button class="btn primary" type="submit">Створити групу</button></form><h3>Навчальні групи</h3><div class="p52-admin-list" id="p52GroupList">Завантаження…</div></section><section data-admin-section="analytics" class="hidden"><h3>Загальна картина</h3><div class="p52-admin-stats" id="p52AdminStats">Завантаження…</div><p>Аналітика наразі використовує лише відкриті профілі рейтингу. Детальні результати всіх студентів додамо окремо з відповідними правами доступу.</p></section>';
+ panel.innerHTML='<div class="p52-admin-heading"><div><div class="eyebrow">ПАНЕЛЬ КЕРУВАННЯ</div><h2>Адміністратор</h2><p>Керуйте доступом викладачів і складом навчальних груп.</p></div></div><div class="p52-admin-tabs"><button type="button" class="p52-admin-tab active" data-admin-tab="teachers">Викладачі та доступ</button><button type="button" class="p52-admin-tab" data-admin-tab="groups">Навчальні групи</button></div><div class="p52-admin-status" id="p52AdminStatus" role="status"></div><section data-admin-section="teachers"><h3 class="p52-admin-subhead">Запросити викладача</h3><form class="p52-admin-form" id="p52InviteForm"><button class="btn primary" type="submit">＋ Створити код запрошення</button></form><div class="p52-admin-list" id="p52InviteList">Завантаження…</div><h3>Призначити викладача</h3><input class="p52-admin-search" id="p52TeacherSearch" placeholder="Пошук за нікнеймом або UID"><div class="p52-admin-list" id="p52TeacherSearchResults"></div><h3>Керування викладачами</h3><div class="p52-admin-list" id="p52AdminRoleList">Завантаження…</div></section><section data-admin-section="groups" class="hidden"><h3>Створити навчальну групу</h3><form class="p52-admin-form" id="p52GroupForm"><input id="p52GroupName" maxlength="80" placeholder="Назва групи" required><select id="p52GroupTeacher" required><option value="">Оберіть викладача</option></select><button class="btn primary" type="submit">Створити групу</button></form><h3>Керування групами та студентами</h3><div class="p52-admin-list" id="p52GroupList">Завантаження…</div></section>';
  header.insertAdjacentElement('afterend',panel);
  panel.querySelectorAll('[data-admin-tab]').forEach(btn=>btn.addEventListener('click',()=>{
   panel.querySelectorAll('[data-admin-tab]').forEach(b=>b.classList.toggle('active',b===btn));
   panel.querySelectorAll('[data-admin-section]').forEach(sec=>sec.classList.toggle('hidden',sec.dataset.adminSection!==btn.dataset.adminTab));
   if(btn.dataset.adminTab==='groups')loadAdminGroups();
-  if(btn.dataset.adminTab==='analytics')loadAdminAnalytics();
  }));
  document.getElementById('p52InviteForm').addEventListener('submit',createTeacherInvite);
   document.getElementById('p52TeacherSearch').addEventListener('input',e=>renderAdminUserSearch(e.target.value,'p52TeacherSearchResults',assignTeacher,'Немає відкритих профілів за цим запитом.'));
@@ -1056,7 +1136,7 @@ async function loadAdminDashboard(){
  catch(err){console.error(err);setAdminStatus('Не вдалося завантажити відкриті профілі рейтингу.',true);}
 }
 async function refreshPractice52Role(user){
- practice52CurrentRole=null;const toggle=document.getElementById('p52AdminToggle');if(toggle)toggle.classList.add('hidden');if(!user)return;
+ practice52CurrentRole=null;document.body.classList.remove('p52-admin-mode');const toggle=document.getElementById('p52AdminToggle');if(toggle)toggle.classList.add('hidden');if(!user)return;
  try{
   if(user.uid==='NIXSOWQ2c1Tkh5TVGU6z9zkbhOp2')practice52CurrentRole='admin';
   else{
@@ -1069,9 +1149,124 @@ async function refreshPractice52Role(user){
    try{await db.collection('leaderboard').doc(user.uid).delete();}
    catch(rankError){console.warn('Could not remove non-student from public ranking:',rankError);}
   }
-  ensureAdminPanel();const button=document.getElementById('p52AdminToggle');if(button)button.classList.toggle('hidden',practice52CurrentRole!=='admin');
+  ensureAdminPanel();
+  document.body.classList.toggle('p52-admin-mode',practice52CurrentRole==='admin');
+  const button=document.getElementById('p52AdminToggle');
+  if(button){
+   button.classList.toggle('hidden',practice52CurrentRole!=='admin');
+   const panel=document.getElementById('p52AdminPanel');
+   if(practice52CurrentRole==='admin'&&panel){panel.classList.remove('hidden');button.textContent='⚙ Приховати керування';button.setAttribute('aria-expanded','true');}
+   else if(panel){panel.classList.add('hidden');button.textContent='⚙ Адміністрування';button.setAttribute('aria-expanded','false');}
+  }
  }catch(err){console.warn('Role lookup failed:',err);}
 }
+
+
+/* Teacher dashboard: read-only view limited to groups assigned to the signed-in teacher. */
+let practice52TeacherGroups=[],practice52TeacherStudents=[];
+function p52TeacherText(value){return String(value??'').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));}
+function applyPractice52TeacherLayout(isTeacher){
+ document.body.classList.toggle('p52-teacher-mode',!!isTeacher);
+ const dashboard=document.getElementById('p52TeacherDashboard');
+ if(dashboard)dashboard.classList.toggle('hidden',!isTeacher);
+}
+function setTeacherStatus(message,isError=false){
+ const el=document.getElementById('p52TeacherStatus');if(el){el.textContent=message;el.style.color=isError?'var(--red)':'var(--muted)';}
+}
+function showTeacherTab(tab){
+ const root=document.getElementById('p52TeacherDashboard');if(!root)return;
+ root.querySelectorAll('[data-teacher-tab]').forEach(b=>b.classList.toggle('active',b.dataset.teacherTab===tab));
+ root.querySelectorAll('[data-teacher-section]').forEach(sec=>sec.classList.toggle('hidden',sec.dataset.teacherSection!==tab));
+}
+async function loadPractice52TeacherDashboard(){
+ if(practice52CurrentRole!=='teacher'||!firebaseUser)return;
+ setTeacherStatus('Завантажуємо групи та результати студентів…');
+ const groupsEl=document.getElementById('p52TeacherGroups'),studentsEl=document.getElementById('p52TeacherStudents');
+ if(groupsEl)groupsEl.textContent='Завантаження…';if(studentsEl)studentsEl.textContent='Завантаження…';
+ try{
+  const groupSnap=await db.collection('groups').where('teacherUid','==',firebaseUser.uid).get();
+  practice52TeacherGroups=groupSnap.docs.map(doc=>({id:doc.id,...(doc.data()||{})}));
+  const studentIds=[...new Set(practice52TeacherGroups.flatMap(g=>Array.isArray(g.studentUids)?g.studentUids:[]))];
+  const progressByStudent=new Map();
+  await Promise.all(practice52TeacherGroups.map(async group=>{
+   const memberIds=Array.isArray(group.studentUids)?group.studentUids:[];
+   await Promise.all(memberIds.map(async uid=>{
+    const snap=await db.collection('groups').doc(group.id).collection('studentProgress').doc(uid).get();
+    if(!snap.exists)return;
+    const d=snap.data()||{},previous=progressByStudent.get(uid);
+    const updatedAt=d.updatedAt&&typeof d.updatedAt.toMillis==='function'?d.updatedAt.toMillis():0;
+    if(!previous||updatedAt>=previous.updatedAt)progressByStudent.set(uid,{uid,profile:d.profile||{},progress:d.progress||null,updatedAt});
+   }));
+  }));
+  practice52TeacherStudents=studentIds.map(uid=>{
+   const saved=progressByStudent.get(uid);
+   return {...(saved||{uid,profile:{nickname:'Ще немає опублікованих результатів'},progress:null}),
+    groups:practice52TeacherGroups.filter(g=>(g.studentUids||[]).includes(uid)).map(g=>g.name||'Без назви')};
+  });
+  const active=practice52TeacherStudents.filter(u=>u.progress&&(Number(u.progress.answered)>0||(u.progress.done||[]).length>0)).length;
+  renderPractice52TeacherGroups();renderPractice52TeacherStudents();renderPractice52TeacherExams();
+  setTeacherStatus('Дані оновлено. Показано лише групи, призначені цьому викладачу.');
+ }catch(err){
+  console.error('Teacher dashboard load failed:',err);
+  practice52TeacherGroups=[];practice52TeacherStudents=[];
+  // KPI-блоки прибрано з компактного кабінету викладача.
+  if(groupsEl)groupsEl.textContent='Не вдалося завантажити групи.';
+  if(studentsEl)studentsEl.textContent='Результати студентів недоступні.';
+  setTeacherStatus('Firestore відхилив читання груп або навчальних профілів. Потрібно перевірити правила доступу для groups і users; інтерфейс не підміняє та не відкриває доступ автоматично.',true);
+ }
+}
+function renderPractice52TeacherGroups(){
+ const el=document.getElementById('p52TeacherGroups');if(!el)return;el.innerHTML='';
+ if(!practice52TeacherGroups.length){el.textContent='Поки немає груп, призначених цьому викладачу.';return;}
+ practice52TeacherGroups.forEach(g=>{
+  const card=document.createElement('article');card.className='p52-teacher-card';
+  const info=document.createElement('div');info.innerHTML='<b>'+p52TeacherText(g.name||'Навчальна група')+'</b><div class="p52-teacher-muted">Студентів: '+((g.studentUids||[]).length)+'</div>';
+  const btn=document.createElement('button');btn.className='p52-teacher-action';btn.type='button';btn.textContent='Переглянути студентів';btn.onclick=()=>{showTeacherTab('students');};
+  card.append(info,btn);el.appendChild(card);
+ });
+}
+function renderPractice52TeacherStudents(){
+ const el=document.getElementById('p52TeacherStudents');if(!el)return;el.innerHTML='';
+ if(!practice52TeacherStudents.length){el.textContent='У призначених групах поки немає студентів.';return;}
+ practice52TeacherStudents.forEach(u=>{
+  const p=u.profile||{},pr=u.progress||{},done=Array.isArray(pr.done)?pr.done.length:0,answered=Number(pr.answered)||0,accuracy=answered?Math.round((Number(pr.correct)||0)/answered*100):null;
+  const card=document.createElement('article');card.className='p52-teacher-card';
+  const info=document.createElement('div');info.innerHTML='<b>' +p52TeacherText(p.nickname||p.name||'Студент')+'</b><div class="p52-teacher-muted">'+p52TeacherText(u.groups.join(', '))+' · Опрацьовано: '+done+'/52 · Точність: '+(accuracy===null?'—':accuracy+'%')+'</div>';
+  const btn=document.createElement('button');btn.className='p52-teacher-action';btn.type='button';btn.textContent='Результати';btn.onclick=()=>openPractice52TeacherStudent(u.uid);
+  card.append(info,btn);el.appendChild(card);
+ });
+}
+function openPractice52TeacherStudent(uid){
+ const u=practice52TeacherStudents.find(x=>x.uid===uid);if(!u)return;
+ const p=u.profile||{},pr=u.progress||{},done=Array.isArray(pr.done)?pr.done.length:0,review=Array.isArray(pr.needsReview)?pr.needsReview.length:0,answered=Number(pr.answered)||0,correct=Number(pr.correct)||0,accuracy=answered?Math.round(correct/answered*100):null;
+ const el=document.getElementById('p52TeacherStudentDetail');if(!el)return;
+ const skillNames=Array.isArray(pr.done)?pr.done.map(i=>skills[i]).filter(Boolean):[];
+ el.innerHTML='<div class="p52-teacher-detail"><h3>'+p52TeacherText(p.nickname||p.name||'Студент')+'</h3><div class="p52-teacher-muted">'+p52TeacherText(p.name||'')+' · '+p52TeacherText(u.groups.join(', '))+'</div><div class="p52-teacher-detail-grid"><div><strong>'+done+'/52</strong><span>Опрацьовано навичок</span></div><div><strong>'+Number(pr.points||0)+'</strong><span>Балів</span></div><div><strong>'+correct+'/'+answered+'</strong><span>Правильних відповідей</span></div><div><strong>'+(accuracy===null?'—':accuracy+'%')+'</strong><span>Точність</span></div><div><strong>'+review+'</strong><span>Потребують повторення</span></div><div><strong>'+(Array.isArray(pr.mistakes)?pr.mistakes.length:0)+'</strong><span>Помилок для повторення</span></div><div><strong>'+Object.values(pr.lessonTestsCompleted||{}).filter(x=>x&&x.completed).length+'</strong><span>Завершено навчальних тестів</span></div><div><strong>'+Object.values(pr.learningProgress||{}).filter(x=>x&&x.exam).length+'</strong><span>Завершено екзаменаційних етапів</span></div></div><b>Опрацьовані навички</b><p>'+p52TeacherText(skillNames.length?skillNames.join(' · '):'Поки немає позначених опрацьованих навичок.')+'</p><p class="p52-teacher-muted">Деталі окремих відповідей доступні лише якщо вони зберігаються в прогресі студента.</p></div>';
+}
+function renderPractice52TeacherExams(){
+ const el=document.getElementById('p52TeacherExams');if(!el)return;el.innerHTML='';
+ if(!practice52TeacherStudents.length){el.textContent='У призначених групах поки немає студентів.';return;}
+ const rows=[];
+ practice52TeacherStudents.forEach(u=>{
+  const p=u.progress||{},learning=p.learningProgress||{};
+  const completed=Object.entries(learning).filter(([,v])=>v&&v.exam===true).map(([key])=>Number(key)).filter(i=>Number.isInteger(i)&&i>=0&&i<52);
+  const card=document.createElement('article');card.className='p52-teacher-card';
+  const info=document.createElement('div');
+  const title=document.createElement('b');title.textContent=(u.profile||{}).nickname||(u.profile||{}).name||'Студент';
+  const detail=document.createElement('div');detail.className='p52-teacher-muted';detail.textContent='Екзаменаційні етапи: '+completed.length+'/52';
+  const names=document.createElement('div');names.className='p52-teacher-muted';names.textContent=completed.length?completed.map(i=>skills[i]).filter(Boolean).join(' · '):'Поки немає завершених екзаменаційних етапів.';
+  info.append(title,detail,names);card.appendChild(info);el.appendChild(card);
+ });
+}
+function renderPractice52TeacherAnalytics(){
+ const el=document.getElementById('p52TeacherAnalytics');if(!el)return;
+ const total=practice52TeacherStudents.length,active=practice52TeacherStudents.filter(u=>u.progress&&(Number(u.progress.answered)>0||(u.progress.done||[]).length>0)).length;
+ const allAnswered=practice52TeacherStudents.reduce((n,u)=>n+(Number(u.progress?.answered)||0),0),allCorrect=practice52TeacherStudents.reduce((n,u)=>n+(Number(u.progress?.correct)||0),0),done=practice52TeacherStudents.reduce((n,u)=>n+(Array.isArray(u.progress?.done)?u.progress.done.length:0),0);
+ const accuracy=allAnswered?Math.round(allCorrect/allAnswered*100):null;
+ el.innerHTML='<div class="p52-teacher-detail-grid"><div><strong>'+practice52TeacherGroups.length+'</strong><span>Навчальних груп</span></div><div><strong>'+total+'</strong><span>Студентів</span></div><div><strong>'+active+'</strong><span>Активних студентів</span></div><div><strong>'+done+'</strong><span>Опрацьованих навичок сумарно</span></div><div><strong>'+(accuracy===null?'—':accuracy+'%')+'</strong><span>Середня точність відповідей</span></div><div><strong>'+allAnswered+'</strong><span>Відповідей сумарно</span></div></div>';
+}
+document.getElementById('p52TeacherDashboard')?.querySelectorAll('[data-teacher-tab]').forEach(b=>b.addEventListener('click',()=>showTeacherTab(b.dataset.teacherTab)));
+document.getElementById('p52TeacherRefresh')?.addEventListener('click',loadPractice52TeacherDashboard);
 
 auth.onAuthStateChanged(async user=>{
  if(window.practice52ProgressUnsubscribe){window.practice52ProgressUnsubscribe();window.practice52ProgressUnsubscribe=null;}
@@ -1080,6 +1275,8 @@ auth.onAuthStateChanged(async user=>{
  state=emptyPracticeState();try{state={...state,...JSON.parse(localStorage.getItem(KEY)||'{}')}}catch(e){}
  if(!Array.isArray(state.mistakes))state.mistakes=[];if(!Array.isArray(state.done))state.done=[];if(!Array.isArray(state.needsReview))state.needsReview=[];if(!state.ratings||typeof state.ratings!=='object')state.ratings={};if(!state.skillStatusUpdatedAt||typeof state.skillStatusUpdatedAt!=='object')state.skillStatusUpdatedAt={};if(!state.lessonTestsCompleted||typeof state.lessonTestsCompleted!=='object')state.lessonTestsCompleted={};
  renderHeaderIdentity();await refreshPractice52Role(user);
+
+ applyPractice52TeacherLayout(practice52CurrentRole==='teacher');
  const selectedEntryRole=localStorage.getItem('practice52_entry_role_v1')||'';
  const teacherGate=document.getElementById('p52TeacherInviteGate');
  if(teacherGate)teacherGate.classList.toggle('hidden',!(user&&selectedEntryRole==='teacher'&&practice52CurrentRole!=='teacher'&&practice52CurrentRole!=='admin'));
@@ -1095,6 +1292,29 @@ auth.onAuthStateChanged(async user=>{
    const gate=document.getElementById('p52TeacherInviteGate');if(gate){gate.classList.remove('hidden');gate.scrollIntoView({behavior:'smooth',block:'center'});}
    return;
   }
+
+  if(practice52CurrentRole==='teacher'){
+   state=emptyPracticeState();
+   try{
+    const teacherSnap=await db.collection('users').doc(user.uid).get();
+    const teacherData=teacherSnap.exists?(teacherSnap.data()||{}):{};
+    if(teacherData.profile){
+     writeLocalProfile(teacherData.profile);
+     $('regName').value=teacherData.profile.name||'';
+     $('regPhone').value=teacherData.profile.phone||'';
+     $('regNickname').value=teacherData.profile.nickname||'';
+     renderAvatar(teacherData.profile.avatar||DEFAULT_AVATAR);
+    }
+    if(user.email)$('regEmail').value=user.email;
+    $('accountPanel').classList.add('hidden');
+    renderHeaderIdentity();
+    await loadPractice52TeacherDashboard();
+    setAuthStatus('Вхід виконано як викладач. Особистий студентський прогрес не завантажується.');
+    $('savedLabel').textContent='Викладач ✓';
+   }catch(err){console.error('Teacher profile load failed:',err);setTeacherStatus('Не вдалося завантажити профіль викладача.',true);}
+   return;
+  }
+  applyPractice52TeacherLayout(false);
   setAuthStatus('Завантажуємо твій профіль і прогрес…');
   const ref=db.collection('users').doc(user.uid),snap=await ref.get();
   if(snap.exists){
@@ -1122,6 +1342,10 @@ auth.onAuthStateChanged(async user=>{
   if(user.email)$('regEmail').value=user.email;$('regNickname').value=(readLocalProfile()||{}).nickname||'';$('regNickname').disabled=false;renderAvatar((readLocalProfile()||{}).avatar||DEFAULT_AVATAR);
   $('regPassword').value='';
   cloudReady=true;
+  if(practice52CurrentRole!=='teacher'&&practice52CurrentRole!=='admin'){
+   try{await publishStudentProgressForTeacher();}
+   catch(progressPublishError){console.warn('Teacher-visible progress mirror is not available yet:',progressPublishError);}
+  }
   const signedProfile=readLocalProfile()||{};
   if(!signedProfile.nickname||normalizeNickname(signedProfile.nickname)==='student'){
    $('regNickname').disabled=false;
