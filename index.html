@@ -125,6 +125,19 @@ select{border:1px solid var(--line);background:#fff;border-radius:11px;padding:1
 @media(max-width:600px){.header-right{gap:7px}.p52-ambient-toggle{width:38px;height:38px;flex-basis:38px;font-size:18px}}
 
 .rank-row-button{width:100%;border:0;text-align:left;font:inherit;color:inherit;cursor:pointer;transition:background .15s,transform .15s}.rank-row-button:hover,.rank-row-button:focus-visible{background:#eaf4f9;transform:translateY(-1px);outline:2px solid #8bbbd3;outline-offset:1px}.public-profile-backdrop{position:fixed;inset:0;z-index:10020;display:grid;place-items:center;padding:18px;background:rgba(18,39,55,.48);backdrop-filter:blur(4px)}.public-profile-backdrop.hidden{display:none}.public-profile-card{position:relative;width:min(100%,480px);max-height:min(88vh,760px);overflow:auto;padding:25px;border:1px solid var(--line);border-radius:22px;background:#fff;box-shadow:0 22px 70px rgba(16,43,62,.25)}.public-profile-close{position:absolute;top:12px;right:14px;width:36px;height:36px;border-radius:50%;background:#edf3f6;color:var(--ink);font-size:25px;line-height:1}.public-profile-heading{display:flex;align-items:center;gap:14px;padding-right:35px;margin-bottom:20px}.public-profile-avatar{width:66px;height:66px;flex:0 0 66px;display:grid;place-items:center;overflow:hidden;border-radius:50%;background:#edf5f8;font-size:32px}.public-profile-avatar img{width:100%;height:100%;object-fit:cover}.public-profile-heading h3{margin:0 0 3px;overflow-wrap:anywhere}.public-profile-heading p{margin:0;color:var(--muted)}.public-profile-stats{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.public-profile-stats>div{padding:14px;border-radius:13px;background:#f3f7f9}.public-profile-stats strong{display:block;font-size:25px;color:var(--ink)}.public-profile-stats span{font-size:12px;color:var(--muted)}.public-profile-progress{margin-top:18px;padding:16px;border:1px solid var(--line);border-radius:14px}.public-profile-progress-label{display:flex;justify-content:space-between;gap:10px}.public-profile-progress-track{height:9px;margin-top:10px;overflow:hidden;border-radius:20px;background:#eaf0f3}.public-profile-progress-track i{display:block;height:100%;width:0;border-radius:20px;background:linear-gradient(90deg,#168b83,#55b879);transition:width .3s}.public-profile-progress p{margin:10px 0 0;color:var(--muted);font-size:13px}.public-profile-note{margin:14px 0 0;color:var(--muted);font-size:11px}@media(max-width:520px){.public-profile-card{padding:20px}.public-profile-stats strong{font-size:22px}}
+
+/* PRACTICE 52 admin panel */
+.p52-admin-toggle{padding:8px 12px;border:1px solid #c9dfe9;border-radius:11px;background:#edf6fa;color:#1d6688;font-weight:700;font-size:13px}
+.p52-admin-panel{margin:0 0 22px;padding:20px;background:#fff;border:1px solid var(--line);border-radius:17px;box-shadow:var(--shadow)}
+.p52-admin-panel h2{margin:0 0 6px;font-size:21px}.p52-admin-panel p{color:var(--muted);margin:4px 0 14px}
+.p52-admin-form{display:flex;gap:9px;flex-wrap:wrap;margin:14px 0}
+.p52-admin-form input{flex:1;min-width:220px;padding:10px 12px;border:1px solid var(--line);border-radius:10px;font:inherit}
+.p52-admin-list{display:grid;gap:8px;margin-top:14px}
+.p52-admin-row{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:11px 12px;border:1px solid var(--line);border-radius:11px;background:#fbfdfe;overflow-wrap:anywhere}
+.p52-admin-row small{display:block;color:var(--muted)}
+.p52-admin-status{min-height:22px;color:var(--muted);font-size:13px}
+@media(max-width:600px){.p52-admin-toggle{width:100%}.p52-admin-row{align-items:flex-start;flex-direction:column}}
+
 </style>
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
@@ -753,10 +766,95 @@ auth.getRedirectResult().then(result=>{
  setAuthStatus('Помилка повернення з Google ('+(err.code||'невідома')+'): '+(err.message||''),true);
 });
 $('logoutBtn').addEventListener('click',async()=>{try{await auth.signOut();}catch(err){setAuthStatus(err.message,true);}});
+
+let practice52CurrentRole = null;
+let practice52AdminPanelReady = false;
+function setAdminStatus(message, isError=false){
+ const el=document.getElementById('p52AdminStatus');
+ if(el){el.textContent=message;el.style.color=isError?'var(--red)':'var(--muted)';}
+}
+function ensureAdminPanel(){
+ if(practice52AdminPanelReady)return;
+ const header=document.querySelector('header');
+ const app=document.querySelector('.app');
+ if(!header||!app)return;
+ const toggle=document.createElement('button');
+ toggle.type='button';toggle.className='p52-admin-toggle hidden';toggle.id='p52AdminToggle';
+ toggle.textContent='⚙ Адміністрування';toggle.setAttribute('aria-expanded','false');
+ toggle.addEventListener('click',()=>{
+  const panel=document.getElementById('p52AdminPanel');
+  const opening=panel.classList.contains('hidden');
+  panel.classList.toggle('hidden',!opening);
+  toggle.setAttribute('aria-expanded',String(opening));
+  if(opening){panel.scrollIntoView({behavior:'smooth',block:'start'});loadAdminRoles();}
+ });
+ document.querySelector('.header-right')?.appendChild(toggle);
+ const panel=document.createElement('section');
+ panel.id='p52AdminPanel';panel.className='p52-admin-panel hidden';
+ panel.innerHTML='<h2>Адміністрування PRACTICE 52</h2><p>Керування ролями доступу. Викладач уже має бути зареєстрований у PRACTICE 52 — для призначення ролі потрібен його Firebase UID.</p><form class="p52-admin-form" id="p52TeacherRoleForm"><input id="p52TeacherUid" autocomplete="off" placeholder="Firebase UID викладача" aria-label="Firebase UID викладача" required><button class="btn primary" type="submit">Призначити викладачем</button></form><div class="p52-admin-status" id="p52AdminStatus" role="status"></div><h3>Користувачі з призначеними ролями</h3><div class="p52-admin-list" id="p52AdminRoleList">Завантаження…</div>';
+ header.insertAdjacentElement('afterend',panel);
+ document.getElementById('p52TeacherRoleForm').addEventListener('submit',async e=>{
+  e.preventDefault();
+  if(practice52CurrentRole!=='admin'||!firebaseUser)return;
+  const uid=document.getElementById('p52TeacherUid').value.trim();
+  if(!uid){setAdminStatus('Вкажи Firebase UID.',true);return;}
+  if(uid===firebaseUser.uid){setAdminStatus('Твій обліковий запис уже є адміністратором.',true);return;}
+  try{
+   setAdminStatus('Зберігаємо роль…');
+   await db.collection('roles').doc(uid).set({role:'teacher',createdAt:firebase.firestore.FieldValue.serverTimestamp(),createdBy:firebaseUser.uid});
+   document.getElementById('p52TeacherUid').value='';
+   setAdminStatus('Роль викладача призначено.');
+   await loadAdminRoles();
+  }catch(err){console.error('Teacher role assignment failed:',err);setAdminStatus('Не вдалося призначити роль. Перевір UID та правила Firestore.',true);}
+ });
+ practice52AdminPanelReady=true;
+}
+async function loadAdminRoles(){
+ const list=document.getElementById('p52AdminRoleList');
+ if(!list||practice52CurrentRole!=='admin')return;
+ list.textContent='Завантаження…';
+ try{
+  const snap=await db.collection('roles').get();
+  list.innerHTML='';
+  if(snap.empty){list.textContent='Поки немає призначених ролей.';return;}
+  snap.forEach(doc=>{
+   const data=doc.data()||{};
+   const row=document.createElement('div');row.className='p52-admin-row';
+   const info=document.createElement('div');
+   const name=document.createElement('strong');name.textContent=data.role==='admin'?'Адміністратор':data.role==='teacher'?'Викладач':'Невідома роль';
+   const uid=document.createElement('small');uid.textContent='UID: '+doc.id;
+   info.append(name,uid);row.appendChild(info);
+   if(data.role==='teacher'){
+    const remove=document.createElement('button');remove.type='button';remove.className='btn';remove.textContent='Зняти роль';
+    remove.addEventListener('click',async()=>{
+     if(!confirm('Зняти роль викладача для цього UID?'))return;
+     try{await db.collection('roles').doc(doc.id).delete();setAdminStatus('Роль викладача знято.');await loadAdminRoles();}
+     catch(err){console.error('Teacher role removal failed:',err);setAdminStatus('Не вдалося зняти роль.',true);}
+    });
+    row.appendChild(remove);
+   }
+   list.appendChild(row);
+  });
+ }catch(err){console.error('Admin roles load failed:',err);list.textContent='Не вдалося завантажити ролі. Перевір правила Firestore.';}
+}
+async function refreshPractice52Role(user){
+ practice52CurrentRole=null;
+ const toggle=document.getElementById('p52AdminToggle');
+ if(toggle)toggle.classList.add('hidden');
+ if(!user)return;
+ try{
+  const snap=await db.collection('roles').doc(user.uid).get();
+  practice52CurrentRole=snap.exists?(snap.data()||{}).role:null;
+  ensureAdminPanel();
+  const button=document.getElementById('p52AdminToggle');
+  if(button)button.classList.toggle('hidden',practice52CurrentRole!=='admin');
+ }catch(err){console.warn('Role lookup failed:',err);}
+}
+
 auth.onAuthStateChanged(async user=>{
  if(window.practice52ProgressUnsubscribe){window.practice52ProgressUnsubscribe();window.practice52ProgressUnsubscribe=null;}
  if(leaderboardUnsubscribe){leaderboardUnsubscribe();leaderboardUnsubscribe=null;}
- firebaseUser=user;cloudReady=false;renderHeaderIdentity();
+ firebaseUser=user;cloudReady=false;renderHeaderIdentity();await refreshPractice52Role(user);
  $('rankingJoinPrompt').classList.toggle('hidden',!!user);
  $('logoutBtn').classList.toggle('hidden',!user);
  $('googleLogin').classList.toggle('hidden',!!user);
