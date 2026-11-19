@@ -586,7 +586,7 @@ function openPublicRankProfile(profile){
  const avatar=typeof d.avatar==='string'&&d.avatar?d.avatar:'⭐';
  const avatarEl=$('publicProfileAvatar');avatarEl.textContent='';if(avatar.startsWith('data:image/')){const img=document.createElement('img');img.src=avatar;img.alt='';img.onerror=()=>{avatarEl.textContent='⭐';};avatarEl.appendChild(img);}else avatarEl.textContent=avatar;
  $('publicProfileTitle').textContent=typeof d.nickname==='string'&&d.nickname.trim()?d.nickname.trim():'Учасник';
- $('publicProfileLevel').textContent=d.level||rankTitle(Number(d.points)||0);
+ $('publicProfileLevel').textContent=(d.level||rankTitle(Number(d.points)||0))+(profile.place?' · місце #'+profile.place:'');
  $('publicProfilePoints').textContent=String(Number(d.points)||0);
  $('publicProfileAccuracy').textContent=accuracy===null?'—':accuracy+'%';
  $('publicProfileCompleted').textContent=completed+'/52';
