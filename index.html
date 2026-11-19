@@ -1044,11 +1044,11 @@ function renderStudy(){
   let lessonQuizIndex=0,lessonQuizAnswered=new Set();
   const showLessonCompletionActions=()=>{
    const box=$('lessonQuestion');
-   box.innerHTML='<div class="answer"><h3>Матеріал за тестами закріплено! 🎉</h3><p>Ти вже пройшов усі '+L.questions.length+' із '+L.questions.length+' питань цієї навички. Прогрес збережено — тести не запускатимуться автоматично під час наступного входу.</p><p>Обери, що опрацьовувати далі:</p><div class="actions"><button class="btn primary" id="lessonToSequence">Послідовність</button><button class="btn" id="lessonToChallenge">Клінічні ситуації</button><button class="btn" id="lessonReplayTests">Повернутися до тестів ('+L.questions.length+'/'+L.questions.length+')</button></div></div>';
+   box.innerHTML='<div class="answer"><h3>Матеріал за тестами закріплено! 🎉</h3><p>Ти вже пройшов усі '+L.questions.length+' із '+L.questions.length+' питань цієї навички. Прогрес збережено — тести не запускатимуться автоматично під час наступного входу.</p><p>Обери, що опрацьовувати далі:</p><div class="actions"><button class="btn" id="lessonToSequence">Послідовність</button><button class="btn" id="lessonToChallenge">Клінічні ситуації</button><button class="btn" id="lessonReplayTests">Повернутися до тестів ('+L.questions.length+'/'+L.questions.length+')</button></div></div>';
    $('lessonToSequence').onclick=()=>start('sequence',[skillIndex]);
    $('lessonToChallenge').onclick=()=>start('challenge',[skillIndex]);
    $('lessonReplayTests').onclick=()=>{lessonQuizIndex=0;lessonQuizAnswered.clear();showLessonQuizQuestion();};
-   $('lessonQuiz').disabled=true;$('lessonQuiz').textContent='Тести пройдено ✓';
+   $('lessonQuiz').disabled=true;$('lessonQuiz').textContent='У процесі навчання';
   };
   const showLessonQuizQuestion=()=>{
    if(lessonQuizAnswered.size>=L.questions.length){
@@ -1241,12 +1241,9 @@ renderStats();renderSkills();renderHeaderIdentity();
   if(actions)actions.insertAdjacentElement('afterend',block);else card.appendChild(block);
  }
  function addPostTestExam(){
-  if(currentMode!=='cards')return;
-  const box=$('lessonQuestion');if(!box||!box.querySelector('#lessonToSequence')||box.querySelector('#lessonToSkillExam'))return;
-  const i=items[idx]??items[0],actions=box.querySelector('.actions');if(!actions)return;
-  const b=document.createElement('button');b.id='lessonToSkillExam';b.type='button';b.className='btn primary';b.textContent='🎓 Комплексний екзамен';b.onclick=()=>start('skillExam',[i]);actions.appendChild(b);
-  const back=document.createElement('button');back.type='button';back.className='btn';back.textContent='↩ До флеш-картки';back.onclick=()=>start('cards',[i]);actions.appendChild(back);
+  // Єдина кнопка комплексного екзамену розміщена в блоці маршруту флеш-картки.
  }
+
  const observer=new MutationObserver(()=>{
   try{addCardProgress();addPostTestExam();}catch(e){console.warn('PRACTICE 52 progress UI:',e);}
  });
@@ -1353,7 +1350,7 @@ renderStats();renderSkills();renderHeaderIdentity();
    const skillIndex=Array.isArray(items)&&items.length===1?items[0]:null;
    if(skillIndex!==null)setTimeout(()=>{
     const result=$('sequenceResult');
-    if(result&&result.textContent.includes('Усі кроки на своїх місцях')){setPart(skillIndex,'sequence',true);if(!result.querySelector('#p52SequenceNext')){const nav=document.createElement('div');nav.className='p52-exam-actions';nav.innerHTML='<button type="button" class="btn primary" id="p52SequenceNext">Клінічні ситуації →</button><button type="button" class="btn" id="p52SequenceCard">До флеш-картки</button><button type="button" class="btn" id="p52SequenceExam">Комплексний екзамен</button>';result.appendChild(nav);$('p52SequenceNext').onclick=()=>start('challenge',[skillIndex]);$('p52SequenceCard').onclick=()=>start('cards',[skillIndex]);$('p52SequenceExam').onclick=()=>start('skillExam',[skillIndex]);}}
+    if(result&&result.textContent.includes('Усі кроки на своїх місцях')){setPart(skillIndex,'sequence',true);if(!result.querySelector('#p52SequenceNext')){const nav=document.createElement('div');nav.className='p52-exam-actions';nav.innerHTML='<button type="button" class="btn" id="p52SequenceNext">Клінічні ситуації →</button><button type="button" class="btn" id="p52SequenceCard">До флеш-картки</button><button type="button" class="btn" id="p52SequenceExam">Комплексний екзамен</button>';result.appendChild(nav);$('p52SequenceNext').onclick=()=>start('challenge',[skillIndex]);$('p52SequenceCard').onclick=()=>start('cards',[skillIndex]);$('p52SequenceExam').onclick=()=>start('skillExam',[skillIndex]);}}
    },0);
   }
   if(target&&target.id==='lessonToSequence'||target&&target.id==='lessonToChallenge'){
