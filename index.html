@@ -117,6 +117,14 @@ select{border:1px solid var(--line);background:#fff;border-radius:11px;padding:1
  .header-right>#savedLabel{grid-column:1/-1;grid-row:3;justify-self:stretch;width:100%;min-height:44px;box-sizing:border-box;display:flex;align-items:center;justify-content:center;border-radius:16px}
 }.skill-title-link{display:inline;text-align:inherit;padding:0;border:0;background:transparent;color:inherit;font:inherit;font-weight:inherit;line-height:inherit;cursor:pointer;text-decoration:underline;text-decoration-color:rgba(55,132,160,.45);text-decoration-thickness:2px;text-underline-offset:5px}.skill-title-link:focus-visible{outline:3px solid #3989bd;outline-offset:5px;border-radius:5px}.skill-title-link:active{opacity:.72}.rank-avatar{width:28px;height:28px;flex:0 0 28px;display:inline-block;vertical-align:middle;object-fit:cover;border-radius:50%;margin-right:6px;background:#e8f3f9}
 .avatar-crop-modal{position:fixed;inset:0;z-index:9999;background:#102235a8;display:grid;place-items:center;padding:18px}.avatar-crop-card{width:min(100%,390px);background:#fff;border-radius:22px;padding:20px;box-shadow:0 20px 60px #0003}.avatar-crop-card h3{margin:0 0 8px;font-size:21px}.avatar-crop-card p{margin:0 0 15px;color:var(--muted);font-size:14px}.avatar-crop-viewport{width:min(76vw,280px);height:min(76vw,280px);margin:0 auto 16px;border-radius:50%;overflow:hidden;position:relative;background:#e8eef3;touch-action:none;border:3px solid #fff;box-shadow:0 0 0 1px var(--line)}.avatar-crop-viewport img{position:absolute;max-width:none;max-height:none;user-select:none;-webkit-user-drag:none;touch-action:none}.avatar-crop-card input[type=range]{width:100%;margin:8px 0 16px}.avatar-crop-actions{display:flex;gap:10px}.avatar-crop-actions button{flex:1;border:0;border-radius:13px;padding:13px 8px;font:inherit;font-weight:700;background:#edf3f6;color:var(--ink)}.avatar-crop-actions .primary{background:var(--blue);color:#fff}
+
+.p52-ambient-dock{position:fixed;right:18px;bottom:18px;z-index:1000;display:flex;align-items:center;gap:10px;padding:9px 12px;border:1px solid var(--line);border-radius:16px;background:rgba(255,255,255,.96);box-shadow:0 8px 28px rgba(29,65,89,.16);backdrop-filter:blur(12px);max-width:calc(100vw - 36px)}
+.p52-ambient-label{font-size:12px;color:var(--muted);white-space:nowrap}
+.p52-ambient-toggle{display:inline-flex;align-items:center;gap:8px;border-radius:11px;padding:9px 12px;background:var(--blue2);color:var(--ink);font-weight:700;font-size:13px;white-space:nowrap}
+.p52-ambient-toggle[aria-pressed=true]{background:#e5f4ee;color:#176b50}
+.p52-ambient-dot{width:8px;height:8px;border-radius:50%;background:#9aaab5;display:inline-block}
+.p52-ambient-toggle[aria-pressed=true] .p52-ambient-dot{background:#239b70;box-shadow:0 0 0 4px rgba(35,155,112,.12)}
+@media(max-width:600px){.p52-ambient-dock{right:10px;bottom:10px;left:10px;justify-content:space-between}.p52-ambient-label{white-space:normal}}
 </style>
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
@@ -1391,5 +1399,65 @@ renderStats();renderSkills();renderHeaderIdentity();
 <span style="display:block;margin-top:8px">Мова сайту: українська</span>
 <nav aria-label="Документи та зворотний зв’язок" style="display:flex;justify-content:center;gap:16px;flex-wrap:wrap;margin-top:12px"><a href="offer.html" style="color:var(--blue,#397da8);font-weight:650">Публічна оферта</a><span title="Посилання на Google Форму буде додано після створення форми">Опитування якості — незабаром</span></nav>
 </footer>
+
+<script>
+(function(){
+ 'use strict';
+ const KEY='practice52_ambient_enabled_v1';
+ let audio=null,master=null,voices=[],sequenceTimer=null,step=0;
+ const notes=[220,261.63,329.63,392,329.63,293.66,261.63,196];
+ function playSoftNote(){
+  if(!audio||audio.state!=='running')return;
+  const hz=notes[step%notes.length];step++;
+  const osc=audio.createOscillator(),gain=audio.createGain();
+  osc.type='sine';osc.frequency.value=hz/2;
+  gain.gain.setValueAtTime(.0001,audio.currentTime);
+  gain.gain.exponentialRampToValueAtTime(.018,audio.currentTime+1.4);
+  gain.gain.exponentialRampToValueAtTime(.0001,audio.currentTime+5.8);
+  osc.connect(gain);gain.connect(master);osc.start();osc.stop(audio.currentTime+6);
+  osc.onended=()=>{try{osc.disconnect();gain.disconnect();}catch(e){}};
+ }
+ function makeAudio(){
+  const AudioCtx=window.AudioContext||window.webkitAudioContext;
+  if(!AudioCtx)return false;
+  audio=new AudioCtx();
+  master=audio.createGain();master.gain.value=.0001;master.connect(audio.destination);
+  const lowpass=audio.createBiquadFilter();lowpass.type='lowpass';lowpass.frequency.value=850;lowpass.Q.value=.35;lowpass.connect(master);
+  [110,164.81,220].forEach((hz,index)=>{
+   const osc=audio.createOscillator(),gain=audio.createGain();
+   osc.type=index===1?'triangle':'sine';osc.frequency.value=hz;
+   gain.gain.value=[.10,.055,.035][index];osc.connect(gain);gain.connect(lowpass);osc.start();voices.push(osc);
+  });
+  const lfo=audio.createOscillator(),lfoGain=audio.createGain();lfo.frequency.value=.075;lfoGain.gain.value=120;lfo.connect(lfoGain);lfoGain.connect(lowpass.frequency);lfo.start();voices.push(lfo);
+  master.gain.setTargetAtTime(.19,audio.currentTime,2.8);
+  sequenceTimer=window.setInterval(playSoftNote,4600);playSoftNote();return true;
+ }
+ function stopAudio(){
+  if(sequenceTimer){clearInterval(sequenceTimer);sequenceTimer=null;}
+  if(audio&&master){
+   const ctx=audio,oldMaster=master;oldMaster.gain.cancelScheduledValues(ctx.currentTime);oldMaster.gain.setTargetAtTime(.0001,ctx.currentTime,.18);
+   window.setTimeout(()=>{try{voices.forEach(v=>{try{v.stop();}catch(e){}});ctx.close();}catch(e){}},900);
+  }
+  audio=null;master=null;voices=[];step=0;
+ }
+ const dock=document.createElement('div');dock.className='p52-ambient-dock';
+ dock.innerHTML='<span class="p52-ambient-label">Тиха фонова атмосфера</span><button type="button" class="p52-ambient-toggle" id="p52AmbientToggle" aria-pressed="false"><span class="p52-ambient-dot"></span><span id="p52AmbientText">Музика: вимкнена</span></button>';
+ document.body.appendChild(dock);
+ const button=document.getElementById('p52AmbientToggle'),label=document.getElementById('p52AmbientText');
+ function setUI(on){button.setAttribute('aria-pressed',String(on));label.textContent=on?'Музика: увімкнена':'Музика: вимкнена';}
+ button.addEventListener('click',async()=>{
+  const on=button.getAttribute('aria-pressed')!=='true';
+  if(on){
+   try{
+    if(!audio&&!makeAudio()){label.textContent='Аудіо не підтримується';return;}
+    if(audio.state==='suspended')await audio.resume();
+    localStorage.setItem(KEY,'1');setUI(true);
+   }catch(err){console.warn('PRACTICE 52 ambient audio unavailable:',err);stopAudio();setUI(false);label.textContent='Не вдалося ввімкнути';}
+  }else{stopAudio();localStorage.setItem(KEY,'0');setUI(false);}
+ });
+ try{if(localStorage.getItem(KEY)==='1')label.textContent='Увімкнути фонову музику';}catch(e){}
+})();
+</script>
+
 </body>
 </html>
