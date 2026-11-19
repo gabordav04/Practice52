@@ -169,7 +169,7 @@ select{border:1px solid var(--line);background:#fff;border-radius:11px;padding:1
  <div class="avatar-area"><div class="avatar-preview" id="avatarPreview">🦊</div><div class="avatar-tools"><b>Твій аватар</b><div class="avatar-options" id="avatarOptions"><button type="button" class="avatar-choice" data-avatar="🦊">🦊</button><button type="button" class="avatar-choice" data-avatar="🐼">🐼</button><button type="button" class="avatar-choice" data-avatar="🦁">🦁</button><button type="button" class="avatar-choice" data-avatar="🐺">🐺</button><button type="button" class="avatar-choice" data-avatar="🐉">🐉</button><button type="button" class="avatar-choice" data-avatar="🦸">🦸</button><button type="button" class="avatar-choice" data-avatar="🦹">🦹</button><button type="button" class="avatar-choice" data-avatar="🧙">🧙</button><button type="button" class="avatar-choice" data-avatar="🤖">🤖</button><button type="button" class="avatar-choice" data-avatar="👨‍⚕️">👨‍⚕️</button><button type="button" class="avatar-choice" data-avatar="⭐">⭐</button><button type="button" class="avatar-choice" data-avatar="🌌">🌌</button></div><label class="avatar-upload">＋ Завантажити своє фото<input id="avatarFile" type="file" accept="image/*"></label></div></div>
  <form id="registrationForm">
   <div class="reg-grid">
-   <div class="reg-field"><label for="regNickname">Нікнейм (після створення не змінюється)</label><input id="regNickname" name="nickname" type="text" autocomplete="nickname" placeholder="Наприклад, david_pt" minlength="3" maxlength="20" pattern="[A-Za-z0-9_]+" title="3–20 символів: латинські літери, цифри або _"></div>
+   <div class="reg-field"><label for="regNickname">Нікнейм (можна змінити у будь-який момент)</label><input id="regNickname" name="nickname" type="text" autocomplete="nickname" placeholder="Наприклад, david_pt" minlength="3" maxlength="20" pattern="[A-Za-z0-9_]+" title="3–20 символів: латинські літери, цифри або _"></div>
    <div class="reg-field"><label for="regName">ПІБ</label><input id="regName" name="name" type="text" autocomplete="name" placeholder="Прізвище, ім’я та по батькові" minlength="5"></div>
    <div class="reg-field"><label for="regPhone">Номер телефону</label><input id="regPhone" name="phone" type="tel" autocomplete="tel" inputmode="tel" placeholder="+380..."></div>
    <div class="reg-field"><label for="regEmail">Електронна пошта</label><input id="regEmail" name="email" type="email" autocomplete="email" placeholder="name@example.com" required></div>
@@ -521,7 +521,9 @@ firebase.initializeApp(firebaseConfig);
 const auth=firebase.auth(), db=firebase.firestore();
 let firebaseUser=null, cloudReady=false, cloudSaveTimer=null;
 function setAuthStatus(message,isError=false){$('regStatus').textContent=message;$('regStatus').style.color=isError?'var(--red)':'var(--green)';}
-function readLocalProfile(){try{return JSON.parse(localStorage.getItem(PROFILE_KEY)||'null')}catch(e){return null}}
+function profileStorageKey(user=firebaseUser){return user&&user.uid?PROFILE_KEY+':'+user.uid:PROFILE_KEY+':guest';}
+function readLocalProfile(){try{return JSON.parse(localStorage.getItem(profileStorageKey())||'null')}catch(e){return null}}
+function writeLocalProfile(profile,user=firebaseUser){localStorage.setItem(profileStorageKey(user),JSON.stringify(profile));}
 const DEFAULT_AVATAR='🦊';
 function renderHeaderIdentity(){
  const profile=readLocalProfile()||{},avatar=profile.avatar||DEFAULT_AVATAR;
@@ -538,7 +540,7 @@ function renderAvatar(avatar){
 }
 async function persistAvatar(avatar){
  const profile={...(readLocalProfile()||{}),avatar};
- localStorage.setItem(PROFILE_KEY,JSON.stringify(profile));renderAvatar(avatar);renderHeaderIdentity();
+ writeLocalProfile(profile);renderAvatar(avatar);renderHeaderIdentity();
  if(firebaseUser&&cloudReady){
   try{await db.collection('users').doc(firebaseUser.uid).set({profile,updatedAt:firebase.firestore.FieldValue.serverTimestamp()},{merge:true});setAuthStatus('Аватар збережено у твоєму профілі.');}
   catch(err){console.error('Avatar save failed:',err);setAuthStatus('Аватар збережено на цьому пристрої, але не вдалося синхронізувати його.',true);}
@@ -693,15 +695,17 @@ function isInappropriateNickname(value){
 }
 function assertNicknamePolicy(value){if(isInappropriateNickname(value))throw new Error('Цей нікнейм порушує політику сайту. Обери, будь ласка, інший нікнейм без нецензурної лексики та образливих слів.');}
 function normalizeNickname(value){return String(value||'').trim().toLowerCase();}
-async function claimUniqueNickname(value,user){
- const nickname=String(value||'').trim(),key=normalizeNickname(nickname);
+async function claimUniqueNickname(value,user,previousValue=''){
+ const nickname=String(value||'').trim(),key=normalizeNickname(nickname),previousKey=normalizeNickname(previousValue);
  if(!nickname||key==='student')throw new Error('Нікнейм обов’язковий. Значення «student» використовувати не можна.');
  assertNicknamePolicy(nickname);
- const ref=db.collection('nicknames').doc(key);
+ const ref=db.collection('nicknames').doc(key),previousRef=previousKey&&previousKey!==key?db.collection('nicknames').doc(previousKey):null;
  await db.runTransaction(async tx=>{
   const snap=await tx.get(ref);
+  const previousSnap=previousRef?await tx.get(previousRef):null;
   if(snap.exists&&(snap.data()||{}).uid!==user.uid)throw new Error('Цей нікнейм уже зайнятий. Обери інший.');
-  if(!snap.exists)tx.set(ref,{uid:user.uid,nickname,createdAt:firebase.firestore.FieldValue.serverTimestamp()});
+  tx.set(ref,{uid:user.uid,nickname,updatedAt:firebase.firestore.FieldValue.serverTimestamp(),createdAt:snap.exists?((snap.data()||{}).createdAt||firebase.firestore.FieldValue.serverTimestamp()):firebase.firestore.FieldValue.serverTimestamp()},{merge:true});
+  if(previousSnap&&previousSnap.exists&&(previousSnap.data()||{}).uid===user.uid)tx.delete(previousRef);
  });
 }
 function validateProfile(){
@@ -720,30 +724,24 @@ $('saveProfileBtn').addEventListener('click',async()=>{
   const current=readLocalProfile()||{},name=$('regName').value.trim().replace(/\s+/g,' '),phone=$('regPhone').value.trim(),digits=phone.replace(/\D/g,''),enteredNickname=$('regNickname').value.trim();
   if(name&&name.split(' ').length<2)throw new Error('Вкажи щонайменше прізвище та ім’я.');
   if(phone&&(digits.length<10||digits.length>15))throw new Error('Перевір номер телефону: має бути від 10 до 15 цифр.');
-  let nickname=current.nickname||'';
-  if(!nickname||nickname==='student'){
-   if(!enteredNickname)throw new Error('Введи власний нікнейм і натисни «Зберегти зміни».');
-   if(!/^[A-Za-z0-9_]{3,20}$/.test(enteredNickname))throw new Error('Нікнейм: 3–20 символів, лише латинські літери, цифри або _.');
-   assertNicknamePolicy(enteredNickname);
-   nickname=enteredNickname;
-  }else if(enteredNickname!==nickname){
-   $('regNickname').value=nickname;
-   throw new Error('Нікнейм уже закріплений за акаунтом і не змінюється.');
-  }
-  await claimUniqueNickname(nickname,firebaseUser);
+  const nickname=enteredNickname;
+  if(!nickname)throw new Error('Введи нікнейм.');
+  if(!/^[A-Za-z0-9_]{3,20}$/.test(nickname))throw new Error('Нікнейм: 3–20 символів, лише латинські літери, цифри або _.');
+  assertNicknamePolicy(nickname);
+  await claimUniqueNickname(nickname,firebaseUser,current.nickname||'');
   const profile={...current,name,phone,nickname,publicProfile:$('profileVisible').checked};
-  localStorage.setItem(PROFILE_KEY,JSON.stringify(profile));
+  writeLocalProfile(profile);
   await db.collection('users').doc(firebaseUser.uid).set({profile,updatedAt:firebase.firestore.FieldValue.serverTimestamp()},{merge:true});
-  $('regNickname').value=nickname;$('regNickname').disabled=true;
+  $('regNickname').value=nickname;$('regNickname').disabled=false;
   await syncPublicRank();await loadLeaderboard();setAuthStatus('Профіль збережено. Нікнейм «'+nickname+'» закріплено за акаунтом.');
  }catch(err){setAuthStatus(err.message||'Не вдалося зберегти профіль.',true);}
 });
 $('hideProfileBtn').addEventListener('click',()=>{$('accountPanel').classList.add('hidden');$('studentIdentity').setAttribute('aria-expanded','false');});
-$('profileVisible').addEventListener('change',async()=>{try{if(firebaseUser&&cloudReady){const profile={...(readLocalProfile()||{}),publicProfile:$('profileVisible').checked};localStorage.setItem(PROFILE_KEY,JSON.stringify(profile));await db.collection('users').doc(firebaseUser.uid).set({profile,updatedAt:firebase.firestore.FieldValue.serverTimestamp()},{merge:true});await syncPublicRank();await loadLeaderboard();setAuthStatus($('profileVisible').checked?'Профіль показується в рейтингу.':'Профіль приховано з рейтингу.');}}catch(err){setAuthStatus('Не вдалося змінити видимість. Перевір правила Firestore.',true);}});
+$('profileVisible').addEventListener('change',async()=>{try{if(firebaseUser&&cloudReady){const profile={...(readLocalProfile()||{}),publicProfile:$('profileVisible').checked};writeLocalProfile(profile);await db.collection('users').doc(firebaseUser.uid).set({profile,updatedAt:firebase.firestore.FieldValue.serverTimestamp()},{merge:true});await syncPublicRank();await loadLeaderboard();setAuthStatus($('profileVisible').checked?'Профіль показується в рейтингу.':'Профіль приховано з рейтингу.');}}catch(err){setAuthStatus('Не вдалося змінити видимість. Перевір правила Firestore.',true);}});
 async function saveAccountProfile(user){
  const profile=validateProfile();
  if(profile.name||profile.phone){
-  localStorage.setItem(PROFILE_KEY,JSON.stringify(profile));
+  writeLocalProfile(profile);
   await db.collection('users').doc(user.uid).set({profile,updatedAt:firebase.firestore.FieldValue.serverTimestamp()},{merge:true});
  }
 }
@@ -764,7 +762,7 @@ $('registrationForm').addEventListener('submit',async e=>{
   setAuthStatus('Створюємо акаунт…');
   const credential=await auth.createUserWithEmailAndPassword(email,password);
   await claimUniqueNickname(profile.nickname,credential.user);
-  localStorage.setItem(PROFILE_KEY,JSON.stringify(profile));
+  writeLocalProfile(profile);
   await db.collection('users').doc(credential.user.uid).set({profile,progress:state,createdAt:firebase.firestore.FieldValue.serverTimestamp(),updatedAt:firebase.firestore.FieldValue.serverTimestamp()},{merge:true});
   setAuthStatus('Акаунт створено. Прогрес синхронізується з Firebase.');
  }catch(err){console.error(err);setAuthStatus(err.message||'Не вдалося створити акаунт.',true);}
@@ -1035,7 +1033,7 @@ auth.onAuthStateChanged(async user=>{
   const ref=db.collection('users').doc(user.uid),snap=await ref.get();
   if(snap.exists){
    const data=snap.data()||{};
-   if(data.profile){localStorage.setItem(PROFILE_KEY,JSON.stringify(data.profile));$('regName').value=data.profile.name||'';$('regPhone').value=data.profile.phone||'';$('regNickname').value=data.profile.nickname||'';$('regNickname').disabled=!!data.profile.nickname;renderAvatar(data.profile.avatar||DEFAULT_AVATAR);$('profileVisible').checked=data.profile.publicProfile!==false;}
+   if(data.profile){writeLocalProfile(data.profile);$('regName').value=data.profile.name||'';$('regPhone').value=data.profile.phone||'';$('regNickname').value=data.profile.nickname||'';$('regNickname').disabled=false;renderAvatar(data.profile.avatar||DEFAULT_AVATAR);$('profileVisible').checked=data.profile.publicProfile!==false;}
    if(data.progress&&typeof data.progress==='object'){
     const localState={...state};state={...data.progress,...localState};
     if(!Array.isArray(state.mistakes))state.mistakes=Array.isArray(data.progress.mistakes)?data.progress.mistakes:[];
@@ -1048,14 +1046,14 @@ auth.onAuthStateChanged(async user=>{
     localStorage.setItem(KEY,JSON.stringify(state));
    }
   }else{
-   const profile=readLocalProfile()||{name:user.displayName||'',phone:''};
+   const profile=readLocalProfile()||{name:user.displayName||'',phone:'',avatar:DEFAULT_AVATAR};
    if(user.displayName&&!profile.name)profile.name=user.displayName;
    if(!profile.nickname||profile.nickname==='student'){profile.nickname='';$('regNickname').value='';$('regNickname').disabled=false;}
-   else{$('regNickname').value=profile.nickname;$('regNickname').disabled=true;}
-   localStorage.setItem(PROFILE_KEY,JSON.stringify(profile));
+   else{$('regNickname').value=profile.nickname;$('regNickname').disabled=false;}
+   writeLocalProfile(profile);
    await ref.set({profile,progress:state,createdAt:firebase.firestore.FieldValue.serverTimestamp()},{merge:true});
   }
-  if(user.email)$('regEmail').value=user.email;$('regNickname').value=(readLocalProfile()||{}).nickname||'';$('regNickname').disabled=!!(readLocalProfile()||{}).nickname;renderAvatar((readLocalProfile()||{}).avatar||DEFAULT_AVATAR);
+  if(user.email)$('regEmail').value=user.email;$('regNickname').value=(readLocalProfile()||{}).nickname||'';$('regNickname').disabled=false;renderAvatar((readLocalProfile()||{}).avatar||DEFAULT_AVATAR);
   $('regPassword').value='';
   cloudReady=true;
   const signedProfile=readLocalProfile()||{};
