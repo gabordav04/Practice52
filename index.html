@@ -157,7 +157,7 @@ select{border:1px solid var(--line);background:#fff;border-radius:11px;padding:1
 </head>
 <body>
 <div class="app">
-<div id="p52EntryBackdrop" class="p52-entry-backdrop hidden" role="dialog" aria-modal="true" aria-labelledby="p52EntryTitle"><div class="p52-entry-card"><div class="eyebrow">ЛАСКАВО ПРОСИМО</div><h2 id="p52EntryTitle">Як ти плануєш користуватися<br><span style="white-space:nowrap">PRACTICE&nbsp;52?</span></h2><p>Обери свою роль. Це налаштування інтерфейсу; права викладача підтверджуються окремим запрошенням.</p><div class="p52-entry-choices"><button type="button" class="p52-entry-choice" data-entry-role="student">🎓 Я — студент</button><button type="button" class="p52-entry-choice" data-entry-role="teacher">👩‍🏫 Я — викладач</button><button type="button" class="p52-entry-choice" data-entry-role="admin">🛡️ Я — адміністратор</button></div><div class="p52-entry-actions hidden" id="p52EntryActions"><button type="button" class="btn primary" id="p52EntryGuest">Продовжити як гість</button><button type="button" class="btn" id="p52EntryAccount">Створити акаунт / увійти</button><button type="button" class="btn" id="p52EntryBack">Змінити роль</button></div><p class="note" id="p52EntryNote">Гостьовий режим доступний студентам і викладачам. Адміністратор входить у свій наявний акаунт.</p></div></div>
+<div id="p52EntryBackdrop" class="p52-entry-backdrop hidden" role="dialog" aria-modal="true" aria-labelledby="p52EntryTitle"><div class="p52-entry-card"><div class="eyebrow">ЗМІНА КОРИСТУВАЧА</div><h2 id="p52EntryTitle">Хто користуватиметься PRACTICE 52?</h2><p>Обери роль нового користувача. Поточний сеанс буде завершено, локальні дані попереднього користувача на цьому пристрої очищено. Для продовження потрібно створити акаунт або увійти.</p><div class="p52-entry-choices"><button type="button" class="p52-entry-choice" data-entry-role="student">🎓 Я — студент</button><button type="button" class="p52-entry-choice" data-entry-role="teacher">👩‍🏫 Я — викладач</button><button type="button" class="p52-entry-choice" data-entry-role="admin">🛡️ Я — адміністратор</button></div><div class="p52-entry-actions hidden" id="p52EntryActions"><button type="button" class="btn primary" id="p52EntryConfirm">Підтвердити роль і перейти до входу</button><button type="button" class="btn" id="p52EntryBack">Скасувати</button></div><p class="note" id="p52EntryNote">Гостьовий режим вимкнено: кожен користувач входить у власний акаунт. Права викладача й адміністратора підтверджуються окремо.</p></div></div>
 
 <header>
  <div class="brand"><div class="logo">＋</div><div><h1>PRACTICE 52</h1><p>Навчальний тренажер практичних навичок</p></div></div>
@@ -500,8 +500,9 @@ const lessons = {0:{title:"Життєві показники: АТ, ЧСС, ЧД
 
 const $=id=>document.getElementById(id);
 const PROFILE_KEY='practice52_profile_v1';
-const KEY='practice52_v1';
-let state={done:[],needsReview:[],skillStatusUpdatedAt:{},lessonTestsCompleted:{},points:0,correct:0,answered:0,mistakes:[],ratings:{}};
+let KEY='practice52_v1:guest';
+function emptyPracticeState(){return {done:[],needsReview:[],skillStatusUpdatedAt:{},lessonTestsCompleted:{},points:0,correct:0,answered:0,mistakes:[],ratings:{}};}
+let state=emptyPracticeState();
 try{state={...state,...JSON.parse(localStorage.getItem(KEY)||'{}')}}catch(e){}
 if(!Array.isArray(state.mistakes))state.mistakes=[];if(!Array.isArray(state.done))state.done=[];if(!Array.isArray(state.needsReview))state.needsReview=[];if(!state.ratings||typeof state.ratings!=='object')state.ratings={};if(!state.skillStatusUpdatedAt||typeof state.skillStatusUpdatedAt!=='object')state.skillStatusUpdatedAt={};if(!state.lessonTestsCompleted||typeof state.lessonTestsCompleted!=='object')state.lessonTestsCompleted={};
 let currentMode='',items=[],idx=0;
@@ -1021,7 +1022,10 @@ async function refreshPractice52Role(user){
 auth.onAuthStateChanged(async user=>{
  if(window.practice52ProgressUnsubscribe){window.practice52ProgressUnsubscribe();window.practice52ProgressUnsubscribe=null;}
  if(leaderboardUnsubscribe){leaderboardUnsubscribe();leaderboardUnsubscribe=null;}
- firebaseUser=user;cloudReady=false;renderHeaderIdentity();await refreshPractice52Role(user);
+ firebaseUser=user;cloudReady=false;KEY=user?'practice52_v1:'+user.uid:'practice52_v1:guest';
+ state=emptyPracticeState();try{state={...state,...JSON.parse(localStorage.getItem(KEY)||'{}')}}catch(e){}
+ if(!Array.isArray(state.mistakes))state.mistakes=[];if(!Array.isArray(state.done))state.done=[];if(!Array.isArray(state.needsReview))state.needsReview=[];if(!state.ratings||typeof state.ratings!=='object')state.ratings={};if(!state.skillStatusUpdatedAt||typeof state.skillStatusUpdatedAt!=='object')state.skillStatusUpdatedAt={};if(!state.lessonTestsCompleted||typeof state.lessonTestsCompleted!=='object')state.lessonTestsCompleted={};
+ renderHeaderIdentity();await refreshPractice52Role(user);
  $('rankingJoinPrompt').classList.toggle('hidden',!!user);
  $('logoutBtn').classList.toggle('hidden',!user);
  $('googleLogin').classList.toggle('hidden',!!user);
@@ -1797,28 +1801,41 @@ renderStats();renderSkills();renderHeaderIdentity();
  function updateRoleUI(){
   document.querySelectorAll('[data-entry-role]').forEach(b=>b.classList.toggle('selected',b.dataset.entryRole===selected));
   actions.classList.toggle('hidden',!selected);
-  const field=document.getElementById('teacherInviteField');
-  if(field){field.classList.toggle('hidden',selected!=='teacher');document.getElementById('teacherInviteCode').required=selected==='teacher';}
-  const google=document.getElementById('googleLogin');if(google)google.classList.toggle('hidden',selected==='teacher'||!!firebase.auth().currentUser);
  }
  function openEntry(){backdrop.classList.remove('hidden');selected=localStorage.getItem(ROLE_KEY)||'';updateRoleUI();}
  document.querySelectorAll('[data-entry-role]').forEach(b=>b.addEventListener('click',()=>{selected=b.dataset.entryRole;updateRoleUI();}));
- document.getElementById('p52EntryBack').addEventListener('click',()=>{selected='';updateRoleUI();});
- document.getElementById('p52EntryGuest').addEventListener('click',()=>{
-  if(!selected)return;localStorage.setItem(ROLE_KEY,selected);localStorage.setItem(DONE_KEY,'1');backdrop.classList.add('hidden');
-  document.getElementById('regStatus').textContent=selected==='teacher'?'Гостьовий режим викладача: доступний навчальний тренажер. Для кабінету викладача потрібен акаунт із підтвердженою роллю.':'Гостьовий режим учня. Прогрес зберігається на цьому пристрої.';
- });
- document.getElementById('p52EntryAccount').addEventListener('click',()=>{
-  if(!selected)return;localStorage.setItem(ROLE_KEY,selected);localStorage.setItem(DONE_KEY,'1');backdrop.classList.add('hidden');
-  const panel=document.getElementById('accountPanel');panel.classList.remove('hidden');panel.scrollIntoView({behavior:'smooth',block:'start'});updateRoleUI();
-  document.getElementById('regTitle').textContent=selected==='teacher'?'Реєстрація викладача PRACTICE 52':selected==='admin'?'Вхід адміністратора PRACTICE 52':'Обліковий запис студента PRACTICE 52';
-  const createButton=document.querySelector('#registrationForm button[type="submit"]');if(createButton)createButton.classList.toggle('hidden',selected==='admin');
-  document.getElementById('regStatus').textContent=selected==='admin'?'Увійди в наявний адміністративний акаунт. Не створюй новий акаунт.':'';
+ document.getElementById('p52EntryBack').addEventListener('click',()=>{backdrop.classList.add('hidden');});
+ document.getElementById('p52EntryConfirm').addEventListener('click',async()=>{
+  if(!selected)return;
+  const confirmButton=document.getElementById('p52EntryConfirm');confirmButton.disabled=true;
+  try{
+   // Очистити лише локальні дані PRACTICE 52. Хмарні профілі та прогрес акаунтів не видаляються.
+   for(const key of Object.keys(localStorage)){
+    if(key.startsWith('practice52_profile_v1')||key.startsWith('practice52_v1'))localStorage.removeItem(key);
+   }
+   localStorage.setItem(ROLE_KEY,selected);localStorage.setItem(DONE_KEY,'1');
+   if(firebase.auth().currentUser)await firebase.auth().signOut();
+   backdrop.classList.add('hidden');
+   const panel=document.getElementById('accountPanel');panel.classList.remove('hidden');
+   document.getElementById('studentIdentity').setAttribute('aria-expanded','true');
+   panel.scrollIntoView({behavior:'smooth',block:'start'});
+   document.getElementById('regTitle').textContent=selected==='teacher'?'Реєстрація / вхід викладача PRACTICE 52':selected==='admin'?'Вхід адміністратора PRACTICE 52':'Реєстрація / вхід студента PRACTICE 52';
+   const createButton=document.querySelector('#registrationForm button[type="submit"]');
+   if(createButton)createButton.classList.toggle('hidden',selected==='admin');
+   const google=document.getElementById('googleLogin');if(google)google.classList.toggle('hidden',selected==='teacher');
+   document.getElementById('regStatus').textContent=selected==='admin'?'Увійди у свій наявний адміністративний акаунт.':'Локальні дані попереднього користувача очищено. Створи власний акаунт або увійди, щоб завантажити лише свої дані.';
+   document.getElementById('regEmail').value='';document.getElementById('regPassword').value='';
+   document.getElementById('regName').value='';document.getElementById('regPhone').value='';
+   document.getElementById('regNickname').value='';document.getElementById('regNickname').disabled=false;
+   renderAvatar('🦊');
+  }catch(err){
+   document.getElementById('regStatus').textContent='Не вдалося завершити зміну користувача: '+(err.message||'невідома помилка');
+   document.getElementById('regStatus').style.color='var(--red)';
+  }finally{confirmButton.disabled=false;}
  });
  document.getElementById('studentIdentity').addEventListener('contextmenu',e=>{e.preventDefault();openEntry();});
- if(!localStorage.getItem(DONE_KEY)&&!firebase.auth().currentUser)setTimeout(openEntry,250);
  window.practice52OpenEntry=openEntry;
- const roleButton=document.createElement('button');roleButton.type='button';roleButton.className='btn';roleButton.textContent='Змінити роль';roleButton.title='Змінити роль учня або викладача';roleButton.addEventListener('click',openEntry);document.querySelector('.header-right')?.appendChild(roleButton);
+ const roleButton=document.createElement('button');roleButton.type='button';roleButton.className='btn';roleButton.textContent='Змінити роль';roleButton.title='Завершити поточний сеанс і перейти до іншого користувача';roleButton.addEventListener('click',openEntry);document.querySelector('.header-right')?.appendChild(roleButton);
 })();
 </script>
 
