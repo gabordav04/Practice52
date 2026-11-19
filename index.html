@@ -1811,5 +1811,26 @@ renderStats();renderSkills();renderHeaderIdentity();
  const roleButton=document.createElement('button');roleButton.type='button';roleButton.className='btn';roleButton.textContent='Змінити роль';roleButton.title='Змінити роль учня або викладача';roleButton.addEventListener('click',openEntry);document.querySelector('.header-right')?.appendChild(roleButton);
 })();
 </script>
+
+<script>
+/* Надійне відкриття профілю на мобільних пристроях */
+(function(){
+  const identity = document.getElementById('studentIdentity');
+  const panel = document.getElementById('accountPanel');
+  if (!identity || !panel) return;
+
+  document.addEventListener('click', function(event){
+    if (!event.target || !event.target.closest || !event.target.closest('#studentIdentity')) return;
+    event.preventDefault();
+    event.stopPropagation();
+    if (typeof event.stopImmediatePropagation === 'function') event.stopImmediatePropagation();
+
+    panel.classList.remove('hidden');
+    identity.setAttribute('aria-expanded', 'true');
+    panel.scrollIntoView({behavior:'smooth', block:'start'});
+  }, true);
+})();
+</script>
+
 </body>
 </html>
