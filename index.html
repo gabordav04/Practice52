@@ -855,7 +855,8 @@ function ensureAdminPanel(){
   if(btn.dataset.adminTab==='groups')loadAdminGroups();
   if(btn.dataset.adminTab==='analytics')loadAdminAnalytics();
  }));
- document.getElementById('p52InviteForm').addEventListener('submit',createTeacherInvite);\n  document.getElementById('p52TeacherSearch').addEventListener('input',e=>renderAdminUserSearch(e.target.value,'p52TeacherSearchResults',assignTeacher,'Немає відкритих профілів за цим запитом.'));
+ document.getElementById('p52InviteForm').addEventListener('submit',createTeacherInvite);
+  document.getElementById('p52TeacherSearch').addEventListener('input',e=>renderAdminUserSearch(e.target.value,'p52TeacherSearchResults',assignTeacher,'Немає відкритих профілів за цим запитом.'));
  document.getElementById('p52GroupForm').addEventListener('submit',createAdminGroup);
  practice52AdminPanelReady=true;
 }
