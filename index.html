@@ -1261,21 +1261,30 @@ renderStats();renderSkills();renderHeaderIdentity();
    const L=lessons[i];if(!L)return;
    const qs=Array.isArray(L.questions)?L.questions.slice():[];
    const count=perSkill?Math.min(5,qs.length):Math.min(1,qs.length);
-   shuffle(qs).slice(0,count).forEach(q=>tasks.push({kind:'test',skillIndex:i,q,options:shuffle(q.o.map((v,n)=>({v,n}))).map(x=>x.v),answer:null,correct:q.a}));
-   if(Array.isArray(L.steps)&&L.steps.length>1)tasks.push({kind:'sequence',skillIndex:i,steps:shuffle(L.steps.map((v,n)=>({v,original:n}))),checked:false});
-   if(qs.length){const cq=shuffle(qs)[0];tasks.push({kind:'clinical',skillIndex:i,q:cq,options:shuffle(cq.o.map((v,n)=>({v,n}))).map(x=>x.v),answer:null,correct:cq.a});}
+   shuffle(qs).slice(0,count).forEach(q=>tasks.push({kind:'test',skillIndex:i,q,options:shuffle(q.o.map(v=>v)).map(v=>v),answer:null,passed:false,markedLater:false,submitted:false}));
+   if(Array.isArray(L.steps)&&L.steps.length>1)tasks.push({kind:'sequence',skillIndex:i,steps:shuffle(L.steps.map((v,n)=>({v,original:n}))),passed:false,markedLater:false,submitted:false});
+   if(qs.length){const cq=shuffle(qs)[0];tasks.push({kind:'clinical',skillIndex:i,q:cq,options:shuffle(cq.o.map(v=>v)),answer:null,passed:false,markedLater:false,submitted:false});}
   });
-  return tasks;
+  return shuffle(tasks);
  }
  function finishMixedExam(){
   if(!mixedExam)return;
   clearInterval(examTimer);examTimer=null;
   const skillIndex=mixedExam.skillIndex;
-  const total=mixedExam.tasks.length,correct=mixedExam.tasks.filter(t=>t.passed).length,pct=total?Math.round(correct/total*100):0,passed=pct>=70;
-  if(skillIndex!==null&&passed){const p=progressFor(skillIndex);setPart(skillIndex,'exam',true);if(!p.examRewarded){state.points=(Number(state.points)||0)+50;p.examRewarded=true;p.examRewardedAt=Date.now();save();}}
+  const total=mixedExam.tasks.length,correct=mixedExam.tasks.filter(t=>t.submitted&&t.passed).length,pct=total?Math.round(correct/total*100):0,passed=pct>=70;
+  let bonus=0,grade='';
+  if(skillIndex!==null&&passed){
+   const p=progressFor(skillIndex);setPart(skillIndex,'exam',true);
+   if(!p.examRewarded){state.points=(Number(state.points)||0)+50;p.examRewarded=true;p.examRewardedAt=Date.now();save();}
+   bonus=p.examRewarded?50:0;grade='Етап екзамену зараховано.';
+  }else if(skillIndex===null){
+   bonus=pct>=90?100:pct>=80?75:pct>=70?50:0;
+   grade='Оцінка: '+(pct>=90?'Відмінно':pct>=80?'Добре':pct>=70?'Задовільно':'Не складено')+'.';
+   if(bonus){state.points=(Number(state.points)||0)+bonus;save();}
+  }else grade='Етап екзамену не зараховано.';
   const content=$('studyContent');
   $('counter').textContent='Результат екзамену';$('bar').style.width='100%';
-  content.innerHTML='<div class="study-card"><div class="label">КОМПЛЕКСНИЙ ЕКЗАМЕН ЗАВЕРШЕНО</div><h2>'+(passed?'Екзамен складено! 🎉':'Потрібно ще потренуватися')+'</h2><div class="answer"><b>'+correct+' із '+total+' завдань · '+pct+'%</b><br>Перевірялися теорія, алгоритм і клінічне мислення.<br>Пороговий результат: 70%.<br>'+(mixedExam.skillIndex!==null?(passed?'Етап екзамену зараховано.':'Етап екзамену не зараховано.'):'Загальний екзамен не змінює статус окремих навичок.')+'</div><div class="p52-exam-actions"><button class="btn primary" id="p52ExamAgain">Пройти ще раз</button>'+(skillIndex!==null?'<button class="btn" id="p52BackCard">До флеш-картки</button>':'<button class="btn" id="p52ExamCatalog">До каталогу</button>')+'</div></div>';
+  content.innerHTML='<div class="study-card"><div class="label">КОМПЛЕКСНИЙ ЕКЗАМЕН ЗАВЕРШЕНО</div><h2>'+(passed?'Екзамен складено! 🎉':'Потрібно ще потренуватися')+'</h2><div class="answer"><b>'+correct+' із '+total+' завдань · '+pct+'%</b><br>Перевірялися різні навички, теорія, алгоритми та клінічне мислення.<br>Пороговий результат: 70%.<br>'+grade+(skillIndex===null?'<br>Рейтингова винагорода: +'+bonus+' балів':(passed?'<br>Рейтингова винагорода: +50 балів':'<br>Бонус за цей екзамен не нараховано.'))+'</div><div class="p52-exam-actions"><button class="btn primary" id="p52ExamAgain">Пройти ще раз</button>'+(skillIndex!==null?'<button class="btn" id="p52BackCard">До флеш-картки</button>':'<button class="btn" id="p52ExamCatalog">До каталогу</button>')+'</div></div>';
   $('p52ExamAgain').onclick=()=>start(skillIndex===null?'exam':'skillExam',skillIndex===null?null:[skillIndex]);
   const back=$('p52BackCard')||$('p52ExamCatalog');if(back)back.onclick=()=>{if(skillIndex!==null)start('cards',[skillIndex]);else returnToModes();};
   mixedExam=null;
@@ -1283,39 +1292,39 @@ renderStats();renderSkills();renderHeaderIdentity();
  function renderMixedExam(){
   if(!mixedExam)return;
   const task=mixedExam.tasks[mixedExam.index],content=$('studyContent'),i=task.skillIndex,L=lessons[i];
-  $('counter').textContent='Завдання '+(mixedExam.index+1)+' із '+mixedExam.tasks.length+' · '+skills[i];
+  $('counter').textContent='Завдання '+(mixedExam.index+1)+' із '+mixedExam.tasks.length+' · навичка '+(i+1);
   $('bar').style.width=((mixedExam.index+1)/mixedExam.tasks.length*100)+'%';
   const clock='<div class="p52-exam-clock" id="p52ExamClock">Залишилось: '+Math.floor(examSeconds/60)+':'+String(examSeconds%60).padStart(2,'0')+'</div>';
+  const navigator='<div class="exam-tools"><div class="exam-grid" aria-label="Швидкий перехід до завдання">'+mixedExam.tasks.map((t,n)=>'<button type="button" class="exam-jump '+(t.submitted?(t.passed?'answered':'answered-wrong'):'unanswered')+(t.markedLater&&!t.submitted?' marked-later':'')+(n===mixedExam.index?' current':'')+'" data-mixed-jump="'+n+'" title="Навичка '+(t.skillIndex+1)+' · '+(t.kind==='test'?'Тест':t.kind==='sequence'?'Послідовність':'Клінічна ситуація')+'">'+(n+1)+'</button>').join('')+'</div><div class="exam-legend"><span><i class="answered-key"></i>Правильно</span><span><i class="unanswered-key"></i>Без відповіді</span><span><i class="later-key"></i>На потім</span><span><i class="wrong-key"></i>Неправильно</span></div><button type="button" class="btn '+(task.markedLater?'good':'')+'" id="p52MarkLater">'+(task.markedLater?'Зняти позначку «На потім»':'Позначити на потім')+'</button></div>';
   let body='';
   if(task.kind==='sequence'){
-   body='<div class="label">ЧАСТИНА 2 · ПОСЛІДОВНІСТЬ</div><h2>'+L.title+'</h2><p>Розташуй кроки алгоритму в правильному порядку.</p><div id="p52Steps">'+task.steps.map((s,n)=>'<div class="p52-exam-step" data-index="'+n+'"><span>'+s.v+'</span><button type="button" data-move="-1">↑</button><button type="button" data-move="1">↓</button></div>').join('')+'</div><div id="p52TaskFeedback"></div>';
+   body='<div class="label">ПОСЛІДОВНІСТЬ · НАВИЧКА №'+(i+1)+'</div><h2>'+L.title+'</h2><p>Розташуй кроки алгоритму в правильному порядку.</p><div id="p52Steps">'+task.steps.map((x,n)=>'<div class="p52-exam-step" data-index="'+n+'"><span>'+x.v+'</span><button type="button" data-move="-1" '+(task.submitted?'disabled':'')+'>↑</button><button type="button" data-move="1" '+(task.submitted?'disabled':'')+'>↓</button></div>').join('')+'</div><div id="p52TaskFeedback">'+(task.submitted?'<div class="feedback">'+(task.passed?'Алгоритм відновлено правильно.':'Алгоритм розташовано неправильно.')+'</div>':'')+'</div><button type="button" class="btn" id="p52SubmitSequence" '+(task.submitted?'disabled':'')+'>Перевірити послідовність</button>';
   }else{
-   body='<div class="label">'+(task.kind==='clinical'?'ЧАСТИНА 3 · КЛІНІЧНА СИТУАЦІЯ':'ЧАСТИНА 1 · ТЕСТУВАННЯ')+'</div><h2>'+L.title+'</h2>'+(task.kind==='clinical'?'<div class="mistake-box"><b>Клінічна ситуація:</b> Ви працюєте з пацієнтом. Мета втручання: '+L.goal+'</div>':'')+'<div class="qtitle">'+task.q.q+'</div><div class="options">'+task.options.map((v,n)=>'<button class="option" data-choice="'+n+'">'+v+'</button>').join('')+'</div><div id="p52TaskFeedback"></div>';
+   body='<div class="label">'+(task.kind==='clinical'?'КЛІНІЧНА СИТУАЦІЯ':'ТЕСТОВЕ ПИТАННЯ')+' · НАВИЧКА №'+(i+1)+'</div><h2>'+L.title+'</h2>'+(task.kind==='clinical'?'<div class="mistake-box"><b>Клінічний сценарій:</b> Оціни ситуацію пацієнта та обери найбільш доречне рішення. Мета навички: '+L.goal+'</div>':'')+'<div class="qtitle">'+task.q.q+'</div><div class="options">'+task.options.map((v,n)=>'<button class="option '+(task.submitted?(v===task.q.o[task.q.a]?'correct':(v===task.options[task.answer]?'wrong':'')):'')+'" data-choice="'+n+'" '+(task.submitted?'disabled':'')+'>'+v+'</button>').join('')+'</div><div id="p52TaskFeedback">'+(task.submitted?'<div class="feedback">'+(task.passed?'Правильно! ':'Неправильно. ')+(task.q.e||'')+'</div>':'')+'</div>';
   }
-  content.innerHTML='<div class="study-card p52-exam-task">'+clock+body+'<div class="p52-exam-actions"><button class="btn primary" id="p52TaskNext">'+(mixedExam.index===mixedExam.tasks.length-1?'Завершити екзамен':'Наступне завдання →')+'</button><button class="btn" id="p52TaskExit">Вийти з екзамену</button></div></div>';
+  content.innerHTML='<div class="study-card p52-exam-task">'+clock+navigator+body+'<div class="p52-exam-actions"><button class="btn" id="p52TaskPrev" '+(mixedExam.index===0?'disabled':'')+'>← Попереднє</button><button class="btn primary" id="p52TaskNext">'+(mixedExam.index===mixedExam.tasks.length-1?'Завершити екзамен':'Наступне завдання →')+'</button><button class="btn" id="p52TaskExit">Вийти з екзамену</button></div></div>';
+  content.querySelectorAll('[data-mixed-jump]').forEach(btn=>btn.onclick=()=>{mixedExam.index=Number(btn.dataset.mixedJump);renderMixedExam();});
+  $('p52MarkLater').onclick=()=>{task.markedLater=!task.markedLater;renderMixedExam();};
+  $('p52TaskPrev').onclick=()=>{if(mixedExam.index>0){mixedExam.index--;renderMixedExam();}};
   if(task.kind==='sequence'){
    const list=$('p52Steps');
    list.querySelectorAll('.p52-exam-step').forEach(row=>row.querySelectorAll('button').forEach(btn=>btn.onclick=()=>{
     const from=Number(row.dataset.index),to=from+Number(btn.dataset.move);if(to<0||to>=task.steps.length)return;
     [task.steps[from],task.steps[to]]=[task.steps[to],task.steps[from]];renderMixedExam();
    }));
-   task.passed=task.steps.every((s,n)=>s.original===n);
-   $('p52TaskNext').onclick=()=>{task.passed=task.steps.every((s,n)=>s.original===n);if(!task.passed){$('p52TaskFeedback').textContent='Алгоритм розташовано неправильно. Завдання не зараховано.';}mixedExam.index++;if(mixedExam.index>=mixedExam.tasks.length)finishMixedExam();else renderMixedExam();};
+   $('p52SubmitSequence').onclick=()=>{task.passed=task.steps.every((x,n)=>x.original===n);task.submitted=true;$('p52TaskFeedback').innerHTML='<div class="feedback">'+(task.passed?'Правильно! Алгоритм відновлено.':'Неправильно. Переглянь алгоритм після завершення екзамену.')+'</div>';renderMixedExam();};
   }else{
    content.querySelectorAll('[data-choice]').forEach(btn=>btn.onclick=()=>{
-    if(task.answer!==null)return;
-    const chosen=Number(btn.dataset.choice),correctValue=task.q.o[task.q.a],selected=task.options[chosen];
-    task.answer=chosen;task.passed=selected===correctValue;
-    content.querySelectorAll('[data-choice]').forEach(x=>{x.disabled=true;if(x.textContent===correctValue)x.classList.add('correct');});
-    if(!task.passed)btn.classList.add('wrong');
-    $('p52TaskFeedback').innerHTML='<div class="feedback">'+(task.passed?'Правильно!':'Неправильно.')+' '+(task.q.e||'')+'</div>';
+    if(task.submitted)return;
+    task.answer=Number(btn.dataset.choice);task.passed=task.options[task.answer]===task.q.o[task.q.a];task.submitted=true;renderMixedExam();
    });
-   $('p52TaskNext').onclick=()=>{if(task.answer===null){$('p52TaskFeedback').textContent='Спочатку обери відповідь. Завдання не зараховано.';return;}mixedExam.index++;if(mixedExam.index>=mixedExam.tasks.length)finishMixedExam();else renderMixedExam();};
   }
+  $('p52TaskNext').onclick=()=>{if(mixedExam.index===mixedExam.tasks.length-1)finishMixedExam();else{mixedExam.index++;renderMixedExam();}};
   $('p52TaskExit').onclick=()=>{clearInterval(examTimer);examTimer=null;const si=mixedExam.skillIndex;mixedExam=null;if(si!==null)start('cards',[si]);else returnToModes();};
  }
  function startMixedExam(skillIndex){
-  const skillsToTest=skillIndex===null?shuffle(skills.map((_,i)=>i).filter(i=>lessons[i]&&lessons[i].questions?.length&&lessons[i].steps?.length)).slice(0,5):[skillIndex];
+  const eligible=skills.map((_,i)=>i).filter(i=>lessons[i]&&Array.isArray(lessons[i].questions)&&lessons[i].questions.length&&Array.isArray(lessons[i].steps)&&lessons[i].steps.length>1);
+  const skillsToTest=skillIndex===null?shuffle(eligible).slice(0,5):[skillIndex];
   mixedExam={skillIndex,tasks:makeExamTasks(skillsToTest,skillIndex!==null),index:0};
   if(skillIndex!==null){
    const only=mixedExam.tasks;
