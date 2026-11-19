@@ -609,7 +609,7 @@ async function syncPublicRank(){
    const roleData=roleSnap.exists?(roleSnap.data()||{}):{};
    if(roleData.role==='teacher'||roleData.role==='admin')accountRole=roleData.role;
   }
-  if(accountRole==='teacher'||accountRole==='admin'){
+  if(accountRole==='teacher'||(accountRole==='admin'&&firebaseUser.uid!=='NIXSOWQ2c1Tkh5TVGU6z9zkbhOp2')){
    await rankRef.delete();
    return;
   }
@@ -1065,7 +1065,7 @@ async function refreshPractice52Role(user){
    practice52CurrentRole=roleData.role==='teacher'&&roleData.active===false?null:(snap.exists?roleData.role:null);
   }
   // При вході або зміні ролі одразу прибираємо викладача/адміністратора з публічного рейтингу.
-  if(practice52CurrentRole==='teacher'||practice52CurrentRole==='admin'){
+  if(practice52CurrentRole==='teacher'||(practice52CurrentRole==='admin'&&user.uid!=='NIXSOWQ2c1Tkh5TVGU6z9zkbhOp2')){
    try{await db.collection('leaderboard').doc(user.uid).delete();}
    catch(rankError){console.warn('Could not remove non-student from public ranking:',rankError);}
   }
