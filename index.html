@@ -750,7 +750,7 @@ auth.onAuthStateChanged(async user=>{
   try{await syncPublicRank();}catch(rankErr){console.warn('Initial public rank sync failed:',rankErr);}
   await loadLeaderboard();watchLeaderboard();queueCloudSave();
   if(window.practice52ProgressUnsubscribe)window.practice52ProgressUnsubscribe();
-  window.practice52ProgressUnsubscribe=ref.onSnapshot(snap=>{if(!snap.exists)return;const remote=(snap.data()||{}).progress;if(!remote)return;const before=JSON.stringify({done:state.done,needsReview:state.needsReview,skillStatusUpdatedAt:state.skillStatusUpdatedAt,lessonTestsCompleted:state.lessonTestsCompleted});mergeCloudSkillStatuses(remote);state.lessonTestsCompleted={...(remote.lessonTestsCompleted||{}),...(state.lessonTestsCompleted||{})};const after=JSON.stringify({done:state.done,needsReview:state.needsReview,skillStatusUpdatedAt:state.skillStatusUpdatedAt,lessonTestsCompleted:state.lessonTestsCompleted});if(before!==after){localStorage.setItem(KEY,JSON.stringify(state));renderStats();renderSkills();queueCloudSave();}},err=>{console.warn('Progress sync listener failed:',err);setAuthStatus('Не вдалося оновити синхронізацію прогресу в реальному часі.',true);});
+  window.practice52ProgressUnsubscribe=ref.onSnapshot(snap=>{if(!snap.exists)return;const remote=(snap.data()||{}).progress;if(!remote)return;const before=JSON.stringify({done:state.done,needsReview:state.needsReview,skillStatusUpdatedAt:state.skillStatusUpdatedAt,lessonTestsCompleted:state.lessonTestsCompleted,learningProgress:state.learningProgress});mergeCloudSkillStatuses(remote);state.lessonTestsCompleted={...(remote.lessonTestsCompleted||{}),...(state.lessonTestsCompleted||{})};state.learningProgress={...(remote.learningProgress||{}),...(state.learningProgress||{})};const after=JSON.stringify({done:state.done,needsReview:state.needsReview,skillStatusUpdatedAt:state.skillStatusUpdatedAt,lessonTestsCompleted:state.lessonTestsCompleted,learningProgress:state.learningProgress});if(before!==after){localStorage.setItem(KEY,JSON.stringify(state));renderStats();renderSkills();queueCloudSave();}},err=>{console.warn('Progress sync listener failed:',err);setAuthStatus('Не вдалося оновити синхронізацію прогресу в реальному часі.',true);});
   setAuthStatus('Вхід виконано: '+(user.email||user.displayName||'користувач')+'. Прогрес синхронізується між пристроями.');
   $('savedLabel').textContent='Firebase ✓';renderHeaderIdentity();
  }catch(err){console.error('Firebase load failed:',err);setAuthStatus('Авторизація є, але не вдалося прочитати дані. Перевір правила Firestore.',true);}
@@ -1265,7 +1265,7 @@ renderStats();renderSkills();renderHeaderIdentity();
    const count=perSkill?Math.min(3,qs.length):Math.min(1,qs.length);
    shuffle(qs).slice(0,count).forEach(q=>tasks.push({kind:'test',skillIndex:i,q,options:shuffle(q.o.map((v,n)=>({v,n}))).map(x=>x.v),answer:null,correct:q.a}));
    if(Array.isArray(L.steps)&&L.steps.length>1)tasks.push({kind:'sequence',skillIndex:i,steps:shuffle(L.steps.map((v,n)=>({v,original:n}))),checked:false});
-   if(qs.length)tasks.push({kind:'clinical',skillIndex:i,q:shuffle(qs)[0],options:shuffle(qs[0].o.map((v,n)=>({v,n}))).map(x=>x.v),answer:null,correct:qs[0].a});
+   if(qs.length){const cq=shuffle(qs)[0];tasks.push({kind:'clinical',skillIndex:i,q:cq,options:shuffle(cq.o.map((v,n)=>({v,n}))).map(x=>x.v),answer:null,correct:cq.a});}
   });
   return tasks;
  }
