@@ -760,11 +760,18 @@ function buildTeacherVisibleStudentProfile(profile){
 }
 async function publishStudentProgressForTeacher(){
  if(!firebaseUser||!cloudReady||practice52CurrentRole==='teacher'||practice52CurrentRole==='admin')return;
+ // Прогрес дублюється окремо всередині кожної групи: правила Firestore
+ // можуть перевірити teacherUid батьківської групи без глобального доступу.
+ const groupsSnap=await db.collection('groups').where('studentUids','array-contains',firebaseUser.uid).get();
+ if(groupsSnap.empty)return;
  const profile=buildTeacherVisibleStudentProfile(readLocalProfile()||{});
- await db.collection('studentProgress').doc(firebaseUser.uid).set({
+ const payload={
   studentUid:firebaseUser.uid,profile,progress:state,
   updatedAt:firebase.firestore.FieldValue.serverTimestamp()
- },{merge:true});
+ };
+ await Promise.all(groupsSnap.docs.map(groupDoc=>
+  groupDoc.ref.collection('studentProgress').doc(firebaseUser.uid).set(payload,{merge:true})
+ ));
 }
 function queueCloudSave(){
  if(!firebaseUser||!cloudReady)return;
@@ -859,7 +866,6 @@ $('registrationForm').addEventListener('submit',async e=>{
   await claimUniqueNickname(profile.nickname,credential.user);
   writeLocalProfile(profile);
   await db.collection('users').doc(credential.user.uid).set({profile,progress:state,createdAt:firebase.firestore.FieldValue.serverTimestamp(),updatedAt:firebase.firestore.FieldValue.serverTimestamp()},{merge:true});
-  await db.collection('studentProgress').doc(credential.user.uid).set({studentUid:credential.user.uid,profile:buildTeacherVisibleStudentProfile(profile),progress:state,updatedAt:firebase.firestore.FieldValue.serverTimestamp()},{merge:true});
   setAuthStatus('Акаунт створено. Прогрес синхронізується з Firebase.');
  }catch(err){console.error(err);setAuthStatus(err.message||'Не вдалося створити акаунт.',true);}
 });
@@ -1167,12 +1173,22 @@ async function loadPractice52TeacherDashboard(){
   const groupSnap=await db.collection('groups').where('teacherUid','==',firebaseUser.uid).get();
   practice52TeacherGroups=groupSnap.docs.map(doc=>({id:doc.id,...(doc.data()||{})}));
   const studentIds=[...new Set(practice52TeacherGroups.flatMap(g=>Array.isArray(g.studentUids)?g.studentUids:[]))];
-  const userDocs=await Promise.all(studentIds.map(async uid=>{
-   const snap=await db.collection('studentProgress').doc(uid).get();
-   if(!snap.exists)return {uid,profile:{nickname:'Ще немає опублікованих результатів'},progress:null};
-   const d=snap.data()||{};return {uid,profile:d.profile||{},progress:d.progress||null};
+  const progressByStudent=new Map();
+  await Promise.all(practice52TeacherGroups.map(async group=>{
+   const memberIds=Array.isArray(group.studentUids)?group.studentUids:[];
+   await Promise.all(memberIds.map(async uid=>{
+    const snap=await db.collection('groups').doc(group.id).collection('studentProgress').doc(uid).get();
+    if(!snap.exists)return;
+    const d=snap.data()||{},previous=progressByStudent.get(uid);
+    const updatedAt=d.updatedAt&&typeof d.updatedAt.toMillis==='function'?d.updatedAt.toMillis():0;
+    if(!previous||updatedAt>=previous.updatedAt)progressByStudent.set(uid,{uid,profile:d.profile||{},progress:d.progress||null,updatedAt});
+   }));
   }));
-  practice52TeacherStudents=userDocs.map(u=>({...u,groups:practice52TeacherGroups.filter(g=>(g.studentUids||[]).includes(u.uid)).map(g=>g.name||'Без назви')}));
+  practice52TeacherStudents=studentIds.map(uid=>{
+   const saved=progressByStudent.get(uid);
+   return {...(saved||{uid,profile:{nickname:'Ще немає опублікованих результатів'},progress:null}),
+    groups:practice52TeacherGroups.filter(g=>(g.studentUids||[]).includes(uid)).map(g=>g.name||'Без назви')};
+  });
   const active=practice52TeacherStudents.filter(u=>u.progress&&(Number(u.progress.answered)>0||(u.progress.done||[]).length>0)).length;
   document.getElementById('p52TeacherGroupCount').textContent=practice52TeacherGroups.length;
   document.getElementById('p52TeacherStudentCount').textContent=practice52TeacherStudents.length;
