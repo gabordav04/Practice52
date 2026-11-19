@@ -182,6 +182,14 @@ select{border:1px solid var(--line);background:#fff;border-radius:11px;padding:1
    <button class="reg-btn secondary hidden" id="logoutBtn" type="button">Вийти</button>
   </div>
   <div class="profile-tools"><button class="reg-btn" id="saveProfileBtn" type="button">Зберегти зміни</button><button class="reg-btn secondary" id="hideProfileBtn" type="button">Сховати профіль</button></div><label class="profile-visibility"><input id="profileVisible" type="checkbox" checked> Показувати мене в загальному рейтингу</label><div class="reg-status" id="regStatus" aria-live="polite">Підключення до Firebase…</div>
+  <section id="p52TeacherInviteGate" class="hidden" style="margin-top:18px;padding:18px;border:2px solid var(--line);border-radius:18px;background:var(--surface)">
+   <h3 style="margin:0 0 8px">Підтвердження викладача</h3>
+   <p style="margin:0 0 12px">Адміністратор має надіслати тобі персональний одноразовий код. Уведи його нижче, щоб активувати роль викладача. Код діє 7 днів і використовується один раз.</p>
+   <label for="p52TeacherInviteCode">Унікальний код запрошення</label>
+   <input id="p52TeacherInviteCode" type="text" autocomplete="one-time-code" autocapitalize="characters" placeholder="P52-TEACH-XXXX-XXXX" style="width:100%;margin:8px 0 12px;text-transform:uppercase">
+   <button class="reg-btn" type="button" id="p52RedeemTeacherInvite">Підтвердити код</button>
+   <div class="reg-status" id="p52TeacherInviteStatus" aria-live="polite"></div>
+  </section>
  </form>
 </section>
 <section class="hero">
@@ -920,6 +928,21 @@ async function redeemTeacherInvite(rawCode,user){
  await refreshPractice52Role(user);
 }
 
+document.getElementById('p52RedeemTeacherInvite')?.addEventListener('click',async()=>{
+ const status=document.getElementById('p52TeacherInviteStatus'),button=document.getElementById('p52RedeemTeacherInvite'),user=firebase.auth().currentUser;
+ if(!user){if(status)status.textContent='Спочатку увійди у свій окремий акаунт викладача.';return;}
+ button.disabled=true;if(status)status.textContent='Перевіряємо код…';
+ try{
+  await redeemTeacherInvite(document.getElementById('p52TeacherInviteCode').value,user);
+  if(status){status.style.color='var(--green)';status.textContent='Код підтверджено! Роль викладача активована. Завантажуємо кабінет…';}
+  localStorage.setItem('practice52_entry_role_v1','teacher');
+  setTimeout(()=>window.location.reload(),700);
+ }catch(err){
+  console.error('Teacher invite redemption failed:',err);
+  if(status){status.style.color='var(--red)';status.textContent=err.message||'Не вдалося підтвердити код.';}
+ }finally{button.disabled=false;}
+});
+document.getElementById('p52TeacherInviteCode')?.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();document.getElementById('p52RedeemTeacherInvite')?.click();}});
 async function assignTeacher(user){
  if(practice52CurrentRole!=='admin'||!firebaseUser)return;
  if(user.uid===firebaseUser.uid){setAdminStatus('Цей акаунт уже є адміністратором.',true);return;}
@@ -1026,6 +1049,9 @@ auth.onAuthStateChanged(async user=>{
  state=emptyPracticeState();try{state={...state,...JSON.parse(localStorage.getItem(KEY)||'{}')}}catch(e){}
  if(!Array.isArray(state.mistakes))state.mistakes=[];if(!Array.isArray(state.done))state.done=[];if(!Array.isArray(state.needsReview))state.needsReview=[];if(!state.ratings||typeof state.ratings!=='object')state.ratings={};if(!state.skillStatusUpdatedAt||typeof state.skillStatusUpdatedAt!=='object')state.skillStatusUpdatedAt={};if(!state.lessonTestsCompleted||typeof state.lessonTestsCompleted!=='object')state.lessonTestsCompleted={};
  renderHeaderIdentity();await refreshPractice52Role(user);
+ const selectedEntryRole=localStorage.getItem('practice52_entry_role_v1')||'';
+ const teacherGate=document.getElementById('p52TeacherInviteGate');
+ if(teacherGate)teacherGate.classList.toggle('hidden',!(user&&selectedEntryRole==='teacher'&&practice52CurrentRole!=='teacher'&&practice52CurrentRole!=='admin'));
  $('rankingJoinPrompt').classList.toggle('hidden',!!user);
  $('logoutBtn').classList.toggle('hidden',!user);
  $('googleLogin').classList.toggle('hidden',!!user);
@@ -1033,6 +1059,11 @@ auth.onAuthStateChanged(async user=>{
  $('registrationForm').querySelector('button[type="submit"]').classList.toggle('hidden',!!user);
  if(!user){loadLeaderboard();watchLeaderboard();setAuthStatus('Увійди або створи акаунт, щоб увімкнути хмарну синхронізацію. Локальний режим працює безкоштовно.');return;}
  try{
+  if(selectedEntryRole==='teacher'&&practice52CurrentRole!=='teacher'&&practice52CurrentRole!=='admin'){
+   setAuthStatus('Акаунт підтверджено. Для доступу викладача введи одноразовий код від адміністратора.');
+   const gate=document.getElementById('p52TeacherInviteGate');if(gate){gate.classList.remove('hidden');gate.scrollIntoView({behavior:'smooth',block:'center'});}
+   return;
+  }
   setAuthStatus('Завантажуємо твій профіль і прогрес…');
   const ref=db.collection('users').doc(user.uid),snap=await ref.get();
   if(snap.exists){
