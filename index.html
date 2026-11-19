@@ -1262,7 +1262,7 @@ renderStats();renderSkills();renderHeaderIdentity();
   skillIndexes.forEach(i=>{
    const L=lessons[i];if(!L)return;
    const qs=Array.isArray(L.questions)?L.questions.slice():[];
-   const count=perSkill?Math.min(3,qs.length):Math.min(1,qs.length);
+   const count=perSkill?Math.min(5,qs.length):Math.min(1,qs.length);
    shuffle(qs).slice(0,count).forEach(q=>tasks.push({kind:'test',skillIndex:i,q,options:shuffle(q.o.map((v,n)=>({v,n}))).map(x=>x.v),answer:null,correct:q.a}));
    if(Array.isArray(L.steps)&&L.steps.length>1)tasks.push({kind:'sequence',skillIndex:i,steps:shuffle(L.steps.map((v,n)=>({v,original:n}))),checked:false});
    if(qs.length){const cq=shuffle(qs)[0];tasks.push({kind:'clinical',skillIndex:i,q:cq,options:shuffle(cq.o.map((v,n)=>({v,n}))).map(x=>x.v),answer:null,correct:cq.a});}
@@ -1351,7 +1351,7 @@ renderStats();renderSkills();renderHeaderIdentity();
    const skillIndex=Array.isArray(items)&&items.length===1?items[0]:null;
    if(skillIndex!==null)setTimeout(()=>{
     const result=$('sequenceResult');
-    if(result&&result.textContent.includes('Усі кроки на своїх місцях'))setPart(skillIndex,'sequence',true);
+    if(result&&result.textContent.includes('Усі кроки на своїх місцях')){setPart(skillIndex,'sequence',true);if(!result.querySelector('#p52SequenceNext')){const nav=document.createElement('div');nav.className='p52-exam-actions';nav.innerHTML='<button type="button" class="btn primary" id="p52SequenceNext">Клінічні ситуації →</button><button type="button" class="btn" id="p52SequenceCard">До флеш-картки</button><button type="button" class="btn" id="p52SequenceExam">Комплексний екзамен</button>';result.appendChild(nav);$('p52SequenceNext').onclick=()=>start('challenge',[skillIndex]);$('p52SequenceCard').onclick=()=>start('cards',[skillIndex]);$('p52SequenceExam').onclick=()=>start('skillExam',[skillIndex]);}}
    },0);
   }
   if(target&&target.id==='lessonToSequence'||target&&target.id==='lessonToChallenge'){
@@ -1364,7 +1364,7 @@ renderStats();renderSkills();renderHeaderIdentity();
  const clinicalObserver=new MutationObserver(()=>{
   if(currentMode!=='challenge'||!Array.isArray(items)||items.length!==1)return;
   const i=items[0],feedback=$('feedback');
-  if(feedback&&feedback.textContent.includes('Правильно!'))setPart(i,'clinical',true);
+  if(feedback&&feedback.textContent.includes('Правильно!')){setPart(i,'clinical',true);if(!feedback.querySelector('#p52ClinicalCard')){const nav=document.createElement('div');nav.className='p52-exam-actions';nav.innerHTML='<button type="button" class="btn primary" id="p52ClinicalCard">До флеш-картки</button><button type="button" class="btn" id="p52ClinicalExam">Комплексний екзамен</button>';feedback.appendChild(nav);$('p52ClinicalCard').onclick=()=>start('cards',[i]);$('p52ClinicalExam').onclick=()=>start('skillExam',[i]);}}
  });
  clinicalObserver.observe($('studyContent'),{childList:true,subtree:true,characterData:true});
  // When the in-card test bank is already completed, sync it into the new pathway state.
