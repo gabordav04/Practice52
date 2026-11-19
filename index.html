@@ -732,6 +732,7 @@ auth.onAuthStateChanged(async user=>{
     if(!state.ratings||typeof state.ratings!=='object')state.ratings=data.progress.ratings||{};
     if(!state.skillStatusUpdatedAt||typeof state.skillStatusUpdatedAt!=='object')state.skillStatusUpdatedAt={};
     state.lessonTestsCompleted={...(data.progress.lessonTestsCompleted||{}),...(localState.lessonTestsCompleted||{})};
+    state.learningProgress={...(data.progress.learningProgress||{}),...(localState.learningProgress||{})};
     mergeCloudSkillStatuses(data.progress);
     state.points=Math.max(Number(localState.points)||0,Number(data.progress.points)||0);state.correct=Math.max(Number(localState.correct)||0,Number(data.progress.correct)||0);state.answered=Math.max(Number(localState.answered)||0,Number(data.progress.answered)||0);
     localStorage.setItem(KEY,JSON.stringify(state));
