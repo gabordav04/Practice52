@@ -1435,8 +1435,8 @@ renderStats();renderSkills();renderHeaderIdentity();
  function stopAudio(){
   if(sequenceTimer){clearInterval(sequenceTimer);sequenceTimer=null;}
   if(audio&&master){
-   const ctx=audio,oldMaster=master;oldMaster.gain.cancelScheduledValues(ctx.currentTime);oldMaster.gain.setTargetAtTime(.0001,ctx.currentTime,.18);
-   window.setTimeout(()=>{try{voices.forEach(v=>{try{v.stop();}catch(e){}});ctx.close();}catch(e){}},900);
+   const ctx=audio,oldMaster=master,oldVoices=voices.slice();oldMaster.gain.cancelScheduledValues(ctx.currentTime);oldMaster.gain.setTargetAtTime(.0001,ctx.currentTime,.18);
+   window.setTimeout(()=>{try{oldVoices.forEach(v=>{try{v.stop();}catch(e){}});ctx.close();}catch(e){}},900);
   }
   audio=null;master=null;voices=[];step=0;
  }
