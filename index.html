@@ -1136,7 +1136,7 @@ async function loadAdminDashboard(){
  catch(err){console.error(err);setAdminStatus('Не вдалося завантажити відкриті профілі рейтингу.',true);}
 }
 async function refreshPractice52Role(user){
- practice52CurrentRole=null;const toggle=document.getElementById('p52AdminToggle');if(toggle)toggle.classList.add('hidden');if(!user)return;
+ practice52CurrentRole=null;document.body.classList.remove('p52-admin-mode');const toggle=document.getElementById('p52AdminToggle');if(toggle)toggle.classList.add('hidden');if(!user)return;
  try{
   if(user.uid==='NIXSOWQ2c1Tkh5TVGU6z9zkbhOp2')practice52CurrentRole='admin';
   else{
@@ -1209,7 +1209,7 @@ async function loadPractice52TeacherDashboard(){
  }catch(err){
   console.error('Teacher dashboard load failed:',err);
   practice52TeacherGroups=[];practice52TeacherStudents=[];
-  document.getElementById('p52TeacherGroupCount').textContent='—';document.getElementById('p52TeacherStudentCount').textContent='—';document.getElementById('p52TeacherActiveCount').textContent='—';
+  // KPI-блоки прибрано з компактного кабінету викладача.
   if(groupsEl)groupsEl.textContent='Не вдалося завантажити групи.';
   if(studentsEl)studentsEl.textContent='Результати студентів недоступні.';
   setTeacherStatus('Firestore відхилив читання груп або навчальних профілів. Потрібно перевірити правила доступу для groups і users; інтерфейс не підміняє та не відкриває доступ автоматично.',true);
