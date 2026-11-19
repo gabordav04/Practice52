@@ -1814,6 +1814,8 @@ renderStats();renderSkills();renderHeaderIdentity();
     if(key.startsWith('practice52_profile_v1')||key.startsWith('practice52_v1'))localStorage.removeItem(key);
    }
    localStorage.setItem(ROLE_KEY,selected);localStorage.setItem(DONE_KEY,'1');
+   KEY='practice52_v1:guest';state=emptyPracticeState();localStorage.removeItem(KEY);
+   renderStats();renderSkills();
    if(firebase.auth().currentUser)await firebase.auth().signOut();
    backdrop.classList.add('hidden');
    const panel=document.getElementById('accountPanel');panel.classList.remove('hidden');
