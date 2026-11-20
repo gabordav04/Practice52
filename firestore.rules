@@ -534,7 +534,7 @@ service cloud.firestore {
         && request.resource.data.practiceId is string
         && request.resource.data.practiceTitle is string;
       allow get: if isPlatformAdmin() || (request.auth != null && request.auth.uid == studentUid) || isAssignedTeacher();
-      allow list: if isPlatformAdmin();
+      allow list: if isPlatformAdmin() || isAssignedTeacher();
       allow update: if isPlatformAdmin()
         || (isAssignedTeacher() && resource.data.status == 'pending'
           && request.resource.data.status in ['approved','rejected']
