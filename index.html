@@ -3044,7 +3044,10 @@ body.p52-auth-locked header{position:relative;z-index:1001}
  }
  async function load(){
   try{
-   const profile=currentProfile();
+   const localProfile=currentProfile();
+   let cloudProfile={};
+   try{if(typeof firebaseUser!=='undefined'&&firebaseUser?.uid){const userSnap=await db.collection('users').doc(firebaseUser.uid).get();if(userSnap.exists)cloudProfile=(userSnap.data()||{}).profile||{};}}catch(profileErr){console.warn('Could not load cloud learning route profile:',profileErr);}
+   const profile={...localProfile,...cloudProfile};
    const snap=await db.collection('practices').where('status','==','active').get();
    practiceDocs=snap.docs.map(d=>({id:d.id,data:d.data()||{}}));
    degree.value=profile.degree||'';fillCourses(profile.courseId||'');
