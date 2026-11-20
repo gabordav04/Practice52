@@ -1585,9 +1585,12 @@ async function loadPractice52StudentGroups(){
     const addLabel=document.createElement('label');addLabel.textContent='Додати студента зі списку:';
     const select=document.createElement('select');select.style.maxWidth='100%';
     const placeholder=document.createElement('option');placeholder.value='';placeholder.textContent='Оберіть студента';select.appendChild(placeholder);
-    const available=[...profiles.entries()].filter(([uid])=>uid!==firebaseUser.uid&&!(g.studentUids||[]).includes(uid));
-    available.forEach(([uid,p])=>{const option=document.createElement('option');option.value=uid;option.textContent=p.nickname;select.appendChild(option);});
-    const add=document.createElement('button');add.type='button';add.className='p52-teacher-action';add.textContent='Додати до групи';add.disabled=!available.length;
+    const add=document.createElement('button');add.type='button';add.className='p52-teacher-action';add.textContent='Додати до групи';add.disabled=true;
+    db.collection('academicAccessRequests').where('groupId','==',g.id).where('status','==','pending').get().then(requests=>{
+     let available=0;requests.forEach(req=>{const q=req.data()||{};if(!q.studentUid||q.studentUid===firebaseUser.uid||(g.studentUids||[]).includes(q.studentUid))return;const option=document.createElement('option');option.value=q.studentUid;option.textContent=(q.studentName||q.nickname||profiles.get(q.studentUid)?.nickname||'Студент')+' · очікує підтвердження';select.appendChild(option);available++;});
+     add.disabled=available===0;
+     if(!available){const empty=document.createElement('option');empty.value='';empty.textContent='Немає заявок від нових студентів цієї групи';select.appendChild(empty);}
+    }).catch(err=>{console.warn('Group leader applications unavailable',err);add.disabled=true;});
     add.addEventListener('click',()=>{if(select.value)addStudentByGroupLeader(g.id,select.value,add);});
     addLabel.appendChild(select);card.append(note,addLabel,add);
    }
