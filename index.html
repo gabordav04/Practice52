@@ -1124,8 +1124,14 @@ function p52ReadAcademicFields(){
  return {groupCode,groupId};
 }
 async function p52SubmitAcademicAccess(user,profile){
- const groupCode=String(profile.groupCode||'').trim(),groupId=String(profile.groupId||'').trim();
- if(!groupId||!P52_GROUP_CODE_RE.test(groupCode))throw new Error('Обери свою академічну групу зі списку.');
+ const groupCode=String(profile.groupCode||'').trim();
+ let groupId=String(profile.groupId||'').trim();
+ if(!P52_GROUP_CODE_RE.test(groupCode))throw new Error('Обери свою академічну групу зі списку.');
+ if(!groupId){
+  const matches=await db.collection('availableAcademicGroups').where('groupCode','==',groupCode).where('status','==','active').limit(2).get();
+  if(matches.size!==1)throw new Error(matches.empty?'Не знайшов активну групу '+groupCode+'. Попроси адміністратора перевірити каталог груп.':'Знайшов кілька груп із кодом '+groupCode+'. Потрібна перевірка адміністратором.');
+  groupId=matches.docs[0].id;
+ }
  const directory=await db.collection('availableAcademicGroups').doc(groupId).get();
  if(!directory.exists||(directory.data()||{}).status!=='active'||(directory.data()||{}).groupCode!==groupCode)throw new Error('Обрана група більше недоступна. Онови список і вибери іншу.');
  const requestRef=db.collection('academicAccessRequests').doc(user.uid);
@@ -2927,7 +2933,7 @@ body.p52-auth-locked header{position:relative;z-index:1001}
        let accessData={};try{
         const accessSnap=await db.collection('academicAccessRequests').doc(user.uid).get();
         accessData=accessSnap.exists?(accessSnap.data()||{}):{};
-        if(!accessSnap.exists&&profile.groupId&&profile.groupCode){
+        if(!accessSnap.exists&&profile.groupCode){
          const status=await p52SubmitAcademicAccess(user,profile);
          if(status==='pending')accessData={status:'pending',groupCode:profile.groupCode,groupId:profile.groupId};
          else accessData={status:'approved',groupCode:profile.groupCode,groupId:profile.groupId};
