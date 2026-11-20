@@ -1621,13 +1621,13 @@ function renderPractice52TeacherGroups(){
  practice52TeacherGroups.forEach(g=>{
   const members=practice52TeacherStudents.filter(u=>(g.studentUids||[]).includes(u.uid));
   const withResults=members.filter(u=>u.progress);
-  const totalDone=withResults.reduce((sum,u)=>sum+(Array.isArray(u.progress.done)?u.progress.done.length:0),0);
+  const totalDone=withResults.reduce((sum,u)=>sum+p52CompletedSkillIndexes(u.progress).length,0);
   const completion=members.length?Math.round(totalDone/(members.length*52)*100):0;
   const totalAnswered=withResults.reduce((sum,u)=>sum+(Number(u.progress.answered)||0),0);
   const totalCorrect=withResults.reduce((sum,u)=>sum+(Number(u.progress.correct)||0),0);
   const accuracy=totalAnswered?Math.round(totalCorrect/totalAnswered*100):null;
   const skillCounts=new Map();
-  withResults.forEach(u=>(Array.isArray(u.progress.done)?u.progress.done:[]).forEach(index=>{const name=skills[index];if(name)skillCounts.set(name,(skillCounts.get(name)||0)+1);}));
+  withResults.forEach(u=>p52CompletedSkillIndexes(u.progress).forEach(index=>{const name=skills[index];if(name)skillCounts.set(name,(skillCounts.get(name)||0)+1);}));
   const topSkills=[...skillCounts.entries()].sort((a,b)=>b[1]-a[1]).slice(0,5);
   const card=document.createElement('article');card.className='p52-teacher-card p52-teacher-group-card';
   const info=document.createElement('div');info.innerHTML='<b>'+p52TeacherText(g.name||'Навчальна група')+'</b><div class="p52-teacher-muted">Студентів у групі: '+members.length+' · Опублікували результати: '+withResults.length+'</div>';
@@ -1757,12 +1757,16 @@ async function addStudentByGroupLeader(groupId,studentUid,button){
   if(practice52CurrentRole==='teacher')await loadPractice52TeacherDashboard();
  }catch(err){console.error(err);button.disabled=false;const root=document.getElementById('p52GroupLeaderWorkspace');if(root)root.insertAdjacentText('beforeend',' Не вдалося додати студента: перевір правила Firestore.');}
 }
+function p52CompletedSkillIndexes(progress){
+ const learning=progress&&progress.learningProgress&&typeof progress.learningProgress==='object'?progress.learningProgress:{};
+ return skills.map((_,i)=>i).filter(i=>{const p=learning[String(i)]||learning[i]||{};return p.tests===true&&p.sequence===true&&p.clinical===true&&p.exam===true;});
+}
 function renderPractice52TeacherStudents(){
  const el=document.getElementById('p52TeacherStudents');if(!el)return;el.innerHTML='';
  const detail=document.getElementById('p52TeacherStudentDetail');if(detail)detail.innerHTML='';
  if(!practice52TeacherStudents.length){el.textContent='У призначених групах поки немає студентів.';return;}
  practice52TeacherStudents.forEach(u=>{
-  const p=u.profile||{},pr=u.progress||{},done=Array.isArray(pr.done)?pr.done.length:0,answered=Number(pr.answered)||0,accuracy=answered?Math.round((Number(pr.correct)||0)/answered*100):null;
+  const p=u.profile||{},pr=u.progress||{},done=p52CompletedSkillIndexes(pr).length,answered=Number(pr.answered)||0,accuracy=answered?Math.round((Number(pr.correct)||0)/answered*100):null;
   const card=document.createElement('article');card.className='p52-teacher-card';
   const academic=[p.degree==='master'?'Магістратура':'Бакалаврат',p.year?p.year+' курс':'',p.semester?p.semester+' семестр':'',p.groupCode||''].filter(Boolean).join(' · ');const info=document.createElement('div');info.innerHTML='<b>'+p52TeacherText(p.nickname||p.name||'Студент')+'</b><div class="p52-teacher-muted">'+p52TeacherText(academic)+' · '+p52TeacherText(p.practiceTitle||'Практика не обрана')+'</div><div class="p52-teacher-muted">'+p52TeacherText(u.groups.join(', '))+' · Опрацьовано: '+done+'/52 · Точність: '+(accuracy===null?'—':accuracy+'%')+'</div>';
   const btn=document.createElement('button');btn.className='p52-teacher-action';btn.type='button';btn.textContent='Показати результати';btn.setAttribute('aria-expanded','false');
@@ -1838,9 +1842,9 @@ async function renderP52TeacherSubmissions(uid,container){
 }
 function openPractice52TeacherStudent(uid){
  const u=practice52TeacherStudents.find(x=>x.uid===uid);if(!u)return;
- const p=u.profile||{},pr=u.progress||{},done=Array.isArray(pr.done)?pr.done.length:0,review=Array.isArray(pr.needsReview)?pr.needsReview.length:0,answered=Number(pr.answered)||0,correct=Number(pr.correct)||0,accuracy=answered?Math.round(correct/answered*100):null;
+ const p=u.profile||{},pr=u.progress||{},completedSkills=p52CompletedSkillIndexes(pr),done=completedSkills.length,review=Array.isArray(pr.needsReview)?pr.needsReview.length:0,answered=Number(pr.answered)||0,correct=Number(pr.correct)||0,accuracy=answered?Math.round(correct/answered*100):null;
  const el=document.getElementById('p52TeacherStudentDetail');if(!el)return;
- const skillNames=Array.isArray(pr.done)?pr.done.map(i=>skills[i]).filter(Boolean):[];
+ const skillNames=completedSkills.map(i=>skills[i]).filter(Boolean);
  el.innerHTML='<div class="p52-teacher-detail"><h3>'+p52TeacherText(p.nickname||p.name||'Студент')+'</h3><div class="p52-teacher-muted">'+p52TeacherText(p.name||'')+' · '+p52TeacherText(u.groups.join(', '))+'</div><div class="p52-teacher-detail-grid"><div><strong>'+done+'/52</strong><span>Опрацьовано навичок</span></div><div><strong>'+Number(pr.points||0)+'</strong><span>Балів</span></div><div><strong>'+correct+'/'+answered+'</strong><span>Правильних відповідей</span></div><div><strong>'+(accuracy===null?'—':accuracy+'%')+'</strong><span>Точність</span></div><div><strong>'+review+'</strong><span>Потребують повторення</span></div><div><strong>'+(Array.isArray(pr.mistakes)?pr.mistakes.length:0)+'</strong><span>Помилок для повторення</span></div><div><strong>'+Object.values(pr.lessonTestsCompleted||{}).filter(x=>x&&x.completed).length+'</strong><span>Завершено навчальних тестів</span></div><div><strong>'+Object.values(pr.learningProgress||{}).filter(x=>x&&x.exam).length+'</strong><span>Завершено екзаменаційних етапів</span></div></div><b>Опрацьовані навички</b><p>'+p52TeacherText(skillNames.length?skillNames.join(' · '):'Поки немає позначених опрацьованих навичок.')+'</p><p class="p52-teacher-muted">Деталі окремих відповідей доступні лише якщо вони зберігаються в прогресі студента.</p></div>';
  const submissionsRoot=document.createElement('section');submissionsRoot.id='p52TeacherSubmissionList';el.appendChild(submissionsRoot);renderP52TeacherSubmissions(uid,submissionsRoot);
 }
@@ -1878,7 +1882,7 @@ function renderP52TeacherJournal(){
     for(let i=0;i<52;i++){
      const cell=document.createElement('td');cell.className='p52-journal-cell';
      const stack=document.createElement('div');stack.className='p52-journal-stack';
-     const learningStage=learning[i]||{},theoryDone=learningStage.tests===true&&learningStage.sequence===true&&learningStage.clinical===true&&learningStage.exam===true;const theory=document.createElement('span');theory.className='p52-journal-square p52-journal-theory'+(theoryDone?' is-done':'');theory.textContent=theoryDone?'✓':'';
+     const learningStage=learning[i]||{},theoryDone=p52CompletedSkillIndexes({learningProgress:{[i]:learningStage}}).length===1;const theory=document.createElement('span');theory.className='p52-journal-square p52-journal-theory'+(theoryDone?' is-done':'');theory.textContent=theoryDone?'✓':'';
      theory.title='Навичка вивчена: тести + послідовність + клінічні ситуації + комплексний екзамен · '+(skills[i]||('Навичка '+(i+1)));
      const entry=grades.get(student.uid+'_'+i),practice=document.createElement('span');practice.className='p52-journal-square p52-journal-practice'+(entry?' is-graded':'');practice.textContent=entry?String(entry.practicalGrade):'';
      practice.title='Практика · '+(skills[i]||('Навичка '+(i+1)));
@@ -1910,7 +1914,7 @@ function renderPractice52TeacherExams(){
 function renderPractice52TeacherAnalytics(){
  const el=document.getElementById('p52TeacherAnalytics');if(!el)return;
  const total=practice52TeacherStudents.length,active=practice52TeacherStudents.filter(u=>u.progress&&(Number(u.progress.answered)>0||(u.progress.done||[]).length>0)).length;
- const allAnswered=practice52TeacherStudents.reduce((n,u)=>n+(Number(u.progress?.answered)||0),0),allCorrect=practice52TeacherStudents.reduce((n,u)=>n+(Number(u.progress?.correct)||0),0),done=practice52TeacherStudents.reduce((n,u)=>n+(Array.isArray(u.progress?.done)?u.progress.done.length:0),0);
+ const allAnswered=practice52TeacherStudents.reduce((n,u)=>n+(Number(u.progress?.answered)||0),0),allCorrect=practice52TeacherStudents.reduce((n,u)=>n+(Number(u.progress?.correct)||0),0),done=practice52TeacherStudents.reduce((n,u)=>n+p52CompletedSkillIndexes(u.progress).length,0);
  const accuracy=allAnswered?Math.round(allCorrect/allAnswered*100):null;
  el.innerHTML='<div class="p52-teacher-detail-grid"><div><strong>'+practice52TeacherGroups.length+'</strong><span>Навчальних груп</span></div><div><strong>'+total+'</strong><span>Студентів</span></div><div><strong>'+active+'</strong><span>Активних студентів</span></div><div><strong>'+done+'</strong><span>Опрацьованих навичок сумарно</span></div><div><strong>'+(accuracy===null?'—':accuracy+'%')+'</strong><span>Середня точність відповідей</span></div><div><strong>'+allAnswered+'</strong><span>Відповідей сумарно</span></div></div>';
 }
@@ -1924,6 +1928,7 @@ auth.onAuthStateChanged(async user=>{
  firebaseUser=user;cloudReady=false;KEY=user?'practice52_v1:'+user.uid:'practice52_v1:guest';
  state=emptyPracticeState();try{state={...state,...JSON.parse(localStorage.getItem(KEY)||'{}')}}catch(e){}
  if(!Array.isArray(state.mistakes))state.mistakes=[];if(!Array.isArray(state.done))state.done=[];if(!Array.isArray(state.needsReview))state.needsReview=[];if(!state.ratings||typeof state.ratings!=='object')state.ratings={};if(!state.skillStatusUpdatedAt||typeof state.skillStatusUpdatedAt!=='object')state.skillStatusUpdatedAt={};if(!state.lessonTestsCompleted||typeof state.lessonTestsCompleted!=='object')state.lessonTestsCompleted={};
+ if(window.practice52ReconcileLearningCompletion)window.practice52ReconcileLearningCompletion();
  renderHeaderIdentity();await refreshPractice52Role(user);
 
  applyPractice52TeacherLayout(practice52CurrentRole==='teacher');
