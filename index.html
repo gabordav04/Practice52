@@ -1256,6 +1256,14 @@ async function loadAdminGroups(){
    const info=adminNode('div');info.append(adminNode('strong','',data.name||'Без назви'),adminNode('small','','Викладач UID: '+(data.teacherUid||'—')+' · Студентів: '+(Array.isArray(data.studentUids)?data.studentUids.length:0)));
    const del=adminNode('button','btn','Видалити');del.type='button';del.addEventListener('click',async()=>{if(!confirm('Видалити групу «'+(data.name||'')+'»?'))return;try{await db.collection('groups').doc(doc.id).delete();await loadAdminGroups();setAdminStatus('Групу видалено.');}catch(err){setAdminStatus('Не вдалося видалити групу.',true);}});
    head.append(info,del);card.appendChild(head);
+   const academic=adminNode('div','p52-university-form');
+   const course=adminNode('select');course.innerHTML='<option value="">Курс не призначено</option>'+P52_COURSES.map(c=>'<option value="'+c.id+'">'+c.title+'</option>').join('');
+   course.value=data.courseId||'';
+   const semester=adminNode('select');semester.innerHTML='<option value="">Семестр не призначено</option><option value="1">1 семестр</option><option value="2">2 семестр</option>';semester.value=data.semester?String(data.semester):'';
+   const practice=adminNode('input');practice.placeholder='Назва практики';practice.maxLength=220;practice.value=data.practiceTitle||'';
+   const saveAcademic=adminNode('button','btn primary','Зберегти навчальну комірку');saveAcademic.type='button';
+   saveAcademic.addEventListener('click',async()=>{try{saveAcademic.disabled=true;await db.collection('groups').doc(doc.id).update({courseId:course.value||firebase.firestore.FieldValue.delete(),semester:semester.value?Number(semester.value):firebase.firestore.FieldValue.delete(),practiceTitle:practice.value.trim(),academicUpdatedAt:firebase.firestore.FieldValue.serverTimestamp(),updatedAt:firebase.firestore.FieldValue.serverTimestamp()});setAdminStatus('Навчальну комірку групи оновлено.');await loadAdminGroups();}catch(err){console.error(err);setAdminStatus('Не вдалося зберегти курс, семестр і практику.',true);}finally{saveAcademic.disabled=false;}});
+   academic.append(course,semester,practice,saveAcademic);card.appendChild(academic);
    const search=adminNode('input','p52-admin-search');search.placeholder='Знайти студента за нікнеймом';search.setAttribute('aria-label','Знайти студента за нікнеймом');
    const results=adminNode('div','p52-admin-list');
    search.addEventListener('input',()=>renderAdminUserSearch(search.value,results.id,(u)=>addStudentToGroup(doc.id,u), 'Не знайдено відкритих профілів.'));
@@ -1264,6 +1272,12 @@ async function loadAdminGroups(){
    (Array.isArray(data.studentUids)?data.studentUids:[]).forEach(uid=>{const row=adminNode('div','p52-admin-row');row.append(adminNode('small','',uid));const rm=adminNode('button','btn','Вилучити');rm.type='button';rm.addEventListener('click',()=>removeStudentFromGroup(doc.id,uid));row.appendChild(rm);members.appendChild(row);});
    card.appendChild(members);list.appendChild(card);
   });
+
+  const requests=await db.collection('courseTransitionRequests').where('status','==','pending').get();
+  if(!requests.empty){
+   const heading=adminNode('h3','','Запити на перехід до наступного семестру');list.appendChild(heading);
+   requests.forEach(requestDoc=>{const q=requestDoc.data()||{};const group=snap.docs.find(d=>d.id===q.groupId);if(!group)return;const row=adminNode('div','p52-admin-group');row.append(adminNode('strong','',q.studentName||'Студент'),adminNode('small','',(group.data().name||'Група')+' · поточний семестр: '+(q.currentSemester||'—')+' · запит на перехід'));const approve=adminNode('button','btn primary','Підтвердити перехід');approve.type='button';approve.addEventListener('click',async()=>{if(!confirm('Підтвердити завершення поточного семестру? Поточна група та її результати залишаться в історії.'))return;try{await requestDoc.ref.update({status:'approved',reviewedBy:firebaseUser.uid,reviewedAt:firebase.firestore.FieldValue.serverTimestamp(),updatedAt:firebase.firestore.FieldValue.serverTimestamp()});await db.collection('groups').doc(q.groupId).update({semester:q.requestedSemester,updatedAt:firebase.firestore.FieldValue.serverTimestamp()});setAdminStatus('Перехід підтверджено. Оновлено семестр у поточній комірці; історію оцінок збережено.');await loadAdminGroups();}catch(err){console.error(err);setAdminStatus('Не вдалося підтвердити перехід.',true);}});row.appendChild(approve);list.appendChild(row);});
+  }
  }catch(err){console.error(err);list.textContent='Не вдалося завантажити групи. Перевір правила Firestore для groups.';}
 }
 async function addStudentToGroup(groupId,user){
@@ -1465,6 +1479,21 @@ async function loadPractice52StudentGroups(){
    const card=document.createElement('article');card.className='p52-teacher-card p52-student-group-card';
    const title=document.createElement('h3');title.textContent=g.name||'Навчальна група';
    const teacher=document.createElement('p');teacher.className='p52-teacher-muted';teacher.textContent='Викладач: '+(g.teacherName||g.teacherDisplayName||'Ім’я викладача ще не вказане');
+   const courseInfo=document.createElement('div');courseInfo.className='p52-teacher-detail-grid';
+   const courseTitle=(P52_COURSES.find(c=>c.id===g.courseId)||{}).title||'Курс ще не призначено';
+   const semesterTitle=g.semester?g.semester+' семестр':'Семестр ще не призначено';
+   [[courseTitle,'Курс'],[semesterTitle,'Семестр'],[g.practiceTitle||'Практику ще не призначено','Поточна практика'],['Активна навчальна комірка','Статус']].forEach(([v,l])=>{const box=document.createElement('div');const strong=document.createElement('strong');strong.textContent=v;const small=document.createElement('span');small.textContent=l;box.append(strong,small);courseInfo.appendChild(box);});
+   card.appendChild(courseInfo);
+   const transition=document.createElement('div');transition.className='p52-teacher-guide';
+   const transitionText=document.createElement('p');transitionText.className='p52-teacher-muted';transitionText.textContent='Коли завершиш цей навчальний період, можеш подати запит на перехід до наступного семестру. Поточні оцінки та результати залишаться в історії.';
+   const transitionButton=document.createElement('button');transitionButton.type='button';transitionButton.className='p52-teacher-action';transitionButton.textContent='Подати запит на наступний семестр';
+   const transitionStatus=document.createElement('p');transitionStatus.className='p52-teacher-muted';
+   const nextSemester=Number(g.semester)===1?2:1;
+   transitionButton.disabled=!g.courseId||!g.semester||!g.practiceTitle;
+   transitionButton.title=transitionButton.disabled?'Спочатку викладач або адміністратор має призначити курс, семестр і практику.':'Подати запит на перехід';
+   transitionButton.addEventListener('click',async()=>{if(!confirm('Подати запит на перехід із поточної комірки до наступного навчального періоду? Поточні результати буде збережено.'))return;transitionButton.disabled=true;try{const requestId=g.id+'_'+firebaseUser.uid;await db.collection('courseTransitionRequests').doc(requestId).set({groupId:g.id,studentUid:firebaseUser.uid,studentName:(profiles.get(firebaseUser.uid)||{}).nickname||'Студент',currentCourseId:g.courseId,currentSemester:Number(g.semester),requestedSemester:nextSemester===1?2:nextSemester,status:'pending',createdAt:firebase.firestore.FieldValue.serverTimestamp(),updatedAt:firebase.firestore.FieldValue.serverTimestamp()},{merge:true});transitionStatus.textContent='Запит надіслано. Очікуй підтвердження адміністратора або викладача.';}catch(err){console.error(err);transitionStatus.textContent='Не вдалося надіслати запит. Перевір правила Firestore.';transitionButton.disabled=false;}});
+   transition.append(transitionText,transitionButton,transitionStatus);card.appendChild(transition);
+
    const isLeader=g.groupLeaderUid===firebaseUser.uid;
    const leader=document.createElement('p');leader.className='p52-teacher-muted';leader.textContent=isLeader?'⭐ Ти — староста цієї групи':(g.groupLeaderUid?'Староста: '+(profiles.get(g.groupLeaderUid)?.nickname||'Призначений студент'):'Старосту ще не призначено');
    const count=document.createElement('p');count.className='p52-teacher-muted';count.textContent='Одногрупників: '+Math.max(0,(g.studentUids||[]).length-1);
