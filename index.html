@@ -1512,12 +1512,45 @@ function togglePractice52TeacherStudent(uid,button){
  openPractice52TeacherStudent(uid);
  button.setAttribute('aria-expanded','true');button.textContent='Сховати результати';
 }
+async function loadP52TeacherSubmissions(uid){
+ const groups=practice52TeacherGroups.filter(g=>(g.studentUids||[]).includes(uid));
+ const chunks=await Promise.all(groups.map(async g=>{const snap=await db.collection('practiceSubmissions').where('groupId','==',g.id).where('studentUid','==',uid).get();return snap.docs.map(d=>({id:d.id,...(d.data()||{})}));}));
+ return chunks.flat().sort((a,b)=>(Number(a.skillIndex)||0)-(Number(b.skillIndex)||0));
+}
+async function saveP52TeacherReview(id,button){
+ const card=button.closest('[data-p52-submission]');if(!card)return;const grade=Number(card.querySelector('[data-p52-grade]').value),comment=card.querySelector('[data-p52-comment]').value.trim();
+ if(![2,3,4,5].includes(grade)){card.querySelector('[data-p52-review-status]').textContent='Обери оцінку від 2 до 5.';return;}button.disabled=true;
+ try{await db.collection('practiceSubmissions').doc(id).update({status:'reviewed',practicalGrade:grade,teacherComment:comment,reviewedBy:firebaseUser.uid,reviewedAt:firebase.firestore.FieldValue.serverTimestamp(),updatedAt:firebase.firestore.FieldValue.serverTimestamp()});card.querySelector('[data-p52-review-status]').textContent='Оцінку збережено.';}
+ catch(err){console.error('Practice video review failed:',err);card.querySelector('[data-p52-review-status]').textContent='Не вдалося зберегти оцінку. Перевір правила Firestore.';}finally{button.disabled=false;}
+}
+async function requestP52Resubmission(id,button){
+ const card=button.closest('[data-p52-submission]');if(!card)return;button.disabled=true;
+ try{await db.collection('practiceSubmissions').doc(id).update({status:'resubmission_requested',practicalGrade:firebase.firestore.FieldValue.delete(),teacherComment:card.querySelector('[data-p52-comment]').value.trim(),reviewedBy:firebaseUser.uid,reviewedAt:firebase.firestore.FieldValue.serverTimestamp(),updatedAt:firebase.firestore.FieldValue.serverTimestamp()});card.querySelector('[data-p52-review-status]').textContent='Запит на повторне відео надіслано студенту.';}
+ catch(err){console.error('Resubmission request failed:',err);card.querySelector('[data-p52-review-status]').textContent='Не вдалося оновити статус. Перевір правила Firestore.';}finally{button.disabled=false;}
+}
+async function renderP52TeacherSubmissions(uid,container){
+ container.innerHTML='<h4>Практичні відео</h4><p class="p52-teacher-muted">Завантажуємо подання…</p>';
+ try{const items=await loadP52TeacherSubmissions(uid);container.innerHTML='<h4>Практичні відео</h4>';if(!items.length){container.insertAdjacentHTML('beforeend','<p class="p52-teacher-muted">Відеоподань поки немає.</p>');return;}
+  items.forEach(item=>{
+   const card=document.createElement('article');card.className='p52-submission-card';card.dataset.p52Submission=item.id;
+   const title=document.createElement('b');title.textContent='Навичка '+(Number(item.skillIndex)+1)+': '+(item.skillTitle||'Практична навичка');
+   const status=document.createElement('p');status.className='p52-teacher-muted';status.textContent=({submitted:'Очікує перевірки',resubmission_requested:'Очікує повторного відео',reviewed:'Перевірено'})[item.status]||'Статус невідомий';
+   const link=document.createElement('a');link.className='p52-submission-link';link.href=item.driveUrl;link.target='_blank';link.rel='noopener noreferrer';link.textContent='↗ Переглянути відео в Google Drive';
+   const gl=document.createElement('label');gl.textContent='Практична оцінка (2–5)';const grade=document.createElement('select');grade.dataset.p52Grade='';grade.innerHTML='<option value="">Обери оцінку</option><option value="2">2</option><option value="3">3</option><option value="4">4</option><option value="5">5</option>';if(item.practicalGrade)grade.value=String(item.practicalGrade);
+   const cl=document.createElement('label');cl.textContent='Коментар викладача';const comment=document.createElement('textarea');comment.dataset.p52Comment='';comment.value=item.teacherComment||'';comment.placeholder='Коментар або рекомендація студенту';
+   const save=document.createElement('button');save.type='button';save.className='btn primary';save.textContent='Зберегти оцінку';save.onclick=()=>saveP52TeacherReview(item.id,save);
+   const redo=document.createElement('button');redo.type='button';redo.className='btn';redo.textContent='Попросити повторне відео';redo.onclick=()=>requestP52Resubmission(item.id,redo);
+   const result=document.createElement('p');result.dataset.p52ReviewStatus='';result.className='p52-teacher-muted';card.append(title,status,link,gl,grade,cl,comment,save,redo,result);container.appendChild(card);
+  });
+ }catch(err){console.error('Teacher submissions load failed:',err);container.innerHTML='<h4>Практичні відео</h4><p class="p52-teacher-muted">Не вдалося завантажити відео. Потрібні правила доступу Firestore для призначеного викладача.</p>';}
+}
 function openPractice52TeacherStudent(uid){
  const u=practice52TeacherStudents.find(x=>x.uid===uid);if(!u)return;
  const p=u.profile||{},pr=u.progress||{},done=Array.isArray(pr.done)?pr.done.length:0,review=Array.isArray(pr.needsReview)?pr.needsReview.length:0,answered=Number(pr.answered)||0,correct=Number(pr.correct)||0,accuracy=answered?Math.round(correct/answered*100):null;
  const el=document.getElementById('p52TeacherStudentDetail');if(!el)return;
  const skillNames=Array.isArray(pr.done)?pr.done.map(i=>skills[i]).filter(Boolean):[];
  el.innerHTML='<div class="p52-teacher-detail"><h3>'+p52TeacherText(p.nickname||p.name||'Студент')+'</h3><div class="p52-teacher-muted">'+p52TeacherText(p.name||'')+' · '+p52TeacherText(u.groups.join(', '))+'</div><div class="p52-teacher-detail-grid"><div><strong>'+done+'/52</strong><span>Опрацьовано навичок</span></div><div><strong>'+Number(pr.points||0)+'</strong><span>Балів</span></div><div><strong>'+correct+'/'+answered+'</strong><span>Правильних відповідей</span></div><div><strong>'+(accuracy===null?'—':accuracy+'%')+'</strong><span>Точність</span></div><div><strong>'+review+'</strong><span>Потребують повторення</span></div><div><strong>'+(Array.isArray(pr.mistakes)?pr.mistakes.length:0)+'</strong><span>Помилок для повторення</span></div><div><strong>'+Object.values(pr.lessonTestsCompleted||{}).filter(x=>x&&x.completed).length+'</strong><span>Завершено навчальних тестів</span></div><div><strong>'+Object.values(pr.learningProgress||{}).filter(x=>x&&x.exam).length+'</strong><span>Завершено екзаменаційних етапів</span></div></div><b>Опрацьовані навички</b><p>'+p52TeacherText(skillNames.length?skillNames.join(' · '):'Поки немає позначених опрацьованих навичок.')+'</p><p class="p52-teacher-muted">Деталі окремих відповідей доступні лише якщо вони зберігаються в прогресі студента.</p></div>';
+ const submissionsRoot=document.createElement('section');submissionsRoot.id='p52TeacherSubmissionList';el.appendChild(submissionsRoot);renderP52TeacherSubmissions(uid,submissionsRoot);
 }
 function renderPractice52TeacherExams(){
  const el=document.getElementById('p52TeacherExams');if(!el)return;el.innerHTML='';
