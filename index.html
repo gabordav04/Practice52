@@ -169,6 +169,9 @@ body.p52-admin-mode #studyPanel,
 body.p52-admin-mode #skillCatalog,
 body.p52-admin-mode .section-head{display:none!important}
 body.p52-admin-mode .app{max-width:900px}
+/* Адміністративний режим показує лише адміністративну панель; студентський інтерфейс не змішується з нею. */
+body.p52-admin-mode .app>section:not(#p52AdminPanel){display:none!important}
+body.p52-admin-mode #p52GroupLeaderWorkspace{display:none!important}
 .p52-admin-heading{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
 .p52-admin-heading h2{margin:4px 0 0}
 body.p52-teacher-mode #skillCatalog{margin-top:18px}
@@ -1139,33 +1142,40 @@ async function loadAdminDashboard(){
  catch(err){console.error(err);setAdminStatus('Не вдалося завантажити відкриті профілі рейтингу.',true);}
 }
 async function refreshPractice52Role(user){
- practice52CurrentRole=null;document.body.classList.remove('p52-admin-mode');const toggle=document.getElementById('p52AdminToggle');if(toggle){toggle.classList.add('hidden');toggle.textContent='⚙ Адміністрування';toggle.setAttribute('aria-expanded','false');}if(!user)return;
+ practice52CurrentRole=null;
+ document.body.classList.remove('p52-admin-mode');
+ const toggle=document.getElementById('p52AdminToggle');
+ if(toggle){toggle.classList.add('hidden');toggle.textContent='⚙ Адміністрування';toggle.setAttribute('aria-expanded','false');}
+ const selectedMode=localStorage.getItem('practice52_entry_role_v1')||'student';
+ if(!user)return;
  try{
-  if(user.uid==='NIXSOWQ2c1Tkh5TVGU6z9zkbhOp2')practice52CurrentRole='admin';
-  else{
+  const isPrimaryAdmin=user.uid==='NIXSOWQ2c1Tkh5TVGU6z9zkbhOp2';
+  if(isPrimaryAdmin){
+   // Один Firebase-акаунт має два окремі інтерфейсні режими.
+   // За замовчуванням це студент; адміністративний режим вмикається лише явним вибором.
+   practice52CurrentRole=selectedMode==='admin'?'admin':'student';
+  }else{
    const snap=await db.collection('roles').doc(user.uid).get();
    const roleData=snap.exists?(snap.data()||{}):{};
    practice52CurrentRole=roleData.role==='teacher'&&roleData.active===false?null:(snap.exists?roleData.role:null);
   }
-  // При вході або зміні ролі одразу прибираємо викладача/адміністратора з публічного рейтингу.
-  if(practice52CurrentRole==='teacher'||(practice52CurrentRole==='admin'&&user.uid!=='NIXSOWQ2c1Tkh5TVGU6z9zkbhOp2')){
+  if(practice52CurrentRole==='teacher'||(practice52CurrentRole==='admin'&&!isPrimaryAdmin)){
    try{await db.collection('leaderboard').doc(user.uid).delete();}
    catch(rankError){console.warn('Could not remove non-student from public ranking:',rankError);}
   }
   ensureAdminPanel();
   const button=document.getElementById('p52AdminToggle');
+  const panel=document.getElementById('p52AdminPanel');
+  const adminMode=isPrimaryAdmin&&selectedMode==='admin';
+  document.body.classList.toggle('p52-admin-mode',adminMode);
+  if(panel)panel.classList.toggle('hidden',!adminMode);
   if(button){
-   button.classList.toggle('hidden',practice52CurrentRole!=='admin');
-   const panel=document.getElementById('p52AdminPanel');
-   // Адміністраторський акаунт одночасно є студентським: навчальний інтерфейс відкривається за замовчуванням.
-   document.body.classList.remove('p52-admin-mode');
-   if(panel)panel.classList.add('hidden');
-   button.textContent='⚙ Адміністрування';
-   button.setAttribute('aria-expanded','false');
+   button.classList.toggle('hidden',!isPrimaryAdmin);
+   button.textContent=adminMode?'⚙ Повернутися до навчання':'⚙ Адміністрування';
+   button.setAttribute('aria-expanded',String(adminMode));
   }
  }catch(err){console.warn('Role lookup failed:',err);}
 }
-
 
 /* Teacher dashboard: read-only view limited to groups assigned to the signed-in teacher. */
 let practice52TeacherGroups=[],practice52TeacherStudents=[];
