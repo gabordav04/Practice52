@@ -960,10 +960,14 @@ function ensureAdminPanel(){
   const panel=document.getElementById('p52AdminPanel'),opening=panel.classList.contains('hidden');
   panel.classList.toggle('hidden',!opening);
   document.body.classList.toggle('p52-admin-mode',opening);
+  if(firebaseUser?.uid==='NIXSOWQ2c1Tkh5TVGU6z9zkbhOp2'){
+   localStorage.setItem('practice52_entry_role_v1',opening?'admin':'student');
+   practice52CurrentRole=opening?'admin':'student';
+  }
   toggle.setAttribute('aria-expanded',String(opening));
   toggle.textContent=opening?'⚙ Повернутися до навчання':'⚙ Адміністрування';
   if(opening){panel.scrollIntoView({behavior:'smooth',block:'start'});loadAdminDashboard();}
-  else{document.querySelector('header')?.scrollIntoView({behavior:'smooth',block:'start'});}
+  else{document.querySelector('header')?.scrollIntoView({behavior:'smooth',block:'start'});ensurePractice52GroupLeaderWorkspace();loadPractice52StudentGroups();}
  });
  document.querySelector('.header-right')?.appendChild(toggle);
  const panel=adminNode('section','p52-admin-panel hidden');panel.id='p52AdminPanel';
