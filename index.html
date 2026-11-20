@@ -1071,8 +1071,8 @@ function p52ReadAcademicFields(){
  return {degree,year,courseId:(degree==='bachelor'?'bachelor-':'master-')+year,semester,groupCode,practiceId,practiceTitle};
 }
 async function p52SubmitAcademicAccess(user,profile){
- const a=p52ReadAcademicFields(),groupSnap=await db.collection('groups').doc(a.groupCode).get();
- if(groupSnap.exists&&((groupSnap.data()||{}).studentUids||[]).includes(user.uid)){const p={...profile,...a,academicAccessStatus:'approved'};writeLocalProfile(p,user);await db.collection('users').doc(user.uid).set({profile:p,academicAccessStatus:'approved',updatedAt:firebase.firestore.FieldValue.serverTimestamp()},{merge:true});return;}
+ const a=p52ReadAcademicFields(),existingGroups=await db.collection('groups').where('studentUids','array-contains',user.uid).get(),existingGroup=existingGroups.docs.find(d=>d.id===a.groupCode||(d.data()||{}).groupCode===a.groupCode);
+ if(existingGroup){const p={...profile,...a,academicAccessStatus:'approved'};writeLocalProfile(p,user);await db.collection('users').doc(user.uid).set({profile:p,academicAccessStatus:'approved',updatedAt:firebase.firestore.FieldValue.serverTimestamp()},{merge:true});return;}
  const data={studentUid:user.uid,studentEmail:user.email||'',studentName:profile.name||'',nickname:profile.nickname||'',...a,status:'pending',createdAt:firebase.firestore.FieldValue.serverTimestamp(),updatedAt:firebase.firestore.FieldValue.serverTimestamp()};
  await db.collection('academicAccessRequests').doc(user.uid).set(data,{merge:true});
  const p={...profile,...a,academicAccessStatus:'pending'};writeLocalProfile(p,user);await db.collection('users').doc(user.uid).set({profile:p,academicAccessStatus:'pending',updatedAt:firebase.firestore.FieldValue.serverTimestamp()},{merge:true});
@@ -1841,7 +1841,7 @@ auth.onAuthStateChanged(async user=>{
   $('regPassword').value='';
   if(practice52CurrentRole!=='teacher'&&practice52CurrentRole!=='admin'&&user.uid!=='NIXSOWQ2c1Tkh5TVGU6z9zkbhOp2'){
    const accessSnap=await db.collection('academicAccessRequests').doc(user.uid).get(),access=accessSnap.exists?(accessSnap.data()||{}):{};
-   if(access.status!=='approved'){
+   if(access.status!=='approved'&&(readLocalProfile()||{}).academicAccessStatus!=='approved'){
     cloudReady=false;document.body.classList.add('p52-auth-locked');$('accountPanel').classList.remove('hidden');
     document.querySelectorAll('.p52-academic-field').forEach(el=>el.classList.add('hidden'));
     $('registrationForm').querySelector('button[type="submit"]').classList.add('hidden');$('saveProfileBtn').classList.add('hidden');$('hideProfileBtn').classList.add('hidden');$('logoutBtn').classList.remove('hidden');
