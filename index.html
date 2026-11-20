@@ -194,6 +194,17 @@ body.p52-teacher-mode #skillCatalog{margin-top:18px}
 .p52-teacher-detail-grid>div{padding:11px;border-radius:10px;background:#fff;border:1px solid var(--line)}
 .p52-teacher-detail-grid strong{display:block;font-size:20px}
 .p52-teacher-guide{padding:14px;border-radius:13px;background:#f5f9fb;margin-top:12px}
+/* Desktop layout for teacher group cards: prevent flex-row collisions and compressed content. */
+.p52-teacher-group-card{display:flex;flex-direction:column;align-items:stretch;justify-content:flex-start;gap:14px;min-width:0;width:100%;box-sizing:border-box}
+.p52-teacher-group-card>*{min-width:0;max-width:100%;box-sizing:border-box}
+.p52-teacher-group-card>.p52-teacher-detail-grid{width:100%;grid-template-columns:repeat(4,minmax(0,1fr));}
+.p52-teacher-group-card>.p52-teacher-muted{overflow-wrap:anywhere;line-height:1.5}
+.p52-teacher-group-card>label{display:flex;flex-direction:column;align-items:stretch;gap:6px;width:min(100%,440px);font-size:13px}
+.p52-teacher-group-card select{width:100%;min-width:0;max-width:100%;box-sizing:border-box;padding:10px;border:1px solid var(--line);border-radius:10px;background:#fff;color:var(--ink);font:inherit}
+.p52-teacher-group-card>button{align-self:flex-start;white-space:normal}
+@media(max-width:900px){.p52-teacher-group-card>.p52-teacher-detail-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:600px){.p52-teacher-group-card>.p52-teacher-detail-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.p52-teacher-group-card>button{align-self:stretch;width:100%}}
+
 @media(max-width:600px){.p52-teacher-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}.p52-teacher-card{align-items:flex-start;flex-direction:column}.p52-teacher-card button{width:100%}}
 
 </style>
@@ -1249,7 +1260,7 @@ function renderPractice52TeacherGroups(){
   const skillCounts=new Map();
   withResults.forEach(u=>(Array.isArray(u.progress.done)?u.progress.done:[]).forEach(index=>{const name=skills[index];if(name)skillCounts.set(name,(skillCounts.get(name)||0)+1);}));
   const topSkills=[...skillCounts.entries()].sort((a,b)=>b[1]-a[1]).slice(0,5);
-  const card=document.createElement('article');card.className='p52-teacher-card';
+  const card=document.createElement('article');card.className='p52-teacher-card p52-teacher-group-card';
   const info=document.createElement('div');info.innerHTML='<b>'+p52TeacherText(g.name||'Навчальна група')+'</b><div class="p52-teacher-muted">Студентів у групі: '+members.length+' · Опублікували результати: '+withResults.length+'</div>';
   const stats=document.createElement('div');stats.className='p52-teacher-detail-grid';stats.style.marginTop='12px';
   [[completion+'%','Загальний прогрес групи'],[totalDone+'/'+(members.length*52),'Опрацьовано навичок сумарно'],[accuracy===null?'—':accuracy+'%','Загальна точність'],[totalAnswered,'Відповідей усього']].forEach(([value,label])=>{const box=document.createElement('div');const strong=document.createElement('strong');strong.textContent=String(value);const span=document.createElement('span');span.textContent=label;box.append(strong,span);stats.appendChild(box);});
