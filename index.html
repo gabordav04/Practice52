@@ -1891,7 +1891,7 @@ function renderP52TeacherJournal(){
     tbody.appendChild(tr);
    });
    table.appendChild(tbody);tableRoot.innerHTML='';tableRoot.appendChild(table);
-   const foot=document.createElement('p');foot.className='p52-teacher-muted';foot.textContent='У кожній клітинці: верхній квадратик — теорія (✓), нижній — практична оцінка (2–5). Порожній квадратик означає, що результат ще не зафіксовано.';tableRoot.appendChild(foot);
+   const foot=document.createElement('p');foot.className='p52-teacher-muted';foot.textContent='У кожній клітинці: верхній квадратик — навичка вивчена лише після трьох навчальних режимів і комплексного екзамену (✓), нижній — практична оцінка викладача (2–5). Порожній верхній квадратик означає, що всі чотири етапи ще не завершені.';tableRoot.appendChild(foot);
   }catch(err){console.error('Gradebook load failed:',err);tableRoot.textContent='Не вдалося завантажити журнал. Перевір правила читання gradebook та studentProgress.';}
  };
  select.addEventListener('change',draw);draw();
