@@ -2229,7 +2229,7 @@ renderStats();renderSkills();renderHeaderIdentity();
   if(!state.learningProgress[key])state.learningProgress[key]={tests:false,sequence:false,clinical:false,exam:false,updatedAt:0};
   return state.learningProgress[key];
  };
- const allPartsDone=i=>{const p=progressFor(i);return !!(p.tests&&p.sequence&&p.clinical&&p.exam);};
+ const allPartsDone=i=>{const p=progressFor(i);return !!((p.tests&&p.sequence&&p.clinical)||p.exam);};
  const updateSkillCompletion=i=>{
   const was=state.done.includes(i);
   state.done=state.done.filter(x=>x!==i);
@@ -2247,7 +2247,7 @@ renderStats();renderSkills();renderHeaderIdentity();
  const statusHtml=i=>{
   const p=progressFor(i);
   const labels=[['tests','Тести'],['sequence','Послідовність'],['clinical','Клінічні ситуації'],['exam','Екзамен']];
-  return '<div class="p52-progress"><b>Маршрут навички</b><div class="p52-progress-grid">'+labels.map(([k,n])=>'<span class="'+(p[k]?'is-done':'')+'">'+(p[k]?'✓':'○')+' '+n+'</span>').join('')+'</div><small>'+(allPartsDone(i)?'Усі етапи завершено — навичку вивчено.':'Для статусу «Вивчено» потрібно завершити всі чотири етапи.')+'</small></div>';
+  return '<div class="p52-progress"><b>Маршрут навички</b><div class="p52-progress-grid">'+labels.map(([k,n])=>'<span class="'+(p[k]?'is-done':'')+'">'+(p[k]?'✓':'○')+' '+n+'</span>').join('')+'</div><small>'+(allPartsDone(i)?'Усі етапи завершено — навичку вивчено.':'Для статусу «Вивчено» пройди всі три навчальні шляхи або склади екзамен щонайменше на 6 із 7.')+'</small></div>';
  };
  const css=document.createElement('style');
  css.textContent='.p52-progress{margin:18px 0;padding:15px;border:1px solid #d7e5ec;border-radius:14px;background:#f7fafc}.p52-progress-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin:10px 0}.p52-progress-grid span{padding:9px 10px;border-radius:9px;background:#edf2f5;color:#617789;font-size:13px}.p52-progress-grid span.is-done{background:#e8f6ee;color:#19744d;font-weight:700}.p52-progress small{color:#718394}.p52-exam-btn{margin-top:10px}.p52-exam-task{max-width:760px;margin:0 auto;text-align:left}.p52-exam-step{display:flex;align-items:center;gap:10px;padding:11px;margin:8px 0;border:1px solid #dce7ee;border-radius:10px;background:#fff}.p52-exam-step span{flex:1}.p52-exam-step button{padding:7px 11px;border-radius:8px;background:#edf3f6}.p52-exam-clock{display:inline-block;margin:8px 0;padding:8px 12px;border-radius:20px;background:#fff0c2;color:#775300;font-weight:700}.p52-exam-actions{display:flex;gap:9px;flex-wrap:wrap;margin-top:16px}@media(max-width:520px){.p52-progress-grid{grid-template-columns:1fr}.p52-exam-step{gap:6px}.p52-exam-step button{padding:7px}}';
@@ -2297,17 +2297,17 @@ renderStats();renderSkills();renderHeaderIdentity();
   if(!mixedExam)return;
   clearInterval(examTimer);examTimer=null;
   const skillIndex=mixedExam.skillIndex;
-  const total=mixedExam.tasks.length,correct=mixedExam.tasks.filter(t=>t.submitted&&t.passed).length,pct=total?Math.round(correct/total*100):0,passed=pct>=70;
+  const total=mixedExam.tasks.length,correct=mixedExam.tasks.filter(t=>t.submitted&&t.passed).length,pct=total?Math.round(correct/total*100):0,passed=skillIndex!==null?(total===7&&correct>=6):(pct>=70);
   let bonus=0,grade='';
   if(skillIndex!==null&&passed){
    const p=progressFor(skillIndex);setPart(skillIndex,'exam',true);
    if(!p.examRewarded){state.points=(Number(state.points)||0)+50;p.examRewarded=true;p.examRewardedAt=Date.now();save();bonus=50;}
-   grade='Етап екзамену зараховано.';
+   grade='Екзамен зараховано: '+correct+'/7. Навичку позначено як вивчену.';
   }else if(skillIndex===null){
    bonus=pct>=90?100:pct>=80?75:pct>=70?50:0;
    grade='Оцінка: '+(pct>=90?'Відмінно':pct>=80?'Добре':pct>=70?'Задовільно':'Не складено')+'.';
    if(bonus){state.points=(Number(state.points)||0)+bonus;save();}
-  }else grade='Етап екзамену не зараховано.';
+  }else grade=total===7?'Екзамен не зараховано: потрібно щонайменше 6 із 7 правильних відповідей.':'Екзамен не сформовано: для нього потрібно 5 тестових питань, послідовність і клінічне завдання (усього 7).';
   const content=$('studyContent');
   $('counter').textContent='Результат екзамену';$('bar').style.width='100%';
   content.innerHTML='<div class="study-card"><div class="label">КОМПЛЕКСНИЙ ЕКЗАМЕН ЗАВЕРШЕНО</div><h2>'+(passed?'Екзамен складено! 🎉':'Потрібно ще потренуватися')+'</h2><div class="answer"><b>'+correct+' із '+total+' завдань · '+pct+'%</b><br>Перевірялися різні навички, теорія, алгоритми та клінічне мислення.<br>Пороговий результат: 70%.<br>'+grade+(skillIndex===null?'<br>Рейтингова винагорода: +'+bonus+' балів':(passed?'<br>Рейтингова винагорода: +50 балів':'<br>Бонус за цей екзамен не нараховано.'))+'</div><div class="p52-exam-actions"><button class="btn primary" id="p52ExamAgain">Пройти ще раз</button>'+(skillIndex!==null?'<button class="btn" id="p52BackCard">До флеш-картки</button>':'<button class="btn" id="p52ExamCatalog">До каталогу</button>')+'</div></div>';
@@ -2354,8 +2354,8 @@ renderStats();renderSkills();renderHeaderIdentity();
   mixedExam={skillIndex,tasks:makeExamTasks(skillsToTest,skillIndex!==null),index:0};
   if(skillIndex!==null){
    const only=mixedExam.tasks;
-   if(!only.some(t=>t.kind==='test')||!only.some(t=>t.kind==='sequence')||!only.some(t=>t.kind==='clinical')){
-    $('studyContent').innerHTML='<div class="study-card"><h2>Екзамен ще не готовий</h2><p>Для цієї навички мають бути доступні тестові питання, алгоритм і клінічний матеріал.</p><button class="btn" id="p52ExamBack">До флеш-картки</button></div>';$('p52ExamBack').onclick=()=>start('cards',[skillIndex]);return;
+   if(only.length!==7||only.filter(t=>t.kind==='test').length!==5||!only.some(t=>t.kind==='sequence')||!only.some(t=>t.kind==='clinical')){
+    $('studyContent').innerHTML='<div class="study-card"><h2>Екзамен ще не готовий</h2><p>Для екзамену потрібно рівно 5 тестових питань, алгоритм послідовності та клінічне завдання (усього 7).</p><button class="btn" id="p52ExamBack">До флеш-картки</button></div>';$('p52ExamBack').onclick=()=>start('cards',[skillIndex]);return;
    }
   }
   if(!mixedExam.tasks.length){$('studyContent').innerHTML='<div class="study-card"><h2>Не вдалося сформувати екзамен</h2><p>Перевір наявність навчальних матеріалів.</p></div>';return;}
