@@ -244,6 +244,7 @@ body.p52-teacher-mode #skillCatalog{margin-top:18px}
 .p52-submission-link{display:inline-flex;align-items:center;padding:9px 12px;border-radius:9px;background:var(--blue2);color:var(--blue);font-weight:700;text-decoration:none}
 @media(max-width:650px){.p52-university-grid{grid-template-columns:1fr}.p52-university-form{grid-template-columns:1fr}.p52-university-form textarea{grid-column:auto}}
 
+.p52-academic-field select,.p52-academic-field input{width:100%;padding:12px;border:1px solid var(--line);border-radius:10px;font:inherit;background:#fff;color:var(--ink)}
 </style>
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
@@ -285,6 +286,12 @@ body.p52-teacher-mode #skillCatalog{margin-top:18px}
    <div class="reg-field"><label for="regNickname">Нікнейм (можна змінити у будь-який момент)</label><input id="regNickname" name="nickname" type="text" autocomplete="nickname" placeholder="Наприклад, david_pt" minlength="3" maxlength="20" pattern="[A-Za-z0-9_]+" title="3–20 символів: латинські літери, цифри або _"></div>
    <div class="reg-field"><label for="regName">ПІБ</label><input id="regName" name="name" type="text" autocomplete="name" placeholder="Прізвище, ім’я та по батькові" minlength="5"></div>
    <div class="reg-field"><label for="regPhone">Номер телефону</label><input id="regPhone" name="phone" type="tel" autocomplete="tel" inputmode="tel" placeholder="+380..."></div>
+   <div class="reg-field p52-academic-field"><label for="p52Degree">Освітній рівень</label><select id="p52Degree"><option value="">Оберіть рівень</option><option value="bachelor">Бакалаврат</option><option value="master">Магістратура</option></select></div>
+   <div class="reg-field p52-academic-field"><label for="p52Year">Курс</label><select id="p52Year"><option value="">Оберіть рівень навчання</option></select></div>
+   <div class="reg-field p52-academic-field"><label for="p52Semester">Семестр</label><select id="p52Semester"><option value="">Оберіть семестр</option><option value="1">1 семестр</option><option value="2">2 семестр</option></select></div>
+   <div class="reg-field p52-academic-field"><label for="p52GroupCode">Код академічної групи</label><input id="p52GroupCode" type="text" maxlength="7" placeholder="15711fr" pattern="[0-9]{5}fr" title="Рівно 5 цифр і маленькі латинські fr"></div>
+   <div class="reg-field p52-academic-field"><label for="p52Practice">Професійна практика з каталогу</label><select id="p52Practice"><option value="">Завантаження каталогу практик…</option></select></div>
+   <div class="reg-field p52-academic-field"><small>Доступ до матеріалів і надсилання практичних робіт відкриється після підтвердження заявки.</small></div>
    <div class="reg-field"><label for="regEmail">Електронна пошта</label><input id="regEmail" name="email" type="email" autocomplete="email" placeholder="name@example.com" required></div>
    <div class="reg-field"><label for="regPassword">Пароль (від 6 символів)</label><input id="regPassword" name="password" type="password" autocomplete="new-password" minlength="6" placeholder="Пароль" required></div>
   </div>
@@ -921,13 +928,16 @@ $('registrationForm').addEventListener('submit',async e=>{
   const email=$('regEmail').value.trim(),password=$('regPassword').value;
   const profile=validateProfile();
   if(!profile.name||!profile.phone)throw new Error('Для створення акаунта заповни ПІБ і номер телефону.');
-  if(!profile.nickname)throw new Error('Придумай нікнейм. Після створення акаунта його не можна буде змінити.');
+  if(!profile.nickname)throw new Error('Придумай нікнейм.');
+  const academic=p52ReadAcademicFields();
   setAuthStatus('Створюємо акаунт…');
   const credential=await auth.createUserWithEmailAndPassword(email,password);
   await claimUniqueNickname(profile.nickname,credential.user);
   writeLocalProfile(profile);
-  await db.collection('users').doc(credential.user.uid).set({profile,progress:state,createdAt:firebase.firestore.FieldValue.serverTimestamp(),updatedAt:firebase.firestore.FieldValue.serverTimestamp()},{merge:true});
-  setAuthStatus('Акаунт створено. Прогрес синхронізується з Firebase.');
+  const studentProfile={...profile,...academic,academicAccessStatus:'pending'};writeLocalProfile(studentProfile,credential.user);
+  await db.collection('users').doc(credential.user.uid).set({profile:studentProfile,progress:state,academicAccessStatus:'pending',createdAt:firebase.firestore.FieldValue.serverTimestamp(),updatedAt:firebase.firestore.FieldValue.serverTimestamp()},{merge:true});
+  await p52SubmitAcademicAccess(credential.user,studentProfile);
+  setAuthStatus('Акаунт створено. Заявка на доступ очікує підтвердження.');
  }catch(err){console.error(err);setAuthStatus(err.message||'Не вдалося створити акаунт.',true);}
 });
 $('emailLogin').addEventListener('click',async()=>{
@@ -1041,6 +1051,30 @@ function ensureAdminPanel(){
 
 const P52_UNIVERSITY_ID='practice52-university';
 const P52_PROGRAM_ID='physical-therapy-rehabilitation';
+const P52_GROUP_CODE_RE=/^[0-9]{5}fr$/;
+function p52InitAcademicFields(profile={}){
+ const degree=document.getElementById('p52Degree'),year=document.getElementById('p52Year'),semester=document.getElementById('p52Semester'),group=document.getElementById('p52GroupCode'),practice=document.getElementById('p52Practice');if(!degree||!year||!semester||!group||!practice)return;
+ degree.value=profile.degree||'';
+ const fill=()=>{year.innerHTML='<option value="">Оберіть курс</option>';const n=degree.value==='bachelor'?4:degree.value==='master'?2:0;for(let i=1;i<=n;i++){const o=document.createElement('option');o.value=String(i);o.textContent=i+' курс';year.appendChild(o);}if(profile.year)year.value=String(profile.year);};
+ degree.onchange=()=>{profile.year=0;fill();};fill();semester.value=profile.semester?String(profile.semester):'';group.value=profile.groupCode||'';
+ practice.innerHTML='<option value="">Завантаження каталогу практик…</option>';
+ db.collection('practices').where('status','==','active').get().then(snap=>{practice.innerHTML='<option value="">Оберіть професійну практику</option>';snap.forEach(doc=>{const d=doc.data()||{},o=document.createElement('option');o.value=doc.id;o.textContent=d.title||doc.id;practice.appendChild(o);});if(profile.practiceId)practice.value=profile.practiceId;if(snap.empty)practice.innerHTML='<option value="">Немає активних практик у каталозі</option>';}).catch(()=>{practice.innerHTML='<option value="">Каталог недоступний — повтори пізніше</option>';});
+}
+function p52ReadAcademicFields(){
+ const degree=document.getElementById('p52Degree')?.value||'',year=Number(document.getElementById('p52Year')?.value||0),semester=Number(document.getElementById('p52Semester')?.value||0),groupCode=(document.getElementById('p52GroupCode')?.value||'').trim(),practiceId=document.getElementById('p52Practice')?.value||'',practiceTitle=document.getElementById('p52Practice')?.selectedOptions?.[0]?.textContent||'';
+ if(!['bachelor','master'].includes(degree))throw Error('Обери бакалаврат або магістратуру.');
+ if(!year||year>(degree==='bachelor'?4:2))throw Error('Обери курс відповідно до освітнього рівня.');
+ if(![1,2].includes(semester))throw Error('Обери семестр.');
+ if(!P52_GROUP_CODE_RE.test(groupCode))throw Error('Код групи: рівно 5 цифр і маленькі латинські fr. Приклад: 15711fr.');
+ if(!practiceId||!practiceTitle||practiceTitle.includes('Завантаження'))throw Error('Обери професійну практику з каталогу.');
+ return {degree,year,courseId:(degree==='bachelor'?'bachelor-':'master-')+year,semester,groupCode,practiceId,practiceTitle};
+}
+async function p52SubmitAcademicAccess(user,profile){
+ const a=p52ReadAcademicFields(),data={studentUid:user.uid,studentEmail:user.email||'',studentName:profile.name||'',nickname:profile.nickname||'',...a,status:'pending',createdAt:firebase.firestore.FieldValue.serverTimestamp(),updatedAt:firebase.firestore.FieldValue.serverTimestamp()};
+ await db.collection('academicAccessRequests').doc(user.uid).set(data,{merge:true});
+ const p={...profile,...a,academicAccessStatus:'pending'};writeLocalProfile(p,user);await db.collection('users').doc(user.uid).set({profile:p,academicAccessStatus:'pending',updatedAt:firebase.firestore.FieldValue.serverTimestamp()},{merge:true});
+}
+
 const P52_COURSES=[
  {id:'bachelor-1',level:'bachelor',year:1,title:'Бакалаврат · 1 курс'},
  {id:'bachelor-2',level:'bachelor',year:2,title:'Бакалаврат · 2 курс'},
@@ -1273,6 +1307,19 @@ async function loadAdminGroups(){
    card.appendChild(members);list.appendChild(card);
   });
 
+
+  const applications=await db.collection('academicAccessRequests').where('status','==','pending').get();
+  if(!applications.empty){
+   list.appendChild(adminNode('h3','','Заявки студентів на доступ'));
+   applications.forEach(req=>{
+    const q=req.data()||{},row=adminNode('div','p52-admin-group');
+    row.append(adminNode('strong','',(q.studentName||q.nickname||'Студент')+' · '+(q.groupCode||'—')),adminNode('small','',(q.degree==='master'?'Магістратура':'Бакалаврат')+' · '+q.year+' курс · '+q.semester+' семестр · '+(q.practiceTitle||'')+' · '+(q.studentEmail||'')));
+    const approve=adminNode('button','btn primary','Підтвердити доступ');approve.type='button';
+    approve.onclick=async()=>{try{approve.disabled=true;const gr=db.collection('groups').doc(q.groupCode),gs=await gr.get();if(!gs.exists)await gr.set({name:q.groupCode,groupCode:q.groupCode,teacherUid:'',teacherName:'',studentUids:[q.studentUid],createdBy:firebaseUser.uid,createdAt:firebase.firestore.FieldValue.serverTimestamp(),updatedAt:firebase.firestore.FieldValue.serverTimestamp()});else await gr.update({studentUids:firebase.firestore.FieldValue.arrayUnion(q.studentUid),updatedAt:firebase.firestore.FieldValue.serverTimestamp()});await req.ref.update({status:'approved',approvedBy:firebaseUser.uid,approvedAt:firebase.firestore.FieldValue.serverTimestamp(),updatedAt:firebase.firestore.FieldValue.serverTimestamp()});await db.collection('users').doc(q.studentUid).set({academicAccessStatus:'approved'},{merge:true});setAdminStatus('Доступ підтверджено: '+(q.studentName||q.nickname||q.studentUid));await loadAdminGroups();}catch(err){console.error(err);approve.disabled=false;setAdminStatus('Не вдалося підтвердити заявку. Перевір правила Firestore та код групи.',true);}};
+    const reject=adminNode('button','btn','Відхилити');reject.type='button';reject.onclick=async()=>{try{await req.ref.update({status:'rejected',reviewedBy:firebaseUser.uid,reviewedAt:firebase.firestore.FieldValue.serverTimestamp(),updatedAt:firebase.firestore.FieldValue.serverTimestamp()});await loadAdminGroups();}catch(err){setAdminStatus('Не вдалося відхилити заявку.',true);}};
+    row.append(approve,reject);list.appendChild(row);
+   });
+  }
   const requests=await db.collection('courseTransitionRequests').where('status','==','pending').get();
   if(!requests.empty){
    const heading=adminNode('h3','','Запити на перехід до наступного семестру');list.appendChild(heading);
@@ -1707,6 +1754,8 @@ auth.onAuthStateChanged(async user=>{
  ensurePractice52GroupLeaderWorkspace();
  await loadPractice52StudentGroups();
  const selectedEntryRole=localStorage.getItem('practice52_entry_role_v1')||'';
+ document.querySelectorAll('.p52-academic-field').forEach(el=>el.classList.toggle('hidden',selectedEntryRole!=='student'));
+ p52InitAcademicFields(readLocalProfile()||{});
  const teacherGate=document.getElementById('p52TeacherInviteGate');
  if(teacherGate)teacherGate.classList.toggle('hidden',!(user&&selectedEntryRole==='teacher'&&practice52CurrentRole!=='teacher'&&practice52CurrentRole!=='admin'));
  $('rankingJoinPrompt').classList.toggle('hidden',!!user);
@@ -1769,7 +1818,19 @@ auth.onAuthStateChanged(async user=>{
    await ref.set({profile,progress:state,createdAt:firebase.firestore.FieldValue.serverTimestamp()},{merge:true});
   }
   if(user.email)$('regEmail').value=user.email;$('regNickname').value=(readLocalProfile()||{}).nickname||'';$('regNickname').disabled=false;renderAvatar((readLocalProfile()||{}).avatar||DEFAULT_AVATAR);
+
   $('regPassword').value='';
+  if(practice52CurrentRole!=='teacher'&&practice52CurrentRole!=='admin'&&user.uid!=='NIXSOWQ2c1Tkh5TVGU6z9zkbhOp2'){
+   const accessSnap=await db.collection('academicAccessRequests').doc(user.uid).get(),access=accessSnap.exists?(accessSnap.data()||{}):{};
+   if(access.status!=='approved'){
+    cloudReady=false;document.body.classList.add('p52-auth-locked');$('accountPanel').classList.remove('hidden');
+    document.querySelectorAll('.p52-academic-field').forEach(el=>el.classList.add('hidden'));
+    $('registrationForm').querySelector('button[type="submit"]').classList.add('hidden');$('saveProfileBtn').classList.add('hidden');$('hideProfileBtn').classList.add('hidden');$('logoutBtn').classList.remove('hidden');
+    $('regStatus').textContent=access.status==='rejected'?'Заявку відхилено. Звернися до викладача або адміністратора для уточнення.':'Заявку на доступ надіслано. Очікуй підтвердження викладачем або адміністратором. До підтвердження навчальні матеріали, екзамени та надсилання практичних робіт недоступні.';
+    return;
+   }
+   document.body.classList.remove('p52-auth-locked');
+  }
   cloudReady=true;
   if(practice52CurrentRole!=='teacher'&&practice52CurrentRole!=='admin'){
    try{await publishStudentProgressForTeacher();}
@@ -2636,7 +2697,7 @@ body.p52-auth-locked header{position:relative;z-index:1001}
    $('studentIdentity').setAttribute('aria-expanded','true');
    $('regTitle').textContent='Заповнення обов’язкового профілю PRACTICE 52';
    $('regName').value=profile.name||'';$('regPhone').value=profile.phone||'';
-   $('regNickname').value=profile.nickname||'';$('regEmail').value=user.email||'';
+   $('regNickname').value=profile.nickname||'';$('regEmail').value=user.email||'';p52InitAcademicFields(profile);
    $('regEmail').readOnly=true;$('regPassword').required=false;
    $('regPassword').closest('.reg-field').classList.add('hidden');
    const submit=form.querySelector('button[type="submit"]');
@@ -2656,7 +2717,7 @@ body.p52-auth-locked header{position:relative;z-index:1001}
    if(name.length<5||name.split(' ').length<2)throw new Error('Вкажи повне ПІБ: щонайменше прізвище та ім’я.');
    if(digits.length<10||digits.length>15)throw new Error('Вкажи коректний номер телефону (10–15 цифр).');
    if(!auth.currentUser||!auth.currentUser.email)throw new Error('Для синхронізації потрібен обліковий запис з електронною поштою.');
-   return {nickname,name,phone,email:auth.currentUser.email};
+   return {nickname,name,phone,email:auth.currentUser.email,...p52ReadAcademicFields()};
  }
  async function saveRequiredProfile(user){
    const p=validRequiredProfile(),key=p.nickname.toLowerCase();
@@ -2668,9 +2729,10 @@ body.p52-auth-locked header{position:relative;z-index:1001}
      tx.set(ref,{uid:user.uid,nickname:p.nickname,updatedAt:firebase.firestore.FieldValue.serverTimestamp(),createdAt:snap.exists?(snap.data()||{}).createdAt||firebase.firestore.FieldValue.serverTimestamp():firebase.firestore.FieldValue.serverTimestamp()},{merge:true});
    });
    const old=readLocalProfile()||{};
-   const profile={...old,name:p.name,phone:p.phone,nickname:p.nickname,email:p.email};
+   const profile={...old,name:p.name,phone:p.phone,nickname:p.nickname,email:p.email,degree:p.degree,year:p.year,courseId:p.courseId,semester:p.semester,groupCode:p.groupCode,practiceId:p.practiceId,practiceTitle:p.practiceTitle};
    writeLocalProfile(profile,user);
    await db.collection('users').doc(user.uid).set({profile,updatedAt:firebase.firestore.FieldValue.serverTimestamp()},{merge:true});
+   await p52SubmitAcademicAccess(user,profile);
  }
  $('p52EntryConfirm').addEventListener('click',async e=>{
    e.preventDefault();e.stopImmediatePropagation();
@@ -2708,7 +2770,7 @@ body.p52-auth-locked header{position:relative;z-index:1001}
      if(!selected){showRoleGate();return;}
      const snap=await db.collection('users').doc(user.uid).get();
      const profile=(snap.exists&&snap.data().profile)||{};
-     if(!profile.name||!profile.phone||!profile.nickname||!user.email){showProfileGate(user,profile);return;}
+     if(!profile.name||!profile.phone||!profile.nickname||!user.email||!profile.degree||!profile.year||!profile.semester||!profile.groupCode||!profile.practiceId){showProfileGate(user,profile);p52InitAcademicFields(profile);return;}
      $('regEmail').readOnly=false;$('regPassword').required=true;$('regPassword').closest('.reg-field').classList.remove('hidden');
      form.querySelector('button[type="submit"]').textContent='Створити акаунт';
      $('emailLogin').classList.remove('hidden');$('googleLogin').classList.add('hidden');
