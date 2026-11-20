@@ -1230,6 +1230,7 @@ async function loadPractice52TeacherDashboard(){
  try{
   const groupSnap=await db.collection('groups').where('teacherUid','==',firebaseUser.uid).get();
   practice52TeacherGroups=groupSnap.docs.map(doc=>({id:doc.id,...(doc.data()||{})}));
+  await loadAdminPublicUsers(); // Публічний каталог студентів для спадних списків викладача.
   const studentIds=[...new Set(practice52TeacherGroups.flatMap(g=>Array.isArray(g.studentUids)?g.studentUids:[]))];
   const progressByStudent=new Map();
   await Promise.all(practice52TeacherGroups.map(async group=>{
@@ -1372,14 +1373,25 @@ async function addStudentByGroupLeader(groupId,studentUid,button){
 }
 function renderPractice52TeacherStudents(){
  const el=document.getElementById('p52TeacherStudents');if(!el)return;el.innerHTML='';
+ const detail=document.getElementById('p52TeacherStudentDetail');if(detail)detail.innerHTML='';
  if(!practice52TeacherStudents.length){el.textContent='У призначених групах поки немає студентів.';return;}
  practice52TeacherStudents.forEach(u=>{
   const p=u.profile||{},pr=u.progress||{},done=Array.isArray(pr.done)?pr.done.length:0,answered=Number(pr.answered)||0,accuracy=answered?Math.round((Number(pr.correct)||0)/answered*100):null;
   const card=document.createElement('article');card.className='p52-teacher-card';
-  const info=document.createElement('div');info.innerHTML='<b>' +p52TeacherText(p.nickname||p.name||'Студент')+'</b><div class="p52-teacher-muted">'+p52TeacherText(u.groups.join(', '))+' · Опрацьовано: '+done+'/52 · Точність: '+(accuracy===null?'—':accuracy+'%')+'</div>';
-  const btn=document.createElement('button');btn.className='p52-teacher-action';btn.type='button';btn.textContent='Результати';btn.onclick=()=>openPractice52TeacherStudent(u.uid);
+  const info=document.createElement('div');info.innerHTML='<b>'+p52TeacherText(p.nickname||p.name||'Студент')+'</b><div class="p52-teacher-muted">'+p52TeacherText(u.groups.join(', '))+' · Опрацьовано: '+done+'/52 · Точність: '+(accuracy===null?'—':accuracy+'%')+'</div>';
+  const btn=document.createElement('button');btn.className='p52-teacher-action';btn.type='button';btn.textContent='Показати результати';btn.setAttribute('aria-expanded','false');
+  btn.onclick=()=>togglePractice52TeacherStudent(u.uid,btn);
   card.append(info,btn);el.appendChild(card);
  });
+}
+function togglePractice52TeacherStudent(uid,button){
+ const el=document.getElementById('p52TeacherStudentDetail');if(!el)return;
+ const isOpen=button.getAttribute('aria-expanded')==='true';
+ el.innerHTML='';
+ document.querySelectorAll('#p52TeacherStudents button[aria-expanded="true"]').forEach(b=>{b.setAttribute('aria-expanded','false');b.textContent='Показати результати';});
+ if(isOpen)return;
+ openPractice52TeacherStudent(uid);
+ button.setAttribute('aria-expanded','true');button.textContent='Сховати результати';
 }
 function openPractice52TeacherStudent(uid){
  const u=practice52TeacherStudents.find(x=>x.uid===uid);if(!u)return;
