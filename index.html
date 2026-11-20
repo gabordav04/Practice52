@@ -1227,8 +1227,69 @@ function renderPractice52TeacherGroups(){
   const card=document.createElement('article');card.className='p52-teacher-card';
   const info=document.createElement('div');info.innerHTML='<b>'+p52TeacherText(g.name||'Навчальна група')+'</b><div class="p52-teacher-muted">Студентів: '+((g.studentUids||[]).length)+'</div>';
   const btn=document.createElement('button');btn.className='p52-teacher-action';btn.type='button';btn.textContent='Переглянути студентів';btn.onclick=()=>{showTeacherTab('students');};
-  card.append(info,btn);el.appendChild(card);
+  const leaderWrap=document.createElement('div');leaderWrap.className='p52-teacher-muted';leaderWrap.style.marginTop='10px';
+  const label=document.createElement('label');label.textContent='Староста групи: ';const select=document.createElement('select');select.style.maxWidth='100%';
+  const none=document.createElement('option');none.value='';none.textContent='Не призначено';select.appendChild(none);
+  (g.studentUids||[]).forEach(uid=>{const u=practice52TeacherStudents.find(x=>x.uid===uid);const option=document.createElement('option');option.value=uid;option.textContent=(u?.profile?.nickname||u?.profile?.name||uid);select.appendChild(option);});
+  select.value=g.groupLeaderUid||'';
+  select.addEventListener('change',()=>setPractice52GroupLeader(g.id,select.value));
+  label.appendChild(select);leaderWrap.appendChild(label);card.append(info,btn,leaderWrap);el.appendChild(card);
  });
+}
+async function setPractice52GroupLeader(groupId,leaderUid){
+ try{
+  const group=practice52TeacherGroups.find(g=>g.id===groupId);
+  if(!group||group.teacherUid!==firebaseUser?.uid)return;
+  if(leaderUid&&!(group.studentUids||[]).includes(leaderUid)){setTeacherStatus('Старостою може бути лише студент цієї групи.',true);return;}
+  await db.collection('groups').doc(groupId).update({groupLeaderUid:leaderUid||firebase.firestore.FieldValue.delete(),updatedAt:firebase.firestore.FieldValue.serverTimestamp()});
+  setTeacherStatus(leaderUid?'Старосту призначено.':'Старосту групи знято.');
+  await loadPractice52TeacherDashboard();await loadPractice52StudentGroups();
+ }catch(err){console.error(err);setTeacherStatus('Не вдалося змінити старосту. Перевір правила Firestore.',true);}
+}
+function ensurePractice52GroupLeaderWorkspace(){
+ let root=document.getElementById('p52GroupLeaderWorkspace');if(root)return root;
+ root=document.createElement('section');root.id='p52GroupLeaderWorkspace';root.className='p52-teacher-dashboard hidden';
+ root.style.margin='16px auto';root.style.maxWidth='900px';
+ const header=document.querySelector('header');if(header)header.insertAdjacentElement('afterend',root);
+ return root;
+}
+async function loadPractice52StudentGroups(){
+ if(!firebaseUser||practice52CurrentRole==='teacher')return;
+ const root=document.getElementById('p52GroupLeaderWorkspace');if(!root)return;
+ root.classList.add('hidden');root.innerHTML='';
+ try{
+  const snap=await db.collection('groups').where('studentUids','array-contains',firebaseUser.uid).get();
+  const groups=snap.docs.map(d=>({id:d.id,...(d.data()||{})}));
+  const led=groups.filter(g=>g.groupLeaderUid===firebaseUser.uid);
+  if(!led.length)return;
+  root.classList.remove('hidden');
+  root.innerHTML='<h3>Керування групою</h3><p class="p52-teacher-muted">Ви призначені старостою. Можете додавати студентів до своєї групи.</p>';
+  for(const g of led){
+   const card=document.createElement('article');card.className='p52-teacher-card';
+   const title=document.createElement('b');title.textContent=g.name||'Навчальна група';
+   const search=document.createElement('input');search.className='p52-admin-search';search.placeholder='Знайти студента за нікнеймом';
+   const results=document.createElement('div');results.className='p52-admin-list';
+   search.addEventListener('input',async()=>{
+    results.innerHTML='';const q=search.value.trim().toLowerCase();if(!q)return;
+    try{
+     const users=await db.collection('leaderboard').get();
+     const matches=users.docs.map(d=>({uid:d.id,...(d.data()||{})})).filter(u=>u.uid!==firebaseUser.uid&&String(u.nickname||'').toLowerCase().includes(q)&&!(g.studentUids||[]).includes(u.uid)).slice(0,8);
+     if(!matches.length){results.textContent='Студентів не знайдено або вони вже в групі.';return;}
+     matches.forEach(u=>{const row=document.createElement('div');row.className='p52-admin-row';const name=document.createElement('span');name.textContent=(u.nickname||'Студент')+' · '+u.uid;const add=document.createElement('button');add.type='button';add.className='btn';add.textContent='Додати';add.addEventListener('click',()=>addStudentByGroupLeader(g.id,u.uid,add));row.append(name,add);results.appendChild(row);});
+    }catch(err){console.error(err);results.textContent='Не вдалося знайти студентів. Перевір правила Firestore.';}
+   });
+   card.append(title,search,results);root.appendChild(card);
+  }
+ }catch(err){console.warn('Student group workspace unavailable:',err);}
+}
+async function addStudentByGroupLeader(groupId,studentUid,button){
+ try{
+  button.disabled=true;
+  const ref=db.collection('groups').doc(groupId);
+  await ref.update({studentUids:firebase.firestore.FieldValue.arrayUnion(studentUid),updatedAt:firebase.firestore.FieldValue.serverTimestamp()});
+  await loadPractice52StudentGroups();
+  if(practice52CurrentRole==='teacher')await loadPractice52TeacherDashboard();
+ }catch(err){console.error(err);button.disabled=false;const root=document.getElementById('p52GroupLeaderWorkspace');if(root)root.insertAdjacentText('beforeend',' Не вдалося додати студента: перевір правила Firestore.');}
 }
 function renderPractice52TeacherStudents(){
  const el=document.getElementById('p52TeacherStudents');if(!el)return;el.innerHTML='';
@@ -1282,6 +1343,8 @@ auth.onAuthStateChanged(async user=>{
  renderHeaderIdentity();await refreshPractice52Role(user);
 
  applyPractice52TeacherLayout(practice52CurrentRole==='teacher');
+ ensurePractice52GroupLeaderWorkspace();
+ await loadPractice52StudentGroups();
  const selectedEntryRole=localStorage.getItem('practice52_entry_role_v1')||'';
  const teacherGate=document.getElementById('p52TeacherInviteGate');
  if(teacherGate)teacherGate.classList.toggle('hidden',!(user&&selectedEntryRole==='teacher'&&practice52CurrentRole!=='teacher'&&practice52CurrentRole!=='admin'));
