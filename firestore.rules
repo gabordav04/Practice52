@@ -472,6 +472,7 @@ service cloud.firestore {
         && request.resource.data.practiceId is string
         && exists(/databases/$(database)/documents/practices/$(request.resource.data.practiceId))
         && get(/databases/$(database)/documents/practices/$(request.resource.data.practiceId)).data.status == 'active'
+        && get(/databases/$(database)/documents/practices/$(request.resource.data.practiceId)).data.courseId == request.resource.data.courseId
         && request.resource.data.practiceTitle is string
         && request.resource.data.createdAt is timestamp
         && request.resource.data.updatedAt is timestamp;
