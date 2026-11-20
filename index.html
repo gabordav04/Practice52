@@ -1055,11 +1055,12 @@ const P52_PROGRAM_ID='physical-therapy-rehabilitation';
 const P52_GROUP_CODE_RE=/^[0-9]{5}fr$/;
 function p52InitAcademicFields(profile={}){
  const degree=document.getElementById('p52Degree'),year=document.getElementById('p52Year'),semester=document.getElementById('p52Semester'),group=document.getElementById('p52GroupCode'),practice=document.getElementById('p52Practice');if(!degree||!year||!semester||!group||!practice)return;
- degree.value=profile.degree||'';
+ degree.value=profile.degree||'';let practiceDocs=[];
  const fill=()=>{year.innerHTML='<option value="">Оберіть курс</option>';const n=degree.value==='bachelor'?4:degree.value==='master'?2:0;for(let i=1;i<=n;i++){const o=document.createElement('option');o.value=String(i);o.textContent=i+' курс';year.appendChild(o);}if(profile.year)year.value=String(profile.year);};
- degree.onchange=()=>{profile.year=0;fill();};fill();semester.value=profile.semester?String(profile.semester):'';group.value=profile.groupCode||'';
+ const renderPractices=()=>{const courseId=(degree.value==='bachelor'?'bachelor-':'master-')+year.value,filtered=practiceDocs.filter(x=>!x.data.courseId||x.data.courseId===courseId);practice.innerHTML='<option value="">Оберіть професійну практику</option>';filtered.forEach(x=>{const o=document.createElement('option');o.value=x.id;o.textContent=x.data.title||x.id;o.dataset.courseId=x.data.courseId||'';practice.appendChild(o);});if(profile.practiceId&&filtered.some(x=>x.id===profile.practiceId))practice.value=profile.practiceId;if(!filtered.length)practice.innerHTML='<option value="">Для цього курсу немає активних практик</option>';};
+ degree.onchange=()=>{profile.year=0;fill();renderPractices();};year.onchange=renderPractices;fill();semester.value=profile.semester?String(profile.semester):'';group.value=profile.groupCode||'';
  practice.innerHTML='<option value="">Завантаження каталогу практик…</option>';
- db.collection('practices').where('status','==','active').get().then(snap=>{practice.innerHTML='<option value="">Оберіть професійну практику</option>';snap.forEach(doc=>{const d=doc.data()||{},o=document.createElement('option');o.value=doc.id;o.textContent=d.title||doc.id;practice.appendChild(o);});if(profile.practiceId)practice.value=profile.practiceId;if(snap.empty)practice.innerHTML='<option value="">Немає активних практик у каталозі</option>';}).catch(()=>{practice.innerHTML='<option value="">Каталог недоступний — повтори пізніше</option>';});
+ db.collection('practices').where('status','==','active').get().then(snap=>{practiceDocs=snap.docs.map(doc=>({id:doc.id,data:doc.data()||{}}));renderPractices();}).catch(()=>{practice.innerHTML='<option value="">Каталог недоступний — повтори пізніше</option>';});
 }
 function p52ReadAcademicFields(){
  const degree=document.getElementById('p52Degree')?.value||'',year=Number(document.getElementById('p52Year')?.value||0),semester=Number(document.getElementById('p52Semester')?.value||0),groupCode=(document.getElementById('p52GroupCode')?.value||'').trim(),practiceId=document.getElementById('p52Practice')?.value||'',practiceTitle=document.getElementById('p52Practice')?.selectedOptions?.[0]?.textContent||'';
@@ -1071,7 +1072,8 @@ function p52ReadAcademicFields(){
  return {degree,year,courseId:(degree==='bachelor'?'bachelor-':'master-')+year,semester,groupCode,practiceId,practiceTitle};
 }
 async function p52SubmitAcademicAccess(user,profile){
- const a=p52ReadAcademicFields(),existingGroups=await db.collection('groups').where('studentUids','array-contains',user.uid).get(),existingGroup=existingGroups.docs.find(d=>d.id===a.groupCode||(d.data()||{}).groupCode===a.groupCode);
+ const a=p52ReadAcademicFields(),existingGroups=await db.collection('groups').where('studentUids','array-contains',user.uid).get(),activeMembership=existingGroups.docs.find(d=>(d.data()||{}).status!=='archived'),existingGroup=activeMembership&&(activeMembership.id===a.groupCode||(activeMembership.data()||{}).groupCode===a.groupCode)?activeMembership:null;
+ if(activeMembership&&!existingGroup)throw new Error('Твій акаунт уже прив’язаний до іншої активної групи. Звернися до адміністратора для виправлення.');
  if(existingGroup){const p={...profile,...a,academicAccessStatus:'approved'};writeLocalProfile(p,user);await db.collection('users').doc(user.uid).set({profile:p,academicAccessStatus:'approved',updatedAt:firebase.firestore.FieldValue.serverTimestamp()},{merge:true});return;}
  const data={studentUid:user.uid,studentEmail:user.email||'',studentName:profile.name||'',nickname:profile.nickname||'',...a,status:'pending',createdAt:firebase.firestore.FieldValue.serverTimestamp(),updatedAt:firebase.firestore.FieldValue.serverTimestamp()};
  const requestRef=db.collection('academicAccessRequests').doc(user.uid),previous=await requestRef.get();if(previous.exists)data.createdAt=(previous.data()||{}).createdAt||firebase.firestore.FieldValue.serverTimestamp();await requestRef.set(data,{merge:true});
