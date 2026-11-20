@@ -242,7 +242,7 @@ body.p52-teacher-mode #skillCatalog{margin-top:18px}
 </head>
 <body>
 <div class="app">
-<div id="p52EntryBackdrop" class="p52-entry-backdrop hidden" role="dialog" aria-modal="true" aria-labelledby="p52EntryTitle"><div class="p52-entry-card"><div class="eyebrow">ЗМІНА КОРИСТУВАЧА</div><h2 id="p52EntryTitle">Хто користуватиметься PRACTICE 52?</h2><p>Обери роль нового користувача. Поточний сеанс буде завершено, локальні дані попереднього користувача на цьому пристрої очищено. Для продовження потрібно створити акаунт або увійти.</p><div class="p52-entry-choices"><button type="button" class="p52-entry-choice" data-entry-role="student">🎓 Я — студент</button><button type="button" class="p52-entry-choice" data-entry-role="teacher">👩‍🏫 Я — викладач</button><button type="button" class="p52-entry-choice" data-entry-role="admin">🛡️ Я — адміністратор</button></div><div class="p52-entry-actions hidden" id="p52EntryActions"><button type="button" class="btn primary" id="p52EntryConfirm">Підтвердити роль і перейти до входу</button><button type="button" class="btn" id="p52EntryBack">Скасувати</button></div><p class="note" id="p52EntryNote">Гостьовий режим вимкнено: кожен користувач входить у власний акаунт. Права викладача й адміністратора підтверджуються окремо.</p></div></div>
+<div id="p52EntryBackdrop" class="p52-entry-backdrop hidden" role="dialog" aria-modal="true" aria-labelledby="p52EntryTitle"><div class="p52-entry-card"><div class="eyebrow">ЗМІНА КОРИСТУВАЧА</div><h2 id="p52EntryTitle">Хто користуватиметься PRACTICE 52?</h2><p>Обери одну з трьох ролей. Для доступу обов’язково потрібно створити акаунт або увійти. Гостьового режиму немає.</p><div class="p52-entry-choices"><button type="button" class="p52-entry-choice" data-entry-role="student">🎓 Я — студент</button><button type="button" class="p52-entry-choice" data-entry-role="teacher">👩‍🏫 Я — викладач</button><button type="button" class="p52-entry-choice" data-entry-role="admin">🛡️ Я — адміністратор</button></div><div class="p52-entry-actions hidden" id="p52EntryActions"><button type="button" class="btn primary" id="p52EntryConfirm">Підтвердити роль і перейти до входу</button><button type="button" class="btn" id="p52EntryBack">Скасувати</button></div><p class="note" id="p52EntryNote">Гостьовий режим вимкнено: кожен користувач входить у власний акаунт. Права викладача й адміністратора підтверджуються окремо.</p></div></div>
 
 <header>
  <div class="brand"><div class="logo">＋</div><div><h1>PRACTICE 52</h1><p>Навчальний тренажер практичних навичок</p></div></div>
@@ -640,7 +640,7 @@ function renderHeaderIdentity(){
  const profile=readLocalProfile()||{},avatar=profile.avatar||DEFAULT_AVATAR;
  const avatarEl=$('headerAvatar'),nameEl=$('headerNickname');
  if(avatarEl){avatarEl.innerHTML='';if(typeof avatar==='string'&&avatar.startsWith('data:image/')){const img=document.createElement('img');img.src=avatar;img.alt='';avatarEl.appendChild(img);}else avatarEl.textContent=avatar;}
- if(nameEl)nameEl.textContent=profile.nickname|| (firebaseUser?'Студент':'Гість');
+ if(nameEl)nameEl.textContent=profile.nickname|| (firebaseUser?'Студент':'Увійти');
 }
 function renderAvatar(avatar){
  const preview=$('avatarPreview');if(!preview)return;
@@ -872,8 +872,8 @@ $('saveProfileBtn').addEventListener('click',async()=>{
  try{
   if(!firebaseUser)throw new Error('Спочатку увійди або створи акаунт.');
   const current=readLocalProfile()||{},name=$('regName').value.trim().replace(/\s+/g,' '),phone=$('regPhone').value.trim(),digits=phone.replace(/\D/g,''),enteredNickname=$('regNickname').value.trim();
-  if(name&&name.split(' ').length<2)throw new Error('Вкажи щонайменше прізвище та ім’я.');
-  if(phone&&(digits.length<10||digits.length>15))throw new Error('Перевір номер телефону: має бути від 10 до 15 цифр.');
+  if(!name||name.split(' ').length<2)throw new Error('Вкажи щонайменше прізвище та ім’я.');
+  if(digits.length<10||digits.length>15)throw new Error('Перевір номер телефону: має бути від 10 до 15 цифр.');
   const nickname=enteredNickname;
   if(!nickname)throw new Error('Введи нікнейм.');
   if(!/^[A-Za-z0-9_]{3,20}$/.test(nickname))throw new Error('Нікнейм: 3–20 символів, лише латинські літери, цифри або _.');
@@ -2415,6 +2415,146 @@ renderStats();renderSkills();renderHeaderIdentity();
     identity.setAttribute('aria-expanded', 'true');
     panel.scrollIntoView({behavior:'smooth', block:'start'});
   }, true);
+})();
+</script>
+
+
+<style id="p52-mandatory-account-style">
+body.p52-auth-locked .app > :not(header):not(#accountPanel):not(#p52EntryBackdrop){display:none!important}
+body.p52-auth-locked #accountPanel:not(.hidden){display:block!important;position:relative;z-index:1001}
+body.p52-auth-locked #p52EntryBackdrop:not(.hidden){display:flex!important;position:fixed;inset:0;z-index:1002}
+body.p52-auth-locked #p52EntryBack{display:none!important}
+body.p52-auth-locked header{position:relative;z-index:1001}
+</style>
+<script id="p52-mandatory-account-policy">
+(function(){
+ 'use strict';
+ const $=id=>document.getElementById(id);
+ const auth=firebase.auth(), db=firebase.firestore();
+ const backdrop=$('p52EntryBackdrop'), panel=$('accountPanel'), form=$('registrationForm');
+ const roleKey='practice52_entry_role_v1';
+ let profileGateBusy=false;
+ function lockApp(){document.body.classList.add('p52-auth-locked');}
+ function unlockApp(){document.body.classList.remove('p52-auth-locked');}
+ function showRoleGate(){
+   lockApp();backdrop.classList.remove('hidden');panel.classList.add('hidden');
+   $('studentIdentity').setAttribute('aria-expanded','false');
+ }
+ function showLoginGate(){
+   lockApp();backdrop.classList.add('hidden');panel.classList.remove('hidden');
+   const role=localStorage.getItem(roleKey)||'student';
+   $('regTitle').textContent=role==='teacher'?'Реєстрація / вхід викладача PRACTICE 52':role==='admin'?'Вхід адміністратора PRACTICE 52':'Реєстрація / вхід студента PRACTICE 52';
+   $('regEmail').readOnly=false;$('regPassword').required=true;$('regPassword').closest('.reg-field').classList.remove('hidden');
+   form.querySelector('button[type="submit"]').textContent='Створити акаунт';
+   $('emailLogin').classList.remove('hidden');$('googleLogin').classList.remove('hidden');
+   $('logoutBtn').classList.add('hidden');$('saveProfileBtn').classList.remove('hidden');$('hideProfileBtn').classList.remove('hidden');
+   $('regStatus').textContent='Увійди або створи акаунт. Нікнейм, ПІБ і телефон обов’язкові для всіх користувачів.';
+   $('regStatus').style.color='var(--muted)';
+ }
+ function showProfileGate(user,profile){
+   lockApp();backdrop.classList.add('hidden');panel.classList.remove('hidden');
+   $('studentIdentity').setAttribute('aria-expanded','true');
+   $('regTitle').textContent='Заповнення обов’язкового профілю PRACTICE 52';
+   $('regName').value=profile.name||'';$('regPhone').value=profile.phone||'';
+   $('regNickname').value=profile.nickname||'';$('regEmail').value=user.email||'';
+   $('regEmail').readOnly=true;$('regPassword').required=false;
+   $('regPassword').closest('.reg-field').classList.add('hidden');
+   const submit=form.querySelector('button[type="submit"]');
+   submit.textContent='Зберегти профіль і продовжити';submit.classList.remove('hidden');
+   $('emailLogin').classList.add('hidden');$('googleLogin').classList.add('hidden');
+   $('logoutBtn').classList.remove('hidden');$('saveProfileBtn').classList.add('hidden');$('hideProfileBtn').classList.add('hidden');
+   $('regStatus').textContent='Для доступу до навчання заповни всі обов’язкові дані. Після збереження профіль і прогрес синхронізуватимуться з Firebase.';
+   $('regStatus').style.color='var(--muted)';
+   if(profile.avatar)renderAvatar(profile.avatar);
+ }
+ function validRequiredProfile(){
+   const nickname=$('regNickname').value.trim();
+   const name=$('regName').value.trim().replace(/\s+/g,' ');
+   const phone=$('regPhone').value.trim(),digits=phone.replace(/\D/g,'');
+   if(!/^[A-Za-z0-9_]{3,20}$/.test(nickname))throw new Error('Нікнейм обов’язковий: 3–20 символів, латинські літери, цифри або _.');
+   if(name.length<5||name.split(' ').length<2)throw new Error('Вкажи повне ПІБ: щонайменше прізвище та ім’я.');
+   if(digits.length<10||digits.length>15)throw new Error('Вкажи коректний номер телефону (10–15 цифр).');
+   if(!auth.currentUser||!auth.currentUser.email)throw new Error('Для синхронізації потрібен обліковий запис з електронною поштою.');
+   return {nickname,name,phone,email:auth.currentUser.email};
+ }
+ async function saveRequiredProfile(user){
+   const p=validRequiredProfile(),key=p.nickname.toLowerCase();
+   if(key==='student')throw new Error('Нікнейм «student» зарезервований. Обери інший.');
+   const ref=db.collection('nicknames').doc(key);
+   await db.runTransaction(async tx=>{
+     const snap=await tx.get(ref);
+     if(snap.exists&&(snap.data()||{}).uid!==user.uid)throw new Error('Цей нікнейм уже зайнятий. Обери інший.');
+     tx.set(ref,{uid:user.uid,nickname:p.nickname,updatedAt:firebase.firestore.FieldValue.serverTimestamp(),createdAt:snap.exists?(snap.data()||{}).createdAt||firebase.firestore.FieldValue.serverTimestamp():firebase.firestore.FieldValue.serverTimestamp()},{merge:true});
+   });
+   const old=readLocalProfile()||{};
+   const profile={...old,name:p.name,phone:p.phone,nickname:p.nickname,email:p.email};
+   writeLocalProfile(profile,user);
+   await db.collection('users').doc(user.uid).set({profile,updatedAt:firebase.firestore.FieldValue.serverTimestamp()},{merge:true});
+ }
+ $('p52EntryConfirm').addEventListener('click',async e=>{
+   e.preventDefault();e.stopImmediatePropagation();
+   const choice=document.querySelector('[data-entry-role].selected');
+   const selected=choice&&choice.dataset.entryRole;
+   if(!selected)return;
+   const btn=$('p52EntryConfirm');btn.disabled=true;
+   try{
+     localStorage.setItem(roleKey,selected);
+     if(auth.currentUser){await auth.signOut();showLoginGate();}
+     else{
+       if(typeof state!=='undefined')state=emptyPracticeState();
+       if(typeof KEY!=='undefined')KEY='practice52_v1:guest';
+       backdrop.classList.add('hidden');panel.classList.remove('hidden');
+       $('regTitle').textContent=selected==='teacher'?'Реєстрація / вхід викладача PRACTICE 52':selected==='admin'?'Вхід адміністратора PRACTICE 52':'Реєстрація / вхід студента PRACTICE 52';
+       $('regEmail').readOnly=false;$('regPassword').required=true;$('regPassword').closest('.reg-field').classList.remove('hidden');
+       form.querySelector('button[type="submit"]').textContent='Створити акаунт';
+       $('emailLogin').classList.remove('hidden');$('googleLogin').classList.remove('hidden');
+       $('saveProfileBtn').classList.remove('hidden');$('hideProfileBtn').classList.remove('hidden');
+       $('regName').value='';$('regPhone').value='';$('regNickname').value='';
+       $('regEmail').value='';$('regPassword').value='';
+       $('regStatus').textContent='Обери спосіб входу. Нікнейм, ПІБ і телефон обов’язкові для всіх користувачів.';
+       $('regStatus').style.color='var(--muted)';
+       panel.scrollIntoView({behavior:'smooth',block:'start'});
+     }
+   }catch(err){$('regStatus').textContent=err.message||'Не вдалося підготувати вхід.';$('regStatus').style.color='var(--red)';}
+   finally{btn.disabled=false;}
+ },true);
+ auth.onAuthStateChanged(async user=>{
+   if(profileGateBusy)return;
+   if(!user){if(localStorage.getItem(roleKey))showLoginGate();else showRoleGate();return;}
+   try{
+     const selected=localStorage.getItem(roleKey)||'';
+     if(!selected){showRoleGate();return;}
+     const snap=await db.collection('users').doc(user.uid).get();
+     const profile=(snap.exists&&snap.data().profile)||{};
+     if(!profile.name||!profile.phone||!profile.nickname||!user.email){showProfileGate(user,profile);return;}
+     $('regEmail').readOnly=false;$('regPassword').required=true;$('regPassword').closest('.reg-field').classList.remove('hidden');
+     form.querySelector('button[type="submit"]').textContent='Створити акаунт';
+     $('emailLogin').classList.remove('hidden');$('googleLogin').classList.add('hidden');
+     unlockApp();
+   }catch(err){
+     console.error('Mandatory profile check failed:',err);lockApp();panel.classList.remove('hidden');
+     $('regStatus').textContent='Не вдалося перевірити профіль у Firebase. Перевір з’єднання та спробуй ще раз.';
+     $('regStatus').style.color='var(--red)';
+   }
+ });
+ form.addEventListener('submit',async e=>{
+   const user=auth.currentUser;
+   if(!user||!document.body.classList.contains('p52-auth-locked'))return;
+   e.preventDefault();e.stopImmediatePropagation();
+   if(profileGateBusy)return;
+   profileGateBusy=true;
+   const btn=form.querySelector('button[type="submit"]');btn.disabled=true;
+   try{
+     $('regStatus').textContent='Зберігаємо обов’язковий профіль…';
+     await saveRequiredProfile(user);
+     $('regStatus').textContent='Профіль збережено. Завантажуємо твій прогрес…';
+     location.reload();
+   }catch(err){
+     $('regStatus').textContent=err.message||'Не вдалося зберегти профіль.';
+     $('regStatus').style.color='var(--red)';profileGateBusy=false;btn.disabled=false;
+   }
+ },true);
+ if(!auth.currentUser)showRoleGate();
 })();
 </script>
 
