@@ -2101,7 +2101,7 @@ function renderStats(){
 function renderSkills(){
  const q=$('search').value.trim().toLowerCase(),rawNumber=$('searchNumber').value.trim(),number=rawNumber===''?null:Number(rawNumber),f=$('filter').value;$('skills').innerHTML='';
  skills.forEach((s,i)=>{
-  const done=state.done.includes(i),review=state.needsReview.includes(i),lp=state.learningProgress?.[String(i)]||{},inProgress=!done&&!review&&(lp.tests===true||lp.sequence===true||lp.clinical===true||lp.exam===true);
+  const done=state.done.includes(i),review=state.needsReview.includes(i),lp=state.learningProgress?.[String(i)]||{},inProgress=!done&&!review&&(lp.tests===true||lp.sequence===true||lp.clinical===true);
   if((q&&!s.toLowerCase().includes(q))||(number!==null&&(!Number.isInteger(number)||number!==i+1))||(f==='done'&&!done)||(f==='review'&&!review)||(f==='todo'&&(done||review)))return;
   const b=document.createElement('button');b.className='skill'+(done?' done':review?' needs-review':inProgress?' in-progress':'');
   const status=done?'✓ Вивчено':review?'↻ Потребує повторення':inProgress?'◷ У процесі навчання':'Вчити';
