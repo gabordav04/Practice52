@@ -206,7 +206,20 @@ match /gradebook/{entryId} {
       'teacherUid', 'teacherComment', 'updatedAt'
     ]);
 
-  allow delete: if isPlatformAdmin();
+  function isAuthorizedGradebookRemovalForResubmission() {
+    let submissionPath = /databases/$(database)/documents/practiceSubmissions/$(resource.data.submissionId);
+    return isAssignedTeacherForGradebook()
+      && existsAfter(submissionPath)
+      && getAfter(submissionPath).data.status == 'resubmission_requested'
+      && getAfter(submissionPath).data.groupId == groupId
+      && getAfter(submissionPath).data.studentUid == resource.data.studentUid
+      && getAfter(submissionPath).data.skillIndex == resource.data.skillIndex;
+  }
+
+  // Викладач може прибрати активну оцінку лише в batch,
+  // який одночасно переводить відповідне подання у повторне виконання.
+  allow delete: if isPlatformAdmin()
+    || isAuthorizedGradebookRemovalForResubmission();
 }
 ```
 
