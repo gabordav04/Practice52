@@ -34,6 +34,12 @@ service cloud.firestore {
       return request.auth != null
         && request.auth.uid == 'NIXSOWQ2c1Tkh5TVGU6z9zkbhOp2';
     }
+    
+    // Студент без заявки — чинний учасник старої системи; нові заявки мають бути підтверджені.
+    function hasApprovedAcademicAccess(uid) {
+      let requestPath = /databases/$(database)/documents/academicAccessRequests/$(uid);
+      return !exists(requestPath) || get(requestPath).data.status == 'approved';
+    }
 
     // Ролі користувачів
     match /roles/{userId} {
@@ -178,7 +184,8 @@ service cloud.firestore {
           return request.auth != null
             && groupExistsForGradebook()
             && resource.data.studentUid == request.auth.uid
-            && request.auth.uid in groupDataForGradebook().studentUids;
+            && request.auth.uid in groupDataForGradebook().studentUids
+            && hasApprovedAcademicAccess(request.auth.uid);
         }
 
         function isAuthorizedGradebookWriter() {
@@ -261,7 +268,8 @@ service cloud.firestore {
         function isStudentInGroup() {
           return request.auth != null
             && groupExists()
-            && studentUid in groupData().studentUids;
+            && studentUid in groupData().studentUids
+            && hasApprovedAcademicAccess(studentUid);
         }
 
         function isAssignedTeacher() {
@@ -313,7 +321,8 @@ service cloud.firestore {
         return request.auth != null
           && resource.data.studentUid == request.auth.uid
           && groupExistsForSubmission(resource.data.groupId)
-          && request.auth.uid in get(groupPath(resource.data.groupId)).data.studentUids;
+          && request.auth.uid in get(groupPath(resource.data.groupId)).data.studentUids
+          && hasApprovedAcademicAccess(request.auth.uid);
       }
 
       function isSubmissionTeacher() {
@@ -343,6 +352,7 @@ service cloud.firestore {
           && request.resource.data.groupId is string
           && groupExistsForSubmission(request.resource.data.groupId)
           && request.auth.uid in get(groupPath(request.resource.data.groupId)).data.studentUids
+          && hasApprovedAcademicAccess(request.auth.uid)
           && request.resource.data.practiceId == 'practice-52'
           && request.resource.data.skillId is string
           && request.resource.data.skillIndex is int
