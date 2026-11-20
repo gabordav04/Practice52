@@ -456,24 +456,23 @@ service cloud.firestore {
           && exists(/databases/$(database)/documents/groups/$(resource.data.groupId))
           && get(/databases/$(database)/documents/groups/$(resource.data.groupId)).data.teacherUid == request.auth.uid;
       }
+      function validGroupRequest(data) {
+        return data.groupCode is string
+          && data.groupCode.size() == 7
+          && data.groupCode.matches('^[0-9]{5}fr$')
+          && data.groupId is string
+          && exists(/databases/$(database)/documents/groups/$(data.groupId))
+          && (
+            get(/databases/$(database)/documents/groups/$(data.groupId)).data.groupCode == data.groupCode
+            || get(/databases/$(database)/documents/groups/$(data.groupId)).data.name == data.groupCode
+            || data.groupId == data.groupCode
+          );
+      }
       allow create: if isOwnRequest()
-        && request.resource.data.keys().hasAll(['studentUid','studentEmail','studentName','nickname','degree','year','courseId','semester','groupCode','groupId','practiceId','practiceTitle','status','createdAt','updatedAt'])
-        && request.resource.data.keys().hasOnly(['studentUid','studentEmail','studentName','nickname','degree','year','courseId','semester','groupCode','groupId','practiceId','practiceTitle','status','createdAt','updatedAt'])
+        && request.resource.data.keys().hasAll(['studentUid','studentEmail','studentName','nickname','groupCode','groupId','status','createdAt','updatedAt'])
+        && request.resource.data.keys().hasOnly(['studentUid','studentEmail','studentName','nickname','groupCode','groupId','status','createdAt','updatedAt'])
         && request.resource.data.status == 'pending'
-        && request.resource.data.groupCode is string
-        && request.resource.data.groupId is string
-        && request.resource.data.groupCode.size() == 7
-        && request.resource.data.groupCode.matches('^[0-9]{5}fr$')
-        && request.resource.data.degree in ['bachelor','master']
-        && request.resource.data.year is int
-        && ((request.resource.data.degree == 'bachelor' && request.resource.data.year >= 1 && request.resource.data.year <= 4) || (request.resource.data.degree == 'master' && request.resource.data.year >= 1 && request.resource.data.year <= 2))
-        && request.resource.data.semester in [1,2]
-        && request.resource.data.courseId is string
-        && request.resource.data.practiceId is string
-        && exists(/databases/$(database)/documents/practices/$(request.resource.data.practiceId))
-        && get(/databases/$(database)/documents/practices/$(request.resource.data.practiceId)).data.status == 'active'
-        && get(/databases/$(database)/documents/practices/$(request.resource.data.practiceId)).data.courseId == request.resource.data.courseId
-        && request.resource.data.practiceTitle is string
+        && validGroupRequest(request.resource.data)
         && request.resource.data.createdAt is timestamp
         && request.resource.data.updatedAt is timestamp;
       allow get: if isPlatformAdmin() || (request.auth != null && request.auth.uid == studentUid) || isAssignedTeacher() || requestGroupLeader();
@@ -485,7 +484,8 @@ service cloud.firestore {
         || (request.auth != null && request.auth.uid == studentUid && resource.data.status == 'rejected'
           && request.resource.data.status == 'pending'
           && request.resource.data.studentUid == resource.data.studentUid
-          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['studentEmail','studentName','nickname','degree','year','courseId','semester','groupCode','groupId','practiceId','practiceTitle','status','updatedAt']));
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['studentEmail','studentName','nickname','groupCode','groupId','status','updatedAt'])
+          && validGroupRequest(request.resource.data));
       allow delete: if isPlatformAdmin();
     }
     match /nicknames/{nicknameId} {
