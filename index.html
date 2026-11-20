@@ -1548,7 +1548,8 @@ async function loadPractice52TeacherDashboard(){
     row.append(info,approve,reject);teacherApps.appendChild(row);
    });
   }
-  if(pendingApps){groupsEl?.prepend(teacherApps);}else{const empty=document.createElement('p');empty.className='p52-teacher-muted';empty.textContent='Наразі немає заявок на вступ до твоїх груп.';teacherApps.appendChild(empty);groupsEl?.prepend(teacherApps);}
+  if(!pendingApps){const empty=document.createElement('p');empty.className='p52-teacher-muted';empty.textContent='Наразі немає заявок на вступ до твоїх груп.';teacherApps.appendChild(empty);}
+  window.practice52TeacherApplicationsPanel=teacherApps;
 
   await loadAdminPublicUsers(); // Публічний каталог студентів для спадних списків викладача.
   const studentIds=[...new Set(practice52TeacherGroups.flatMap(g=>Array.isArray(g.studentUids)?g.studentUids:[]))];
@@ -1570,6 +1571,7 @@ async function loadPractice52TeacherDashboard(){
   });
   const active=practice52TeacherStudents.filter(u=>u.progress&&(Number(u.progress.answered)>0||(u.progress.done||[]).length>0)).length;
   renderPractice52TeacherGroups();renderPractice52TeacherStudents();renderPractice52TeacherExams();renderP52TeacherJournal();
+  if(groupsEl&&window.practice52TeacherApplicationsPanel)groupsEl.prepend(window.practice52TeacherApplicationsPanel);
   setTeacherStatus('Дані оновлено. Показано лише групи, призначені цьому викладачу.');
  }catch(err){
   console.error('Teacher dashboard load failed:',err);
