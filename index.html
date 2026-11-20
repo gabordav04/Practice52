@@ -1106,7 +1106,7 @@ async function p52InitAcademicFields(profile={}){
    .filter(x=>x.data.groupCode&&x.data.groupName)
    .sort((a,b)=>String(a.data.groupCode).localeCompare(String(b.data.groupCode),'uk'));
   group.innerHTML='<option value="">Оберіть свою академічну групу</option>';
-  groups.forEach(item=>{const option=new Option(item.data.groupCode+' · '+item.data.groupName,item.id);option.dataset.groupCode=item.data.groupCode;group.appendChild(option);});
+  groups.forEach(item=>{const code=String(item.data.groupCode||'').trim(),name=String(item.data.groupName||'').trim();const label=name&&name.toLowerCase()!==code.toLowerCase()?code+' · '+name:code;const option=new Option(label,item.id);option.dataset.groupCode=code;group.appendChild(option);});
   const selected=groups.find(x=>x.data.groupCode===profile.groupCode||x.id===profile.groupId);
   if(selected)group.value=selected.id;
   group.disabled=groups.length===0;
