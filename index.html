@@ -239,6 +239,7 @@ body.p52-teacher-mode #skillCatalog{margin-top:18px}
 .p52-video-submit label{display:block;font-weight:600;margin:10px 0 6px}.p52-video-submit input[type=url]{width:100%;padding:12px;border:1px solid var(--line);border-radius:10px;font:inherit}
 .p52-video-confirm{display:flex!important;align-items:flex-start;gap:9px;font-weight:400!important}.p52-video-confirm input{margin-top:5px}
 .p52-video-actions{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-top:12px}#p52StudentVideoStatus{font-size:13px;color:var(--muted)}
+.p52-journal-scroll{overflow-x:auto;max-width:100%;border:1px solid var(--line);border-radius:12px}.p52-journal-table{border-collapse:separate;border-spacing:0;min-width:100%;font-size:12px}.p52-journal-table th,.p52-journal-table td{padding:5px 3px;border-bottom:1px solid var(--line);border-right:1px solid var(--line);text-align:center;white-space:nowrap}.p52-journal-table thead th{position:sticky;top:0;background:var(--surface);z-index:2}.p52-journal-table thead tr:nth-child(2) th{font-size:11px;color:var(--muted);cursor:help}.p52-journal-table .p52-journal-student{position:sticky;left:0;z-index:3;background:var(--surface);text-align:left;min-width:130px;max-width:170px;white-space:normal;font-weight:700}.p52-journal-stack{display:flex;flex-direction:column;align-items:center;gap:3px}.p52-journal-square{width:19px;height:19px;display:flex;align-items:center;justify-content:center;border:1px solid var(--line);border-radius:4px;font-weight:800;font-size:12px;line-height:1}.p52-journal-theory.is-done{background:#e6f5ed;border-color:#69b88b;color:#176b3b}.p52-journal-practice.is-graded{background:#eaf1ff;border-color:#8eabea;color:#244e9a}
 .p52-submission-card{border:1px solid var(--line);border-radius:12px;padding:14px;margin:12px 0}.p52-submission-card input,.p52-submission-card select,.p52-submission-card textarea{max-width:100%;width:100%;padding:9px;border:1px solid var(--line);border-radius:8px;font:inherit;margin:5px 0 10px}.p52-submission-card textarea{min-height:70px}
 .p52-submission-link{display:inline-flex;align-items:center;padding:9px 12px;border-radius:9px;background:var(--blue2);color:var(--blue);font-weight:700;text-decoration:none}
 @media(max-width:650px){.p52-university-grid{grid-template-columns:1fr}.p52-university-form{grid-template-columns:1fr}.p52-university-form textarea{grid-column:auto}}
@@ -1598,7 +1599,7 @@ function renderP52TeacherJournal(){
  const label=document.createElement('label');label.textContent='Навчальна група ';
  const select=document.createElement('select');select.style.maxWidth='100%';
  practice52TeacherGroups.forEach(g=>{const o=document.createElement('option');o.value=g.id;o.textContent=g.name||g.id;select.appendChild(o);});
- label.appendChild(select);const tableRoot=document.createElement('div');tableRoot.style.overflowX='auto';controls.append(label);root.append(controls,tableRoot);
+ label.appendChild(select);const tableRoot=document.createElement('div');tableRoot.className='p52-journal-scroll';controls.append(label);root.append(controls,tableRoot);
  const draw=async()=>{
   tableRoot.textContent='Завантажуємо журнал…';
   try{
@@ -1610,17 +1611,30 @@ function renderP52TeacherJournal(){
    const grades=new Map();gradeSnap.forEach(d=>{const v=d.data()||{};if(v.practiceId==='practice-52')grades.set(v.studentUid+'_'+v.skillIndex,v);});
    const progress=new Map();progressSnaps.forEach(d=>{if(d.exists){const v=d.data()||{};progress.set(v.studentUid,v.progress||{});}});
    const roster=(group.studentUids||[]).map(uid=>({uid,profile:practice52TeacherStudents.find(s=>s.uid===uid)?.profile||{},progress:progress.get(uid)||{}}));
-   const table=document.createElement('table');table.style.width='100%';table.style.borderCollapse='collapse';table.style.minWidth='760px';
+   const table=document.createElement('table');table.className='p52-journal-table';
    const thead=document.createElement('thead'),hr=document.createElement('tr');
-   ['Студент','Практична навичка','Теорія','Практика'].forEach(t=>{const th=document.createElement('th');th.textContent=t;th.style.textAlign='left';th.style.padding='9px';th.style.borderBottom='1px solid var(--line)';hr.appendChild(th);});thead.appendChild(hr);table.appendChild(thead);
+   const studentHead=document.createElement('th');studentHead.textContent='Студент';studentHead.rowSpan=2;hr.appendChild(studentHead);
+   const skillsHead=document.createElement('th');skillsHead.colSpan=52;skillsHead.textContent='Навички · наведи на номер, щоб побачити тему';hr.appendChild(skillsHead);thead.appendChild(hr);
+   const numberRow=document.createElement('tr');
+   for(let i=0;i<52;i++){const th=document.createElement('th');th.textContent=String(i+1);th.title=skills[i]||('Практична навичка '+(i+1));th.setAttribute('aria-label','Навичка '+(i+1)+': '+(skills[i]||''));numberRow.appendChild(th);}
+   thead.appendChild(numberRow);table.appendChild(thead);
    const tbody=document.createElement('tbody');
-   roster.forEach(student=>{for(let i=0;i<52;i++){
-    const tr=document.createElement('tr'),learning=student.progress.learningProgress||{},theory=learning[i]&&learning[i].exam===true,grade=grades.get(student.uid+'_'+i);
-    [student.profile.nickname||student.profile.name||'Студент',String(i+1)+'. '+(skills[i]||'Практична навичка'),theory?'✓':'—',grade?String(grade.practicalGrade):'—'].forEach((value,index)=>{const td=document.createElement('td');td.textContent=value;td.style.padding='8px 9px';td.style.borderBottom='1px solid var(--line)';if((index===2&&theory)||(index===3&&grade))td.style.fontWeight='700';tr.appendChild(td);});
+   roster.forEach(student=>{
+    const tr=document.createElement('tr'),name=document.createElement('td');name.className='p52-journal-student';name.textContent=student.profile.nickname||student.profile.name||'Студент';tr.appendChild(name);
+    const learning=student.progress.learningProgress||{};
+    for(let i=0;i<52;i++){
+     const cell=document.createElement('td');cell.className='p52-journal-cell';
+     const stack=document.createElement('div');stack.className='p52-journal-stack';
+     const theory=document.createElement('span');theory.className='p52-journal-square p52-journal-theory'+(learning[i]&&learning[i].exam===true?' is-done':'');theory.textContent=learning[i]&&learning[i].exam===true?'✓':'';
+     theory.title='Теорія · '+(skills[i]||('Навичка '+(i+1)));
+     const entry=grades.get(student.uid+'_'+i),practice=document.createElement('span');practice.className='p52-journal-square p52-journal-practice'+(entry?' is-graded':'');practice.textContent=entry?String(entry.practicalGrade):'';
+     practice.title='Практика · '+(skills[i]||('Навичка '+(i+1)));
+     stack.append(theory,practice);cell.appendChild(stack);tr.appendChild(cell);
+    }
     tbody.appendChild(tr);
-   }});
+   });
    table.appendChild(tbody);tableRoot.innerHTML='';tableRoot.appendChild(table);
-   const foot=document.createElement('p');foot.className='p52-teacher-muted';foot.textContent='Показано '+roster.length+' студентів і 52 навички для кожного. «✓» — теоретичний етап за даними прогресу; оцінка 2–5 — практична оцінка викладача.';tableRoot.appendChild(foot);
+   const foot=document.createElement('p');foot.className='p52-teacher-muted';foot.textContent='У кожній клітинці: верхній квадратик — теорія (✓), нижній — практична оцінка (2–5). Порожній квадратик означає, що результат ще не зафіксовано.';tableRoot.appendChild(foot);
   }catch(err){console.error('Gradebook load failed:',err);tableRoot.textContent='Не вдалося завантажити журнал. Перевір правила читання gradebook та studentProgress.';}
  };
  select.addEventListener('change',draw);draw();
