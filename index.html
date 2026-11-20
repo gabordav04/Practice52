@@ -639,6 +639,8 @@ const firebaseConfig = {
 };
 firebase.initializeApp(firebaseConfig);
 const auth=firebase.auth(), db=firebase.firestore();
+// Keep the authenticated session across ordinary page reloads.
+window.practice52AuthPersistenceReady = auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL).catch(err=>{console.error('Could not enable persistent Firebase session:',err);throw err;});
 let firebaseUser=null, cloudReady=false, cloudSaveTimer=null;
 function setAuthStatus(message,isError=false){$('regStatus').textContent=message;$('regStatus').style.color=isError?'var(--red)':'var(--green)';}
 function profileStorageKey(user=firebaseUser){return user&&user.uid?PROFILE_KEY+':'+user.uid:PROFILE_KEY+':guest';}
@@ -1647,6 +1649,7 @@ document.getElementById('p52TeacherDashboard')?.querySelectorAll('[data-teacher-
 document.getElementById('p52TeacherRefresh')?.addEventListener('click',loadPractice52TeacherDashboard);
 
 auth.onAuthStateChanged(async user=>{
+ try{await window.practice52AuthPersistenceReady;}catch(err){console.error('Auth persistence initialization failed:',err);}
  if(window.practice52ProgressUnsubscribe){window.practice52ProgressUnsubscribe();window.practice52ProgressUnsubscribe=null;}
  if(leaderboardUnsubscribe){leaderboardUnsubscribe();leaderboardUnsubscribe=null;}
  firebaseUser=user;cloudReady=false;KEY=user?'practice52_v1:'+user.uid:'practice52_v1:guest';
@@ -2648,6 +2651,7 @@ body.p52-auth-locked header{position:relative;z-index:1001}
    finally{btn.disabled=false;}
  },true);
  auth.onAuthStateChanged(async user=>{
+   try{await window.practice52AuthPersistenceReady;}catch(err){console.error('Auth persistence initialization failed:',err);}
    if(profileGateBusy)return;
    if(!user){if(localStorage.getItem(roleKey))showLoginGate();else showRoleGate();return;}
    try{
