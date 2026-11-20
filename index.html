@@ -1811,9 +1811,14 @@ auth.onAuthStateChanged(async user=>{
  if(teacherGate)teacherGate.classList.toggle('hidden',!(user&&selectedEntryRole==='teacher'&&practice52CurrentRole!=='teacher'&&practice52CurrentRole!=='admin'));
  $('rankingJoinPrompt').classList.toggle('hidden',!!user);
  $('logoutBtn').classList.toggle('hidden',!user);
- $('googleLogin').classList.toggle('hidden',!!user);
- $('emailLogin').classList.toggle('hidden',!!user);
- $('registrationForm').querySelector('button[type="submit"]').classList.toggle('hidden',!!user);
+ // The mandatory-profile gate owns these controls while an authenticated user completes the profile.
+ // Avoid racing with showProfileGate(): this listener may finish later and hide its save button.
+ const completingRequiredProfile=!!user&&document.body.classList.contains('p52-auth-locked');
+ if(!completingRequiredProfile){
+  $('googleLogin').classList.toggle('hidden',!!user);
+  $('emailLogin').classList.toggle('hidden',!!user);
+  $('registrationForm').querySelector('button[type="submit"]').classList.toggle('hidden',!!user);
+ }
  if(!user){loadLeaderboard();watchLeaderboard();setAuthStatus('Увійди або створи акаунт, щоб увімкнути хмарну синхронізацію. Локальний режим працює безкоштовно.');return;}
  try{
   if(selectedEntryRole==='teacher'&&practice52CurrentRole!=='teacher'&&practice52CurrentRole!=='admin'){
