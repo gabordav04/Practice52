@@ -1504,6 +1504,12 @@ function renderPractice52TeacherGroups(){
   const addBtn=document.createElement('button');addBtn.type='button';addBtn.className='p52-teacher-action';addBtn.textContent='Додати до групи';addBtn.disabled=!available.length;
   addBtn.addEventListener('click',()=>{if(addSelect.value)addStudentByTeacher(g.id,addSelect.value,addBtn);});
   addLabel.appendChild(addSelect);
+  const pendingBox=document.createElement('div');pendingBox.className='p52-teacher-guide';pendingBox.innerHTML='<b>Заявки на доступ до групи</b><p class="p52-teacher-muted">Завантаження…</p>';card.appendChild(pendingBox);
+  db.collection('academicAccessRequests').where('groupId','==',g.id).where('status','==','pending').get().then(requests=>{
+   pendingBox.innerHTML='<b>Заявки на доступ до групи</b>';
+   if(requests.empty){const empty=document.createElement('p');empty.className='p52-teacher-muted';empty.textContent='Нових заявок немає.';pendingBox.appendChild(empty);return;}
+   requests.forEach(req=>{const q=req.data()||{},row=document.createElement('div');row.className='p52-admin-row';const label=document.createElement('span');label.textContent=(q.studentName||q.nickname||'Студент')+' · '+(q.degree==='master'?'Магістратура':'Бакалаврат')+' · '+q.year+' курс · '+q.semester+' семестр · '+(q.practiceTitle||'');const approve=document.createElement('button');approve.type='button';approve.className='p52-teacher-action';approve.textContent='Підтвердити';approve.onclick=async()=>{try{approve.disabled=true;await db.collection('groups').doc(g.id).update({studentUids:firebase.firestore.FieldValue.arrayUnion(q.studentUid),updatedAt:firebase.firestore.FieldValue.serverTimestamp()});await req.ref.update({status:'approved',approvedBy:firebaseUser.uid,approvedAt:firebase.firestore.FieldValue.serverTimestamp(),updatedAt:firebase.firestore.FieldValue.serverTimestamp()});await db.collection('users').doc(q.studentUid).set({academicAccessStatus:'approved'},{merge:true});setTeacherStatus('Доступ підтверджено для '+(q.studentName||q.nickname||'студента')+'.');await loadPractice52TeacherDashboard();}catch(err){console.error(err);approve.disabled=false;setTeacherStatus('Не вдалося підтвердити заявку. Перевір правила Firestore.',true);}};const reject=document.createElement('button');reject.type='button';reject.className='p52-teacher-action';reject.textContent='Відхилити';reject.onclick=async()=>{try{await req.ref.update({status:'rejected',reviewedBy:firebaseUser.uid,reviewedAt:firebase.firestore.FieldValue.serverTimestamp(),updatedAt:firebase.firestore.FieldValue.serverTimestamp()});await loadPractice52TeacherDashboard();}catch(err){setTeacherStatus('Не вдалося відхилити заявку.',true);}};row.append(label,approve,reject);pendingBox.appendChild(row);});
+  }).catch(err=>{console.warn('Teacher access requests unavailable',err);pendingBox.querySelector('p').textContent='Не вдалося завантажити заявки.';});
   card.append(info,stats,skillSummary,btn,leaderWrap,addLabel,addBtn);el.appendChild(card);
  });
 }
@@ -1602,7 +1608,7 @@ async function addStudentByGroupLeader(groupId,studentUid,button){
   button.disabled=true;
   const ref=db.collection('groups').doc(groupId);
   await ref.update({studentUids:firebase.firestore.FieldValue.arrayUnion(studentUid),updatedAt:firebase.firestore.FieldValue.serverTimestamp()});
-  await db.collection('academicAccessRequests').doc(studentUid).update({status:'approved',approvedBy:firebaseUser.uid,approvedAt:firebase.firestore.FieldValue.serverTimestamp(),updatedAt:firebase.firestore.FieldValue.serverTimestamp()});
+  // Додавання старостою до складу групи не відкриває навчальний доступ: його окремо підтверджує викладач або адміністратор.
   
   await loadPractice52StudentGroups();
   if(practice52CurrentRole==='teacher')await loadPractice52TeacherDashboard();
@@ -2804,8 +2810,8 @@ body.p52-auth-locked header{position:relative;z-index:1001}
      form.querySelector('button[type="submit"]').textContent='Створити акаунт';
      $('emailLogin').classList.remove('hidden');$('googleLogin').classList.add('hidden');
      if(selected==='student'&&profile.academicAccessStatus!=='approved'){
-       let approved=false;try{const access=await db.collection('academicAccessRequests').doc(user.uid).get();approved=access.exists&&(access.data()||{}).status==='approved';}catch(err){console.warn('Academic access status unavailable',err);}
-       if(!approved){const rejected=access.exists&&(access.data()||{}).status==='rejected';lockApp();panel.classList.remove('hidden');$('regStatus').textContent=rejected?'Заявку відхилено. Перевір дані та надішли її повторно.':'Заявка на доступ до PRACTICE 52 очікує підтвердження викладачем або адміністратором. До цього навчальні матеріали та надсилання практичних робіт закриті.';$('regStatus').style.color='var(--muted)';document.querySelectorAll('.p52-academic-field').forEach(el=>el.classList.toggle('hidden',!rejected));const submit=form.querySelector('button[type="submit"]');submit.classList.toggle('hidden',!rejected);if(rejected)submit.textContent='Оновити заявку';$('saveProfileBtn').classList.add('hidden');$('hideProfileBtn').classList.add('hidden');return;}
+       let accessData={};try{const accessSnap=await db.collection('academicAccessRequests').doc(user.uid).get();accessData=accessSnap.exists?(accessSnap.data()||{}):{};}catch(err){console.warn('Academic access status unavailable',err);}
+       if(accessData.status!=='approved'){const rejected=accessData.status==='rejected';lockApp();panel.classList.remove('hidden');$('regStatus').textContent=rejected?'Заявку відхилено. Перевір дані та надішли її повторно.':'Заявка на доступ до PRACTICE 52 очікує підтвердження викладачем або адміністратором. До цього навчальні матеріали та надсилання практичних робіт закриті.';$('regStatus').style.color='var(--muted)';document.querySelectorAll('.p52-academic-field').forEach(el=>el.classList.toggle('hidden',!rejected));const submit=form.querySelector('button[type="submit"]');submit.classList.toggle('hidden',!rejected);if(rejected)submit.textContent='Оновити заявку';$('saveProfileBtn').classList.add('hidden');$('hideProfileBtn').classList.add('hidden');$('logoutBtn').classList.remove('hidden');return;}
      }
      unlockApp();
    }catch(err){
