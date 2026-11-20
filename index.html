@@ -1468,6 +1468,14 @@ async function loadPractice52StudentGroups(){
    const roster=document.createElement('div');roster.className='p52-admin-list p52-student-roster';
    (g.studentUids||[]).forEach(uid=>{const row=document.createElement('div');row.className='p52-admin-row';const p=profiles.get(uid);const name=document.createElement('span');name.textContent=(uid===firebaseUser.uid?'Ти — ':'')+(p?p.nickname:'Учасник групи');row.appendChild(name);roster.appendChild(row);});
    card.append(title,teacher,leader,count,membersTitle,roster);
+   const journalTitle=document.createElement('h4');journalTitle.textContent='Мої практичні оцінки';card.appendChild(journalTitle);
+   const journal=document.createElement('div');journal.className='p52-teacher-muted';journal.textContent='Завантажуємо оцінки…';card.appendChild(journal);
+   db.collection('groups').doc(g.id).collection('gradebook').where('studentUid','==',firebaseUser.uid).get().then(snapshot=>{
+    const entries=snapshot.docs.map(d=>d.data()||{}).filter(x=>x.practiceId==='practice-52').sort((a,b)=>(Number(a.skillIndex)||0)-(Number(b.skillIndex)||0));
+    journal.innerHTML='';
+    if(!entries.length){journal.textContent='Практичних оцінок поки немає.';return;}
+    entries.forEach(entry=>{const row=document.createElement('p');row.textContent='Навичка '+(Number(entry.skillIndex)+1)+': '+(entry.skillTitle||'')+' — оцінка '+entry.practicalGrade;journal.appendChild(row);});
+   }).catch(err=>{console.warn('Student gradebook unavailable:',err);journal.textContent='Журнал поки недоступний.';});
    if(isLeader){
     const note=document.createElement('p');note.className='p52-teacher-muted';note.textContent='Можеш додавати студентів до своєї групи.';
     const addLabel=document.createElement('label');addLabel.textContent='Додати студента зі списку:';
