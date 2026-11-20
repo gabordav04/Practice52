@@ -1998,7 +1998,7 @@ function renderMatchingRound(){
 }
 function p52DriveUrlIsValid(value){try{const u=new URL(String(value||'').trim());return u.protocol==='https:'&&['drive.google.com','docs.google.com'].includes(u.hostname.toLowerCase());}catch(e){return false;}}
 async function renderP52StudentVideoSubmission(skillIndex){
- const root=document.getElementById('p52StudentVideoSubmission');if(!root||practice52CurrentRole!=='student'||!firebaseUser)return;
+ const root=document.getElementById('p52StudentVideoSubmission');if(!root||!['student','admin'].includes(practice52CurrentRole)||!firebaseUser)return;
  const input=root.querySelector('#p52StudentDriveUrl'),check=root.querySelector('#p52StudentDriveAccess'),button=root.querySelector('#p52StudentSubmitVideo'),status=root.querySelector('#p52StudentVideoStatus');
  button.disabled=true;status.textContent='Перевіряємо попереднє подання…';
  try{
