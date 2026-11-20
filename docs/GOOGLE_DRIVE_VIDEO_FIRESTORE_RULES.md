@@ -109,7 +109,7 @@ match /practiceSubmissions/{submissionId} {
 - The UI's checkbox is a student declaration. Firestore Rules cannot verify Google Drive sharing permissions.
 - The current UI creates a new document for every resubmission. Earlier attempts remain intact.
 - This patch authorizes the submission record only. It does not grant access to the student's Google Drive file; the student must share the file with the assigned teacher in Google Drive.
-- The patch does not add the practical grade to a group journal. That needs a separate journal UI/data-model integration.
+- The application writes the practical grade to the group's `gradebook` and displays it in the teacher journal and the student's «Моя група» view. This Rules patch only authorizes that data access; it does not implement the UI or the write itself.
 - No Storage Rules are required for this design because Practice 52 does not upload or store video bytes.
 
 ## Required tests before publishing Rules
