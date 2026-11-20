@@ -2802,7 +2802,7 @@ body.p52-auth-locked header{position:relative;z-index:1001}
      if(!selected){showRoleGate();return;}
      const snap=await db.collection('users').doc(user.uid).get();
      const profile=(snap.exists&&snap.data().profile)||{};
-     if(!profile.name||!profile.phone||!profile.nickname||!user.email||!profile.degree||!profile.year||!profile.semester||!profile.groupCode||!profile.practiceId){showProfileGate(user,profile);p52InitAcademicFields(profile);return;}
+     const needsAcademicProfile=selected==='student'&&(!profile.degree||!profile.year||!profile.semester||!profile.groupCode||!profile.practiceId);if(!profile.name||!profile.phone||!profile.nickname||!user.email||needsAcademicProfile){showProfileGate(user,profile);p52InitAcademicFields(profile);return;}
      $('regEmail').readOnly=false;$('regPassword').required=true;$('regPassword').closest('.reg-field').classList.remove('hidden');
      form.querySelector('button[type="submit"]').textContent='Створити акаунт';
      $('emailLogin').classList.remove('hidden');$('googleLogin').classList.add('hidden');
