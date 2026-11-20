@@ -2466,6 +2466,7 @@ body.p52-auth-locked header{position:relative;z-index:1001}
    $('regStatus').textContent='Для доступу до навчання заповни всі обов’язкові дані. Після збереження профіль і прогрес синхронізуватимуться з Firebase.';
    $('regStatus').style.color='var(--muted)';
    if(profile.avatar)renderAvatar(profile.avatar);
+   setTimeout(()=>{if(auth.currentUser&&auth.currentUser.uid===user.uid&&document.body.classList.contains('p52-auth-locked'))panel.classList.remove('hidden');},1800);
  }
  function validRequiredProfile(){
    const nickname=$('regNickname').value.trim();
