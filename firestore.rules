@@ -1,0 +1,478 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Особисті профілі та прогрес
+    match /users/{userId} {
+      allow read, write: if request.auth != null
+        && request.auth.uid == userId;
+    }
+
+    // Публічний рейтинг учасників
+    match /leaderboard/{userId} {
+      allow read: if true;
+      allow create, update, delete: if request.auth != null
+        && request.auth.uid == userId;
+    }
+
+    // Спільні оцінки практичних навичок
+    match /skillRatings/{skillId}/votes/{userId} {
+      allow read: if true;
+
+      allow create, update: if request.auth != null
+        && request.auth.uid == userId
+        && request.resource.data.keys().hasOnly(['vote', 'updatedAt'])
+        && request.resource.data.vote in ['like', 'dislike'];
+
+      allow delete: if request.auth != null
+        && request.auth.uid == userId;
+    }
+
+    // Адміністратор PRACTICE 52
+    function isPlatformAdmin() {
+      return request.auth != null
+        && request.auth.uid == 'NIXSOWQ2c1Tkh5TVGU6z9zkbhOp2';
+    }
+
+    // Ролі користувачів
+    match /roles/{userId} {
+      allow read: if isPlatformAdmin()
+        || (request.auth != null && request.auth.uid == userId);
+
+      allow create: if isPlatformAdmin()
+        || (
+          request.auth != null
+          && request.auth.uid == userId
+          && request.resource.data.role == 'teacher'
+          && request.resource.data.inviteCode is string
+          && getAfter(
+            /databases/$(database)/documents/teacherInvites/$(request.resource.data.inviteCode)
+          ).data.used == true
+          && getAfter(
+            /databases/$(database)/documents/teacherInvites/$(request.resource.data.inviteCode)
+          ).data.usedBy == request.auth.uid
+          && getAfter(
+            /databases/$(database)/documents/teacherInvites/$(request.resource.data.inviteCode)
+          ).data.expiresAt > request.time
+        );
+
+      allow update, delete: if isPlatformAdmin();
+    }
+
+    // Навчальні групи PRACTICE 52
+    match /groups/{groupId} {
+
+      // Адміністратор, призначений викладач або студент групи
+      // можуть читати документ групи.
+      allow read: if isPlatformAdmin()
+        || (
+          request.auth != null
+          && (
+            resource.data.teacherUid == request.auth.uid
+            || request.auth.uid in resource.data.studentUids
+          )
+        );
+
+      // Перевірка, що користувач є студентом
+      function isEligibleStudent(uid) {
+        return uid is string
+          && uid != 'NIXSOWQ2c1Tkh5TVGU6z9zkbhOp2'
+          && (
+            !exists(/databases/$(database)/documents/roles/$(uid))
+            || get(/databases/$(database)/documents/roles/$(uid)).data.role == 'student'
+          );
+      }
+
+      // Перевірка додавання рівно одного нового студента
+      function addsOneStudent() {
+        let oldUids = resource.data.studentUids.toSet();
+        let newUids = request.resource.data.studentUids.toSet();
+        let addedUids = newUids.difference(oldUids);
+
+        return request.resource.data.studentUids is list
+          && resource.data.studentUids is list
+          && request.resource.data.studentUids.size()
+            == resource.data.studentUids.size() + 1
+          && request.resource.data.studentUids.hasAll(resource.data.studentUids)
+          && addedUids.size() == 1
+          && isEligibleStudent(
+            request.resource.data.studentUids[
+              resource.data.studentUids.size()
+            ]
+          );
+      }
+
+      // Викладач призначеної групи
+      function isAssignedTeacher() {
+        return request.auth != null
+          && resource.data.teacherUid == request.auth.uid;
+      }
+
+      // Староста своєї групи
+      function isGroupLeader() {
+        return request.auth != null
+          && resource.data.groupLeaderUid == request.auth.uid
+          && request.auth.uid in resource.data.studentUids;
+      }
+
+      // Викладач призначає або знімає старосту
+      function canManageGroupLeader() {
+        return isAssignedTeacher()
+          && request.resource.data.diff(resource.data)
+            .affectedKeys().hasOnly(['groupLeaderUid', 'updatedAt'])
+          && (
+            request.resource.data.groupLeaderUid == null
+            || (
+              request.resource.data.groupLeaderUid is string
+              && request.resource.data.groupLeaderUid in resource.data.studentUids
+              && isEligibleStudent(request.resource.data.groupLeaderUid)
+            )
+          );
+      }
+
+      // Викладач додає студента
+      function canTeacherAddStudent() {
+        return isAssignedTeacher()
+          && request.resource.data.diff(resource.data)
+            .affectedKeys().hasOnly(['studentUids', 'updatedAt'])
+          && addsOneStudent();
+      }
+
+      // Староста додає студента
+      function canLeaderAddStudent() {
+        return isGroupLeader()
+          && request.resource.data.diff(resource.data)
+            .affectedKeys().hasOnly(['studentUids', 'updatedAt'])
+          && addsOneStudent();
+      }
+
+      // Створювати та видаляти групи може адміністратор
+      allow create, delete: if isPlatformAdmin();
+
+      allow update: if isPlatformAdmin()
+        || canManageGroupLeader()
+        || canTeacherAddStudent()
+        || canLeaderAddStudent();
+
+      // Практичні оцінки групи
+      match /gradebook/{entryId} {
+        function groupExistsForGradebook() {
+          return exists(/databases/$(database)/documents/groups/$(groupId));
+        }
+
+        function groupDataForGradebook() {
+          return get(/databases/$(database)/documents/groups/$(groupId)).data;
+        }
+
+        function isAssignedTeacherForGradebook() {
+          return request.auth != null
+            && groupExistsForGradebook()
+            && groupDataForGradebook().teacherUid == request.auth.uid;
+        }
+
+        function isMemberReadingOwnGrade() {
+          return request.auth != null
+            && groupExistsForGradebook()
+            && resource.data.studentUid == request.auth.uid
+            && request.auth.uid in groupDataForGradebook().studentUids;
+        }
+
+        function isAuthorizedGradebookWriter() {
+          return request.auth != null
+            && (isPlatformAdmin() || isAssignedTeacherForGradebook());
+        }
+
+        function isValidGradebookEntry(data) {
+          return data.keys().hasAll([
+              'studentUid', 'practiceId', 'skillId', 'skillIndex',
+              'skillTitle', 'practicalGrade', 'submissionId',
+              'teacherUid', 'teacherComment', 'updatedAt'
+            ])
+            && data.keys().hasOnly([
+              'studentUid', 'practiceId', 'skillId', 'skillIndex',
+              'skillTitle', 'practicalGrade', 'submissionId',
+              'teacherUid', 'teacherComment', 'updatedAt'
+            ])
+            && data.studentUid is string
+            && data.studentUid in groupDataForGradebook().studentUids
+            && data.practiceId == 'practice-52'
+            && data.skillId is string
+            && data.skillIndex is int
+            && data.skillIndex >= 0
+            && data.skillIndex < 52
+            && data.skillTitle is string
+            && data.practicalGrade is int
+            && data.practicalGrade >= 2
+            && data.practicalGrade <= 5
+            && data.submissionId is string
+            && data.teacherUid == request.auth.uid
+            && data.teacherComment is string
+            && data.teacherComment.size() <= 3000
+            && data.updatedAt is timestamp;
+        }
+
+        allow get, list: if isPlatformAdmin()
+          || isAssignedTeacherForGradebook()
+          || isMemberReadingOwnGrade();
+
+        allow create: if isAuthorizedGradebookWriter()
+          && groupExistsForGradebook()
+          && isValidGradebookEntry(request.resource.data);
+
+        allow update: if isAuthorizedGradebookWriter()
+          && request.resource.data.studentUid == resource.data.studentUid
+          && request.resource.data.practiceId == resource.data.practiceId
+          && request.resource.data.skillId == resource.data.skillId
+          && request.resource.data.skillIndex == resource.data.skillIndex
+          && isValidGradebookEntry(request.resource.data)
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+            'skillTitle', 'practicalGrade', 'submissionId',
+            'teacherUid', 'teacherComment', 'updatedAt'
+          ]);
+
+        function isAuthorizedGradebookRemovalForResubmission() {
+          let submissionPath = /databases/$(database)/documents/practiceSubmissions/$(resource.data.submissionId);
+          return isAssignedTeacherForGradebook()
+            && existsAfter(submissionPath)
+            && getAfter(submissionPath).data.status == 'resubmission_requested'
+            && getAfter(submissionPath).data.groupId == groupId
+            && getAfter(submissionPath).data.studentUid == resource.data.studentUid
+            && getAfter(submissionPath).data.skillIndex == resource.data.skillIndex;
+        }
+
+        allow delete: if isPlatformAdmin()
+          || isAuthorizedGradebookRemovalForResubmission();
+      }
+
+      // Прогрес студентів для кабінету викладача
+      match /studentProgress/{studentUid} {
+        function groupExists() {
+          return exists(/databases/$(database)/documents/groups/$(groupId));
+        }
+
+        function groupData() {
+          return get(/databases/$(database)/documents/groups/$(groupId)).data;
+        }
+
+        function isStudentInGroup() {
+          return request.auth != null
+            && groupExists()
+            && studentUid in groupData().studentUids;
+        }
+
+        function isAssignedTeacher() {
+          return request.auth != null
+            && groupExists()
+            && groupData().teacherUid == request.auth.uid
+            && studentUid in groupData().studentUids;
+        }
+
+        function isStudentAccount() {
+          return request.auth != null
+            && request.auth.uid == studentUid
+            && request.auth.uid != 'NIXSOWQ2c1Tkh5TVGU6z9zkbhOp2'
+            && (
+              !exists(/databases/$(database)/documents/roles/$(request.auth.uid))
+              || get(/databases/$(database)/documents/roles/$(request.auth.uid)).data.role == 'student'
+            );
+        }
+
+        allow get: if isPlatformAdmin()
+          || (isStudentAccount() && isStudentInGroup())
+          || isAssignedTeacher();
+
+        allow create, update: if isPlatformAdmin()
+          || (
+            isStudentAccount()
+            && isStudentInGroup()
+            && request.resource.data.studentUid == studentUid
+            && request.resource.data.keys().hasOnly([
+              'studentUid', 'profile', 'progress', 'updatedAt'
+            ])
+          );
+
+        allow delete: if isPlatformAdmin();
+      }
+    }
+
+    // Відеоподання студентів через Google Drive
+    match /practiceSubmissions/{submissionId} {
+      function groupPath(groupIdValue) {
+        return /databases/$(database)/documents/groups/$(groupIdValue);
+      }
+
+      function groupExistsForSubmission(groupIdValue) {
+        return exists(groupPath(groupIdValue));
+      }
+
+      function isSubmissionStudent() {
+        return request.auth != null
+          && resource.data.studentUid == request.auth.uid
+          && groupExistsForSubmission(resource.data.groupId)
+          && request.auth.uid in get(groupPath(resource.data.groupId)).data.studentUids;
+      }
+
+      function isSubmissionTeacher() {
+        return request.auth != null
+          && groupExistsForSubmission(resource.data.groupId)
+          && get(groupPath(resource.data.groupId)).data.teacherUid == request.auth.uid;
+      }
+
+      function isValidDriveUrl(url) {
+        return url is string
+          && url.matches('https://(drive\\.google\\.com|docs\\.google\\.com)/.*');
+      }
+
+      function isValidStudentSubmission() {
+        return request.auth != null
+          && request.resource.data.keys().hasAll([
+            'studentUid', 'groupId', 'practiceId', 'skillId', 'skillIndex',
+            'skillTitle', 'driveUrl', 'accessConfirmed', 'status',
+            'submittedAt', 'updatedAt'
+          ])
+          && request.resource.data.keys().hasOnly([
+            'studentUid', 'groupId', 'practiceId', 'skillId', 'skillIndex',
+            'skillTitle', 'driveUrl', 'accessConfirmed', 'status',
+            'submittedAt', 'updatedAt'
+          ])
+          && request.resource.data.studentUid == request.auth.uid
+          && request.resource.data.groupId is string
+          && groupExistsForSubmission(request.resource.data.groupId)
+          && request.auth.uid in get(groupPath(request.resource.data.groupId)).data.studentUids
+          && request.resource.data.practiceId == 'practice-52'
+          && request.resource.data.skillId is string
+          && request.resource.data.skillIndex is int
+          && request.resource.data.skillIndex >= 0
+          && request.resource.data.skillIndex < 52
+          && request.resource.data.skillTitle is string
+          && isValidDriveUrl(request.resource.data.driveUrl)
+          && request.resource.data.accessConfirmed == true
+          && request.resource.data.status == 'submitted'
+          && request.resource.data.submittedAt is timestamp
+          && request.resource.data.updatedAt is timestamp;
+      }
+
+      function isValidTeacherReview() {
+        return request.auth != null
+          && (isPlatformAdmin() || isSubmissionTeacher())
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+            'status', 'practicalGrade', 'teacherComment',
+            'reviewedBy', 'reviewedAt', 'updatedAt'
+          ])
+          && request.resource.data.status in ['reviewed', 'resubmission_requested']
+          && request.resource.data.reviewedBy == request.auth.uid
+          && request.resource.data.reviewedAt is timestamp
+          && request.resource.data.updatedAt is timestamp
+          && request.resource.data.teacherComment is string
+          && request.resource.data.teacherComment.size() <= 3000
+          && (
+            (request.resource.data.status == 'reviewed'
+              && request.resource.data.practicalGrade is int
+              && request.resource.data.practicalGrade >= 2
+              && request.resource.data.practicalGrade <= 5)
+            || (
+              request.resource.data.status == 'resubmission_requested'
+              && !('practicalGrade' in request.resource.data)
+            )
+          );
+      }
+
+      allow get, list: if isPlatformAdmin()
+        || isSubmissionStudent()
+        || isSubmissionTeacher();
+
+      allow create: if isValidStudentSubmission();
+      allow update: if isValidTeacherReview();
+      allow delete: if isPlatformAdmin();
+    }
+
+    // Унікальні нікнейми користувачів
+    match /nicknames/{nicknameId} {
+      allow read: if request.auth != null;
+
+      allow create: if request.auth != null
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.keys().hasOnly([
+          'uid', 'nickname', 'createdAt', 'updatedAt'
+        ])
+        && request.resource.data.nickname is string
+        && request.resource.data.nickname.size() >= 3
+        && request.resource.data.nickname.size() <= 20;
+
+      allow update: if request.auth != null
+        && resource.data.uid == request.auth.uid
+        && request.resource.data.uid == resource.data.uid
+        && request.resource.data.keys().hasOnly([
+          'uid', 'nickname', 'createdAt', 'updatedAt'
+        ])
+        && request.resource.data.nickname is string
+        && request.resource.data.nickname.size() >= 3
+        && request.resource.data.nickname.size() <= 20
+        && request.resource.data.diff(resource.data)
+          .affectedKeys().hasOnly([
+            'nickname', 'updatedAt', 'createdAt'
+          ]);
+
+      allow delete: if isPlatformAdmin()
+        || (
+          request.auth != null
+          && resource.data.uid == request.auth.uid
+        );
+    }
+
+    // Одноразові запрошення викладачів
+    match /teacherInvites/{code} {
+      allow get: if request.auth != null;
+      allow list: if isPlatformAdmin();
+
+      allow create: if isPlatformAdmin()
+        && request.resource.data.createdBy == request.auth.uid
+        && request.resource.data.used == false
+        && request.resource.data.keys().hasOnly([
+          'createdBy', 'createdAt', 'expiresAt', 'used'
+        ]);
+
+      allow update: if isPlatformAdmin()
+        || (
+          request.auth != null
+          && resource.data.used == false
+          && request.resource.data.used == true
+          && request.resource.data.usedBy == request.auth.uid
+          && request.resource.data.diff(resource.data).affectedKeys()
+            .hasOnly(['used', 'usedBy', 'usedAt'])
+          && getAfter(
+            /databases/$(database)/documents/roles/$(request.auth.uid)
+          ).data.role == 'teacher'
+          && getAfter(
+            /databases/$(database)/documents/roles/$(request.auth.uid)
+          ).data.inviteCode == code
+          && resource.data.expiresAt > request.time
+        );
+
+      allow delete: if isPlatformAdmin();
+    }
+
+    // Університетський каталог PRACTICE 52
+    match /universities/{universityId} {
+      allow read, create, update, delete: if isPlatformAdmin();
+    }
+
+    match /programs/{programId} {
+      allow read, create, update, delete: if isPlatformAdmin();
+    }
+
+    match /courses/{courseId} {
+      allow read, create, update, delete: if isPlatformAdmin();
+    }
+
+    match /practices/{practiceId} {
+      allow read, create, update, delete: if isPlatformAdmin();
+    }
+
+    // Усе, для чого немає окремого дозволу, заборонено
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
