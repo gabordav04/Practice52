@@ -178,7 +178,9 @@ service cloud.firestore {
           return request.auth != null
             && groupExistsForGradebook()
             && resource.data.studentUid == request.auth.uid
-            && request.auth.uid in groupDataForGradebook().studentUids;
+            && request.auth.uid in groupDataForGradebook().studentUids
+            && (!exists(/databases/$(database)/documents/academicAccessRequests/$(request.auth.uid))
+              || get(/databases/$(database)/documents/academicAccessRequests/$(request.auth.uid)).data.status == 'approved');
         }
 
         function isAuthorizedGradebookWriter() {
@@ -261,7 +263,9 @@ service cloud.firestore {
         function isStudentInGroup() {
           return request.auth != null
             && groupExists()
-            && studentUid in groupData().studentUids;
+            && studentUid in groupData().studentUids
+            && (!exists(/databases/$(database)/documents/academicAccessRequests/$(studentUid))
+              || get(/databases/$(database)/documents/academicAccessRequests/$(studentUid)).data.status == 'approved');
         }
 
         function isAssignedTeacher() {
@@ -313,7 +317,9 @@ service cloud.firestore {
         return request.auth != null
           && resource.data.studentUid == request.auth.uid
           && groupExistsForSubmission(resource.data.groupId)
-          && request.auth.uid in get(groupPath(resource.data.groupId)).data.studentUids;
+          && request.auth.uid in get(groupPath(resource.data.groupId)).data.studentUids
+          && (!exists(/databases/$(database)/documents/academicAccessRequests/$(request.auth.uid))
+            || get(/databases/$(database)/documents/academicAccessRequests/$(request.auth.uid)).data.status == 'approved');
       }
 
       function isSubmissionTeacher() {
@@ -343,6 +349,8 @@ service cloud.firestore {
           && request.resource.data.groupId is string
           && groupExistsForSubmission(request.resource.data.groupId)
           && request.auth.uid in get(groupPath(request.resource.data.groupId)).data.studentUids
+          && (!exists(/databases/$(database)/documents/academicAccessRequests/$(request.auth.uid))
+            || get(/databases/$(database)/documents/academicAccessRequests/$(request.auth.uid)).data.status == 'approved')
           && request.resource.data.practiceId == 'practice-52'
           && request.resource.data.skillId is string
           && request.resource.data.skillIndex is int
