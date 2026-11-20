@@ -1038,7 +1038,7 @@ const P52_COURSES=[
 ];
 const P52_INITIAL_PRACTICE={
  id:'master-2-cardiorespiratory-professional-practice',
- courseId:'master-2',
+ courseId:'master-1',
  title:'Професійна практика з фізичної терапії та реабілітації при порушеннях діяльності серцево-судинної та дихальної системи',
  description:'Практика з 52 практичних навичок. Наявні результати зберігаються у чинній системі.',
  skillSetId:'practice-52-cardiorespiratory',
@@ -1064,7 +1064,7 @@ async function loadP52UniversityCatalog(){
   P52_COURSES.forEach(c=>{const o=document.createElement('option');o.value=c.id;o.textContent=c.title;courseSelect.appendChild(o);});
   list.innerHTML='';
   const header=document.createElement('div');header.className='p52-university-card';
-  const h=document.createElement('h4');h.textContent=u.exists?(u.data().name||'PRACTICE 52 — Університет'):'Університет ще не створений';
+  const h=document.createElement('h4');h.textContent=u.exists?(u.data().name||'Національний медичний університет імені О. О. Богомольця'):'Університет ще не створений';
   const ptext=document.createElement('p');ptext.textContent=(p.exists?(p.data().name||'Фізична терапія та реабілітація'):'Освітню програму ще не створено')+' · '+(courses.size||0)+'/6 курсів';
   header.append(h,ptext);list.appendChild(header);
   const renderLevel=(label,level)=>{
@@ -1094,7 +1094,7 @@ async function seedP52UniversityFoundation(){
  const btn=document.getElementById('p52UniversitySeed');if(btn)btn.disabled=true;
  try{
   const batch=db.batch(),now=firebase.firestore.FieldValue.serverTimestamp();
-  batch.set(db.collection('universities').doc(P52_UNIVERSITY_ID),{name:'PRACTICE 52 — Університет',slug:'practice52-university',status:'active',updatedAt:now},{merge:true});
+  batch.set(db.collection('universities').doc(P52_UNIVERSITY_ID),{name:'Національний медичний університет імені О. О. Богомольця',slug:'practice52-university',status:'active',updatedAt:now},{merge:true});
   batch.set(db.collection('programs').doc(P52_PROGRAM_ID),{universityId:P52_UNIVERSITY_ID,name:'Фізична терапія та реабілітація',status:'active',updatedAt:now},{merge:true});
   P52_COURSES.forEach(c=>batch.set(db.collection('courses').doc(c.id),{universityId:P52_UNIVERSITY_ID,programId:P52_PROGRAM_ID,educationLevel:c.level,yearNumber:c.year,title:c.title,status:'active',updatedAt:now},{merge:true}));
   batch.set(db.collection('practices').doc(P52_INITIAL_PRACTICE.id),{universityId:P52_UNIVERSITY_ID,programId:P52_PROGRAM_ID,courseId:P52_INITIAL_PRACTICE.courseId,title:P52_INITIAL_PRACTICE.title,description:P52_INITIAL_PRACTICE.description,skillSetId:P52_INITIAL_PRACTICE.skillSetId,legacySource:P52_INITIAL_PRACTICE.legacySource,status:'active',updatedAt:now},{merge:true});
