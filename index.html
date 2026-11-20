@@ -1686,7 +1686,7 @@ async function loadPractice52StudentGroups(){
   if(!groups.length)return;
   const [profileSnap,userSnap]=await Promise.all([db.collection('leaderboard').get(),db.collection('users').doc(firebaseUser.uid).get()]);
   const profiles=new Map();profileSnap.forEach(d=>{const p=d.data()||{};profiles.set(d.id,{nickname:p.nickname||p.name||'Учасник',avatar:p.avatar||'👤'});});
-  const studentProfile={...(userSnap.exists?(userSnap.data().profile||{}):{}),...(readLocalProfile()||{})};
+  const studentProfile={...(readLocalProfile()||{}),...(userSnap.exists?(userSnap.data().profile||{}):{})};
   root.classList.remove('hidden');
   root.innerHTML='<div class="eyebrow">ТВОЄ НАВЧАННЯ</div><h2>Моя група</h2><p class="teacher-lead">Твоя навчальна група, викладач та одногрупники.</p>';
   const routeButton=document.createElement('button');routeButton.type='button';routeButton.className='reg-btn secondary';routeButton.textContent='🗺️ Повернутися до навчального маршруту';
