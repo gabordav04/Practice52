@@ -68,7 +68,7 @@ The complete live Firestore Rules file must be exported and merged before deploy
 - The application UI does not upload files to Google Drive; the student uploads the file to Drive first and pastes its link.
 - The application cannot independently confirm that the teacher can open the link. Google Drive sharing is managed by the student.
 - The application does not consume platform video storage or Google Drive API quota.
-- This first implementation writes grades into the submission record. The existing group journal UI/schema still needs a separate integration so the grade appears in the group journal automatically.
+- Practical grades are written to both the reviewed submission and the group's `gradebook` collection in one Firestore batch. The teacher dashboard includes a group journal, and students can view their own practical grades in «Моя група». The gradebook Rules block is documented separately and must be integrated into the live rules before the workflow can work.
 - The current project uses a legacy 52-skill practice. `practiceId = practice-52` is a provisional stable identifier and must be mapped to the final university practice ID before a future data migration.
 - No Firestore Rules, Storage Rules, Cloud Functions, existing accounts, group memberships, or progress documents are changed by this branch.
 - Do not merge or deploy until the rules patch and end-to-end test plan are complete.
