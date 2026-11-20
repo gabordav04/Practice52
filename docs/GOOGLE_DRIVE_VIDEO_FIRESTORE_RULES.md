@@ -138,20 +138,36 @@ Add this nested block **inside the existing** `match /groups/{groupId}` block, a
 
 ```firestore
 match /gradebook/{entryId} {
+  function groupExistsForGradebook() {
+    return exists(/databases/$(database)/documents/groups/$(groupId));
+  }
+
+  function isAssignedTeacherForGradebook() {
+    return request.auth != null
+      && groupExistsForGradebook()
+      && get(/databases/$(database)/documents/groups/$(groupId)).data.teacherUid == request.auth.uid;
+  }
+
   function isMemberReadingOwnGrade() {
     return request.auth != null
+      && groupExistsForGradebook()
       && resource.data.studentUid == request.auth.uid
       && request.auth.uid in get(
         /databases/$(database)/documents/groups/$(groupId)
       ).data.studentUids;
   }
 
+  function isAuthorizedGradebookWriter() {
+    return request.auth != null
+      && (isPlatformAdmin() || isAssignedTeacherForGradebook());
+  }
+
   allow get, list: if isPlatformAdmin()
-    || isAssignedTeacher()
+    || isAssignedTeacherForGradebook()
     || isMemberReadingOwnGrade();
 
-  allow create: if request.auth != null
-    && (isPlatformAdmin() || isAssignedTeacher())
+  allow create: if isAuthorizedGradebookWriter()
+    && groupExistsForGradebook()
     && request.resource.data.studentUid is string
     && request.resource.data.studentUid in get(
       /databases/$(database)/documents/groups/$(groupId)
@@ -171,16 +187,19 @@ match /gradebook/{entryId} {
     && request.resource.data.teacherComment.size() <= 3000
     && request.resource.data.updatedAt is timestamp;
 
-  allow update: if request.auth != null
-    && (isPlatformAdmin() || isAssignedTeacher())
+  allow update: if isAuthorizedGradebookWriter()
     && request.resource.data.studentUid == resource.data.studentUid
     && request.resource.data.practiceId == resource.data.practiceId
     && request.resource.data.skillId == resource.data.skillId
     && request.resource.data.skillIndex == resource.data.skillIndex
+    && request.resource.data.skillTitle is string
     && request.resource.data.practicalGrade is int
     && request.resource.data.practicalGrade >= 2
     && request.resource.data.practicalGrade <= 5
+    && request.resource.data.submissionId is string
     && request.resource.data.teacherUid == request.auth.uid
+    && request.resource.data.teacherComment is string
+    && request.resource.data.teacherComment.size() <= 3000
     && request.resource.data.updatedAt is timestamp
     && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
       'skillTitle', 'practicalGrade', 'submissionId',
@@ -191,4 +210,4 @@ match /gradebook/{entryId} {
 }
 ```
 
-Use the explicit checks in `allow create` and `allow update` as the operative policy. Test both first-time grade creation and re-grading, plus student self-read and cross-student denial in the Emulator.
+The gradebook block defines its own `isAssignedTeacherForGradebook()` helper from the parent group's `teacherUid`; it does not depend on a helper nested in a sibling match block. Use the explicit checks in `allow create` and `allow update` as the operative policy. Test first-time grade creation and re-grading, plus student self-read and cross-student denial in the Emulator.
