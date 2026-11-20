@@ -178,9 +178,7 @@ service cloud.firestore {
           return request.auth != null
             && groupExistsForGradebook()
             && resource.data.studentUid == request.auth.uid
-            && request.auth.uid in groupDataForGradebook().studentUids
-            && (!exists(/databases/$(database)/documents/academicAccessRequests/$(request.auth.uid))
-              || get(/databases/$(database)/documents/academicAccessRequests/$(request.auth.uid)).data.status == 'approved');
+            && request.auth.uid in groupDataForGradebook().studentUids;
         }
 
         function isAuthorizedGradebookWriter() {
@@ -263,9 +261,7 @@ service cloud.firestore {
         function isStudentInGroup() {
           return request.auth != null
             && groupExists()
-            && studentUid in groupData().studentUids
-            && (!exists(/databases/$(database)/documents/academicAccessRequests/$(studentUid))
-              || get(/databases/$(database)/documents/academicAccessRequests/$(studentUid)).data.status == 'approved');
+            && studentUid in groupData().studentUids;
         }
 
         function isAssignedTeacher() {
@@ -317,9 +313,7 @@ service cloud.firestore {
         return request.auth != null
           && resource.data.studentUid == request.auth.uid
           && groupExistsForSubmission(resource.data.groupId)
-          && request.auth.uid in get(groupPath(resource.data.groupId)).data.studentUids
-          && (!exists(/databases/$(database)/documents/academicAccessRequests/$(request.auth.uid))
-            || get(/databases/$(database)/documents/academicAccessRequests/$(request.auth.uid)).data.status == 'approved');
+          && request.auth.uid in get(groupPath(resource.data.groupId)).data.studentUids;
       }
 
       function isSubmissionTeacher() {
@@ -349,8 +343,6 @@ service cloud.firestore {
           && request.resource.data.groupId is string
           && groupExistsForSubmission(request.resource.data.groupId)
           && request.auth.uid in get(groupPath(request.resource.data.groupId)).data.studentUids
-          && (!exists(/databases/$(database)/documents/academicAccessRequests/$(request.auth.uid))
-            || get(/databases/$(database)/documents/academicAccessRequests/$(request.auth.uid)).data.status == 'approved')
           && request.resource.data.practiceId == 'practice-52'
           && request.resource.data.skillId is string
           && request.resource.data.skillIndex is int
@@ -476,7 +468,7 @@ service cloud.firestore {
       allow get: if isPlatformAdmin() || (request.auth != null && request.auth.uid == studentUid) || isAssignedTeacher() || requestGroupLeader();
       allow list: if isPlatformAdmin() || isAssignedTeacher() || requestGroupLeader();
       allow update: if isPlatformAdmin()
-        || ((isAssignedTeacher() || requestGroupLeader()) && resource.data.status == 'pending'
+        || (isAssignedTeacher() && resource.data.status == 'pending'
           && request.resource.data.status in ['approved','rejected']
           && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status','approvedBy','approvedAt','reviewedBy','reviewedAt','updatedAt']))
         || (request.auth != null && request.auth.uid == studentUid && resource.data.status == 'rejected'
