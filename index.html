@@ -221,6 +221,16 @@ body.p52-teacher-mode #skillCatalog{margin-top:18px}
 @media(max-width:600px){.p52-teacher-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}.p52-teacher-card{align-items:flex-start;flex-direction:column}.p52-teacher-card button{width:100%}}
 
 
+/* Компактне відображення маршруту студента на мобільних екранах. */
+.p52-student-group-card>.p52-teacher-detail-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}
+.p52-student-group-card>.p52-teacher-detail-grid>div{padding:12px;min-width:0}
+.p52-student-group-card>.p52-teacher-detail-grid strong{font-size:16px;font-weight:600;line-height:1.35;overflow-wrap:anywhere}
+.p52-student-group-card>.p52-teacher-detail-grid span{display:block;margin-top:4px;font-size:12px;font-weight:400;line-height:1.4;color:var(--muted)}
+@media(max-width:600px){
+ .p52-student-group-card>.p52-teacher-detail-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+ .p52-student-group-card>.p52-teacher-detail-grid strong{font-size:15px;font-weight:600}
+}
+
 /* Університетська структура PRACTICE 52 */
 .p52-university-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin:14px 0}
 .p52-university-card{border:1px solid var(--line);border-radius:13px;padding:14px;background:#fbfdfe;min-width:0}
@@ -1695,7 +1705,6 @@ async function loadPractice52StudentGroups(){
   if(archivedGroups.length){const history=document.createElement('section');history.className='p52-teacher-guide';const heading=document.createElement('h3');heading.textContent='Історія навчання';history.appendChild(heading);archivedGroups.forEach(g=>{const item=document.createElement('p');item.className='p52-teacher-muted';item.textContent=(g.name||'Навчальна група')+' · '+((P52_COURSES.find(c=>c.id===g.courseId)||{}).title||'Курс не вказано')+' · '+(g.semester||'—')+' семестр · '+(g.practiceTitle||'Практика не вказана');history.appendChild(item);});root.appendChild(history);}
   groups.forEach(g=>{
    const card=document.createElement('article');card.className='p52-teacher-card p52-student-group-card';
-   const title=document.createElement('h3');title.textContent=g.name||'Навчальна група';
    const teacher=document.createElement('p');teacher.className='p52-teacher-muted';teacher.textContent='Викладач: '+(g.teacherName||g.teacherDisplayName||'Ім’я викладача ще не вказане');
    const courseInfo=document.createElement('div');courseInfo.className='p52-teacher-detail-grid';
    const degreeTitle=studentProfile.degree==='master'?'Магістратура':studentProfile.degree==='bachelor'?'Бакалаврат':'Не обрано';
@@ -1710,7 +1719,7 @@ async function loadPractice52StudentGroups(){
    const membersTitle=document.createElement('h4');membersTitle.textContent='Одногрупники';
    const roster=document.createElement('div');roster.className='p52-admin-list p52-student-roster';
    (g.studentUids||[]).forEach(uid=>{const row=document.createElement('div');row.className='p52-admin-row';const p=profiles.get(uid);const name=document.createElement('span');name.textContent=(uid===firebaseUser.uid?'Ти — ':'')+(p?p.nickname:'Учасник групи');row.appendChild(name);roster.appendChild(row);});
-   card.append(title,teacher,leader,count,membersTitle,roster);
+   card.append(teacher,leader,count,membersTitle,roster);
    const journalTitle=document.createElement('h4');journalTitle.textContent='Мої практичні оцінки';card.appendChild(journalTitle);
    const journal=document.createElement('div');journal.className='p52-teacher-muted';journal.textContent='Завантажуємо оцінки…';card.appendChild(journal);
    db.collection('groups').doc(g.id).collection('gradebook').where('studentUid','==',firebaseUser.uid).get().then(snapshot=>{
