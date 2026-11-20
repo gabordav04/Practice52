@@ -453,7 +453,234 @@ service cloud.firestore {
         && request.resource.data.groupCode is string
         && request.resource.data.groupId is string
         && request.resource.data.groupCode.size() == 7
-        && request.resource.data.groupCode.matches('^[0-9]{5}fr')
+        && request.resource.data.groupCode.matches('^[0-9]{5}fr
+        && request.resource.data.degree in ['bachelor','master']
+        && request.resource.data.year is int
+        && ((request.resource.data.degree == 'bachelor' && request.resource.data.year >= 1 && request.resource.data.year <= 4) || (request.resource.data.degree == 'master' && request.resource.data.year >= 1 && request.resource.data.year <= 2))
+        && request.resource.data.semester in [1,2]
+        && request.resource.data.courseId is string
+        && request.resource.data.practiceId is string
+        && exists(/databases/$(database)/documents/practices/$(request.resource.data.practiceId))
+        && get(/databases/$(database)/documents/practices/$(request.resource.data.practiceId)).data.status == 'active'
+        && request.resource.data.practiceTitle is string
+        && request.resource.data.createdAt is timestamp
+        && request.resource.data.updatedAt is timestamp;
+      allow get: if isPlatformAdmin() || (request.auth != null && request.auth.uid == studentUid) || isAssignedTeacher() || requestGroupLeader();
+      allow list: if isPlatformAdmin() || isAssignedTeacher() || requestGroupLeader();
+      allow update: if isPlatformAdmin()
+        || ((isAssignedTeacher() || requestGroupLeader()) && resource.data.status == 'pending'
+          && request.resource.data.status in ['approved','rejected']
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status','approvedBy','approvedAt','reviewedBy','reviewedAt','updatedAt']))
+        || (request.auth != null && request.auth.uid == studentUid && resource.data.status == 'rejected'
+          && request.resource.data.status == 'pending'
+          && request.resource.data.studentUid == resource.data.studentUid
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['studentEmail','studentName','nickname','degree','year','courseId','semester','groupCode','groupId','practiceId','practiceTitle','status','updatedAt']));
+      allow delete: if isPlatformAdmin();
+    }
+    match /nicknames/{nicknameId} {
+      allow read: if request.auth != null;
+
+      allow create: if request.auth != null
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.keys().hasOnly([
+          'uid', 'nickname', 'createdAt', 'updatedAt'
+        ])
+        && request.resource.data.nickname is string
+        && request.resource.data.nickname.size() >= 3
+        && request.resource.data.nickname.size() <= 20;
+
+      allow update: if request.auth != null
+        && resource.data.uid == request.auth.uid
+        && request.resource.data.uid == resource.data.uid
+        && request.resource.data.keys().hasOnly([
+          'uid', 'nickname', 'createdAt', 'updatedAt'
+        ])
+        && request.resource.data.nickname is string
+        && request.resource.data.nickname.size() >= 3
+        && request.resource.data.nickname.size() <= 20
+        && request.resource.data.diff(resource.data)
+          .affectedKeys().hasOnly([
+            'nickname', 'updatedAt', 'createdAt'
+          ]);
+
+      allow delete: if isPlatformAdmin()
+        || (
+          request.auth != null
+          && resource.data.uid == request.auth.uid
+        );
+    }
+
+    // Одноразові запрошення викладачів
+    match /teacherInvites/{code} {
+      allow get: if request.auth != null;
+      allow list: if isPlatformAdmin();
+
+      allow create: if isPlatformAdmin()
+        && request.resource.data.createdBy == request.auth.uid
+        && request.resource.data.used == false
+        && request.resource.data.keys().hasOnly([
+          'createdBy', 'createdAt', 'expiresAt', 'used'
+        ]);
+
+      allow update: if isPlatformAdmin()
+        || (
+          request.auth != null
+          && resource.data.used == false
+          && request.resource.data.used == true
+          && request.resource.data.usedBy == request.auth.uid
+          && request.resource.data.diff(resource.data).affectedKeys()
+            .hasOnly(['used', 'usedBy', 'usedAt'])
+          && getAfter(
+            /databases/$(database)/documents/roles/$(request.auth.uid)
+          ).data.role == 'teacher'
+          && getAfter(
+            /databases/$(database)/documents/roles/$(request.auth.uid)
+          ).data.inviteCode == code
+          && resource.data.expiresAt > request.time
+        );
+
+      allow delete: if isPlatformAdmin();
+    }
+
+    // Університетський каталог PRACTICE 52
+    match /universities/{universityId} {
+      allow read, create, update, delete: if isPlatformAdmin();
+    }
+
+    match /programs/{programId} {
+      allow read, create, update, delete: if isPlatformAdmin();
+    }
+
+    match /courses/{courseId} {
+      allow read, create, update, delete: if isPlatformAdmin();
+    }
+
+    match /practices/{practiceId} {
+      allow read: if isPlatformAdmin() || (request.auth != null && resource.data.status == 'active');
+      allow create, update, delete: if isPlatformAdmin();
+    }
+
+    // Усе, для чого немає окремого дозволу, заборонено
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
+)
+        && request.resource.data.degree in ['bachelor','master']
+        && request.resource.data.year is int
+        && ((request.resource.data.degree == 'bachelor' && request.resource.data.year >= 1 && request.resource.data.year <= 4) || (request.resource.data.degree == 'master' && request.resource.data.year >= 1 && request.resource.data.year <= 2))
+        && request.resource.data.semester in [1,2]
+        && request.resource.data.courseId is string
+        && request.resource.data.practiceId is string
+        && exists(/databases/$(database)/documents/practices/$(request.resource.data.practiceId))
+        && get(/databases/$(database)/documents/practices/$(request.resource.data.practiceId)).data.status == 'active'
+        && request.resource.data.practiceTitle is string
+        && request.resource.data.createdAt is timestamp
+        && request.resource.data.updatedAt is timestamp;
+      allow get: if isPlatformAdmin() || (request.auth != null && request.auth.uid == studentUid) || isAssignedTeacher() || requestGroupLeader();
+      allow list: if isPlatformAdmin() || isAssignedTeacher() || requestGroupLeader();
+      allow update: if isPlatformAdmin()
+        || ((isAssignedTeacher() || requestGroupLeader()) && resource.data.status == 'pending'
+          && request.resource.data.status in ['approved','rejected']
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status','approvedBy','approvedAt','reviewedBy','reviewedAt','updatedAt']))
+        || (request.auth != null && request.auth.uid == studentUid && resource.data.status == 'rejected'
+          && request.resource.data.status == 'pending'
+          && request.resource.data.studentUid == resource.data.studentUid
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['studentEmail','studentName','nickname','degree','year','courseId','semester','groupCode','practiceId','practiceTitle','status','updatedAt']));
+      allow delete: if isPlatformAdmin();
+    }
+    // Унікальні нікнейми користувачів
+    match /nicknames/{nicknameId} {
+      allow read: if request.auth != null;
+
+      allow create: if request.auth != null
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.keys().hasOnly([
+          'uid', 'nickname', 'createdAt', 'updatedAt'
+        ])
+        && request.resource.data.nickname is string
+        && request.resource.data.nickname.size() >= 3
+        && request.resource.data.nickname.size() <= 20;
+
+      allow update: if request.auth != null
+        && resource.data.uid == request.auth.uid
+        && request.resource.data.uid == resource.data.uid
+        && request.resource.data.keys().hasOnly([
+          'uid', 'nickname', 'createdAt', 'updatedAt'
+        ])
+        && request.resource.data.nickname is string
+        && request.resource.data.nickname.size() >= 3
+        && request.resource.data.nickname.size() <= 20
+        && request.resource.data.diff(resource.data)
+          .affectedKeys().hasOnly([
+            'nickname', 'updatedAt', 'createdAt'
+          ]);
+
+      allow delete: if isPlatformAdmin()
+        || (
+          request.auth != null
+          && resource.data.uid == request.auth.uid
+        );
+    }
+
+    // Одноразові запрошення викладачів
+    match /teacherInvites/{code} {
+      allow get: if request.auth != null;
+      allow list: if isPlatformAdmin();
+
+      allow create: if isPlatformAdmin()
+        && request.resource.data.createdBy == request.auth.uid
+        && request.resource.data.used == false
+        && request.resource.data.keys().hasOnly([
+          'createdBy', 'createdAt', 'expiresAt', 'used'
+        ]);
+
+      allow update: if isPlatformAdmin()
+        || (
+          request.auth != null
+          && resource.data.used == false
+          && request.resource.data.used == true
+          && request.resource.data.usedBy == request.auth.uid
+          && request.resource.data.diff(resource.data).affectedKeys()
+            .hasOnly(['used', 'usedBy', 'usedAt'])
+          && getAfter(
+            /databases/$(database)/documents/roles/$(request.auth.uid)
+          ).data.role == 'teacher'
+          && getAfter(
+            /databases/$(database)/documents/roles/$(request.auth.uid)
+          ).data.inviteCode == code
+          && resource.data.expiresAt > request.time
+        );
+
+      allow delete: if isPlatformAdmin();
+    }
+
+    // Університетський каталог PRACTICE 52
+    match /universities/{universityId} {
+      allow read, create, update, delete: if isPlatformAdmin();
+    }
+
+    match /programs/{programId} {
+      allow read, create, update, delete: if isPlatformAdmin();
+    }
+
+    match /courses/{courseId} {
+      allow read, create, update, delete: if isPlatformAdmin();
+    }
+
+    match /practices/{practiceId} {
+      allow read: if isPlatformAdmin() || (request.auth != null && resource.data.status == 'active');
+      allow create, update, delete: if isPlatformAdmin();
+    }
+
+    // Усе, для чого немає окремого дозволу, заборонено
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
+)
         && request.resource.data.degree in ['bachelor','master']
         && request.resource.data.year is int
         && ((request.resource.data.degree == 'bachelor' && request.resource.data.year >= 1 && request.resource.data.year <= 4) || (request.resource.data.degree == 'master' && request.resource.data.year >= 1 && request.resource.data.year <= 2))
