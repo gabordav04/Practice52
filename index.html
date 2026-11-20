@@ -937,13 +937,28 @@ $('studentIdentity').addEventListener('click',()=>{
 });
 $('registrationForm').addEventListener('submit',async e=>{
  e.preventDefault();
- // Authenticated Google/email users completing the mandatory profile must never enter the account-creation flow.
- if(auth.currentUser&&document.body.classList.contains('p52-auth-locked')){
+ // A Google-authenticated user must never fall through to email/password registration.
+ if(auth.currentUser){
   e.stopImmediatePropagation();
   const submitButton=$('registrationForm').querySelector('button[type="submit"]');
-  if(submitButton)submitButton.disabled=true;
-  try{setAuthStatus('Зберігаємо профіль…');await saveRequiredProfile(auth.currentUser);setAuthStatus('Профіль збережено.');location.reload();}
-  catch(err){console.error('Required profile save failed:',err);setAuthStatus(err.message||'Не вдалося зберегти профіль.',true);if(submitButton)submitButton.disabled=false;}
+  if(document.body.classList.contains('p52-auth-locked')){
+   if(submitButton)submitButton.disabled=true;
+   try{
+    const accessSnap=await db.collection('academicAccessRequests').doc(auth.currentUser.uid).get();
+    const access=accessSnap.exists?(accessSnap.data()||{}):{};
+    if(access.status==='pending'){
+     setAuthStatus('Твоя заявка вже надіслана й очікує підтвердження. Пароль не потрібен.',false);
+     return;
+    }
+    setAuthStatus('Зберігаємо профіль і заявку…');
+    await saveRequiredProfile(auth.currentUser);
+    setAuthStatus('Профіль збережено. Заявку надіслано на підтвердження.');
+    location.reload();
+   }catch(err){console.error('Authenticated profile submission failed:',err);setAuthStatus(err.message||'Не вдалося зберегти профіль.',true);}
+   finally{if(submitButton)submitButton.disabled=false;}
+  }else{
+   setAuthStatus('Ти вже увійшов через Google. Пароль не потрібен. Якщо бачиш цю форму, онови сторінку.',false);
+  }
   return;
  }
  try{
@@ -2882,7 +2897,11 @@ body.p52-auth-locked header{position:relative;z-index:1001}
        let accessData={};try{const accessSnap=await db.collection('academicAccessRequests').doc(user.uid).get();accessData=accessSnap.exists?(accessSnap.data()||{}):{};}catch(err){console.warn('Academic access status unavailable',err);}
        if(accessData.status!=='approved'){
          const rejected=accessData.status==='rejected';lockApp();panel.classList.remove('hidden');
-         $('regStatus').textContent=rejected?'Заявку відхилено. Перевір дані та надішли її повторно.':'Заявка на доступ до PRACTICE 52 очікує підтвердження викладачем або адміністратором. До цього навчальні матеріали та надсилання практичних робіт закриті.';
+         $('regTitle').textContent=rejected?'Оновлення заявки на вступ до групи':'Очікування підтвердження групи';
+         $('regEmail').value=user.email||'';$('regEmail').readOnly=true;
+         $('regPassword').value='';$('regPassword').required=false;$('regPassword').closest('.reg-field').classList.add('hidden');
+         $('emailLogin').classList.add('hidden');$('googleLogin').classList.add('hidden');
+         $('regStatus').textContent=rejected?'Заявку відхилено. Перевір групу та надішли її повторно.':'Заявка на доступ до PRACTICE 52 очікує підтвердження викладачем або адміністратором. До цього навчальні матеріали та надсилання практичних робіт закриті.';
          $('regStatus').style.color='var(--muted)';document.querySelectorAll('.p52-academic-field').forEach(el=>el.classList.toggle('hidden',!rejected));
          const submit=form.querySelector('button[type="submit"]');submit.classList.toggle('hidden',!rejected);if(rejected)submit.textContent='Оновити заявку';
          $('saveProfileBtn').classList.add('hidden');$('hideProfileBtn').classList.add('hidden');$('logoutBtn').classList.remove('hidden');
