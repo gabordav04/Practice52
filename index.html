@@ -1124,9 +1124,26 @@ function p52ReadAcademicFields(){
  return {groupCode,groupId};
 }
 async function p52SubmitAcademicAccess(user,profile){
- const groupCode=String(profile.groupCode||'').trim();
+ let groupCode=String(profile.groupCode||'').trim();
  let groupId=String(profile.groupId||'').trim();
- if(!P52_GROUP_CODE_RE.test(groupCode))throw new Error('Обери свою академічну групу зі списку.');
+ // Existing approved group membership is authoritative: returning students and
+ // students signing in on another device must not submit a second request.
+ const memberships=await db.collection('groups').where('studentUids','array-contains',user.uid).get();
+ const activeMemberships=memberships.docs.filter(d=>(d.data()||{}).status!=='archived');
+ let existingMembership=null;
+ if(groupId)existingMembership=activeMemberships.find(d=>d.id===groupId)||null;
+ if(!existingMembership&&groupCode)existingMembership=activeMemberships.find(d=>{const g=d.data()||{};return String(g.groupCode||g.name||'').trim()===groupCode;})||null;
+ if(!existingMembership&&activeMemberships.length===1)existingMembership=activeMemberships[0];
+ if(existingMembership){
+  const g=existingMembership.data()||{};
+  const memberCode=String(g.groupCode||g.name||groupCode||'').trim();
+  const approvedProfile={...profile,groupId:existingMembership.id,groupCode:memberCode,academicAccessStatus:'approved'};
+  writeLocalProfile(approvedProfile,user);
+  await db.collection('users').doc(user.uid).set({profile:approvedProfile,academicAccessStatus:'approved',updatedAt:firebase.firestore.FieldValue.serverTimestamp()},{merge:true});
+  return 'approved';
+ }
+ if(activeMemberships.length>1&&!existingMembership)throw new Error('Твій акаунт уже є учасником кількох активних груп. Звернися до адміністратора, щоб визначити основну групу.');
+ if(!P52_GROUP_CODE_RE.test(groupCode))throw new Error('Не знайшов підтвердженого членства в групі. Обери свою академічну групу зі списку.');
  if(!groupId){
   const matches=await db.collection('availableAcademicGroups').where('groupCode','==',groupCode).where('status','==','active').limit(2).get();
   if(matches.size!==1)throw new Error(matches.empty?'Не знайшов активну групу '+groupCode+'. Попроси адміністратора перевірити каталог груп.':'Знайшов кілька груп із кодом '+groupCode+'. Потрібна перевірка адміністратором.');
@@ -2933,11 +2950,11 @@ body.p52-auth-locked header{position:relative;z-index:1001}
        let accessData={};try{
         const accessSnap=await db.collection('academicAccessRequests').doc(user.uid).get();
         accessData=accessSnap.exists?(accessSnap.data()||{}):{};
-        if(!accessSnap.exists&&profile.groupCode){
-         const status=await p52SubmitAcademicAccess(user,profile);
-         if(status==='pending')accessData={status:'pending',groupCode:profile.groupCode,groupId:profile.groupId};
-         else accessData={status:'approved',groupCode:profile.groupCode,groupId:profile.groupId};
-        }
+        // Re-check actual group membership on every sign-in, even if an old
+        // pending request exists. Membership means the student was already approved.
+        const accessStatus=await p52SubmitAcademicAccess(user,{...profile,...(accessData.groupCode?{groupCode:accessData.groupCode}:{}),...(accessData.groupId?{groupId:accessData.groupId}:{})});
+        if(accessStatus==='approved')accessData={...accessData,status:'approved',groupCode:(readLocalProfile()||{}).groupCode||accessData.groupCode,groupId:(readLocalProfile()||{}).groupId||accessData.groupId};
+        else if(!accessSnap.exists)accessData={status:'pending',groupCode:profile.groupCode,groupId:profile.groupId};
        }catch(err){console.error('Academic access request recovery failed:',err);lockApp();panel.classList.remove('hidden');$('regTitle').textContent='Не вдалося надіслати заявку';$('regStatus').textContent='Не вдалося створити заявку на вступ до групи: '+(err.message||'перевір з’єднання та правила доступу.');$('regStatus').style.color='var(--red)';return;}
        if(accessData.status!=='approved'){
          const rejected=accessData.status==='rejected';lockApp();panel.classList.remove('hidden');
