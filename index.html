@@ -824,7 +824,7 @@ function watchLeaderboard(){
 }
 function buildTeacherVisibleStudentProfile(profile){
  const p=profile||{};
- return {nickname:String(p.nickname||''),name:String(p.name||''),avatar:typeof p.avatar==='string'?p.avatar:DEFAULT_AVATAR};
+ return {nickname:String(p.nickname||''),name:String(p.name||''),avatar:typeof p.avatar==='string'?p.avatar:DEFAULT_AVATAR,degree:p.degree||'',year:Number(p.year)||0,courseId:p.courseId||'',semester:Number(p.semester)||0,practiceTitle:p.practiceTitle||'',groupCode:p.groupCode||''};
 }
 async function publishStudentProgressForTeacher(){
  if(!firebaseUser||!cloudReady||practice52CurrentRole==='teacher')return;
@@ -1560,21 +1560,11 @@ async function loadPractice52StudentGroups(){
    const card=document.createElement('article');card.className='p52-teacher-card p52-student-group-card';
    const title=document.createElement('h3');title.textContent=g.name||'Навчальна група';
    const teacher=document.createElement('p');teacher.className='p52-teacher-muted';teacher.textContent='Викладач: '+(g.teacherName||g.teacherDisplayName||'Ім’я викладача ще не вказане');
-   const courseInfo=document.createElement('div');courseInfo.className='p52-teacher-detail-grid';
-   const courseTitle=(P52_COURSES.find(c=>c.id===g.courseId)||{}).title||'Курс ще не призначено';
-   const semesterTitle=g.semester?g.semester+' семестр':'Семестр ще не призначено';
-   [[courseTitle,'Курс'],[semesterTitle,'Семестр'],[g.practiceTitle||'Практику ще не призначено','Поточна практика'],['Активна навчальна комірка','Статус']].forEach(([v,l])=>{const box=document.createElement('div');const strong=document.createElement('strong');strong.textContent=v;const small=document.createElement('span');small.textContent=l;box.append(strong,small);courseInfo.appendChild(box);});
+   const studentProfile=readLocalProfile()||{};const courseInfo=document.createElement('div');courseInfo.className='p52-teacher-detail-grid';
+   const courseTitle=(P52_COURSES.find(c=>c.id===studentProfile.courseId)||{}).title||'Курс ще не обрано';
+   const semesterTitle=studentProfile.semester?studentProfile.semester+' семестр':'Семестр не обрано';
+   [[courseTitle,'Курс'],[semesterTitle,'Семестр'],[studentProfile.practiceTitle||'Практику не обрано','Професійна практика'],[studentProfile.groupCode||g.groupCode||g.name||'—','Академічна група']].forEach(([v,l])=>{const box=document.createElement('div');const strong=document.createElement('strong');strong.textContent=v;const small=document.createElement('span');small.textContent=l;box.append(strong,small);courseInfo.appendChild(box);});
    card.appendChild(courseInfo);
-   const transition=document.createElement('div');transition.className='p52-teacher-guide';
-   const transitionText=document.createElement('p');transitionText.className='p52-teacher-muted';transitionText.textContent='Коли завершиш цей навчальний період, можеш подати запит на перехід до наступного семестру. Поточні оцінки та результати залишаться в історії.';
-   const transitionButton=document.createElement('button');transitionButton.type='button';transitionButton.className='p52-teacher-action';transitionButton.textContent='Подати запит на наступний семестр';
-   const transitionStatus=document.createElement('p');transitionStatus.className='p52-teacher-muted';
-   const currentCourseIndex=P52_COURSES.findIndex(c=>c.id===g.courseId);const hasNextCourse=Number(g.semester)===1||currentCourseIndex>=0&&currentCourseIndex<P52_COURSES.length-1;const requestedCourseId=Number(g.semester)===1?g.courseId:(P52_COURSES[currentCourseIndex+1]||{}).id;const nextSemester=Number(g.semester)===1?2:1;
-   transitionButton.disabled=!g.courseId||!g.semester||!g.practiceTitle||!hasNextCourse;
-   transitionButton.title=!g.courseId||!g.semester||!g.practiceTitle?'Спочатку призначають курс, семестр і практику.':!hasNextCourse?'Це останній курс у каталозі.':'Подати запит на перехід';
-   transitionButton.addEventListener('click',async()=>{if(!confirm('Подати запит на перехід із поточної комірки до наступного навчального періоду? Поточні результати буде збережено.'))return;transitionButton.disabled=true;try{const requestId=g.id+'_'+firebaseUser.uid;await db.collection('courseTransitionRequests').doc(requestId).set({groupId:g.id,studentUid:firebaseUser.uid,studentName:(profiles.get(firebaseUser.uid)||{}).nickname||'Студент',currentCourseId:g.courseId,currentSemester:Number(g.semester),requestedCourseId,requestedSemester:nextSemester,status:'pending',createdAt:firebase.firestore.FieldValue.serverTimestamp(),updatedAt:firebase.firestore.FieldValue.serverTimestamp()},{merge:true});transitionStatus.textContent='Запит надіслано. Очікуй підтвердження адміністратора або викладача.';}catch(err){console.error(err);transitionStatus.textContent='Не вдалося надіслати запит. Перевір правила Firestore.';transitionButton.disabled=false;}});
-   transition.append(transitionText,transitionButton,transitionStatus);card.appendChild(transition);
-
    const isLeader=g.groupLeaderUid===firebaseUser.uid;
    const leader=document.createElement('p');leader.className='p52-teacher-muted';leader.textContent=isLeader?'⭐ Ти — староста цієї групи':(g.groupLeaderUid?'Староста: '+(profiles.get(g.groupLeaderUid)?.nickname||'Призначений студент'):'Старосту ще не призначено');
    const count=document.createElement('p');count.className='p52-teacher-muted';count.textContent='Одногрупників: '+Math.max(0,(g.studentUids||[]).length-1);
@@ -1623,7 +1613,7 @@ function renderPractice52TeacherStudents(){
  practice52TeacherStudents.forEach(u=>{
   const p=u.profile||{},pr=u.progress||{},done=Array.isArray(pr.done)?pr.done.length:0,answered=Number(pr.answered)||0,accuracy=answered?Math.round((Number(pr.correct)||0)/answered*100):null;
   const card=document.createElement('article');card.className='p52-teacher-card';
-  const info=document.createElement('div');info.innerHTML='<b>'+p52TeacherText(p.nickname||p.name||'Студент')+'</b><div class="p52-teacher-muted">'+p52TeacherText(u.groups.join(', '))+' · Опрацьовано: '+done+'/52 · Точність: '+(accuracy===null?'—':accuracy+'%')+'</div>';
+  const academic=[p.degree==='master'?'Магістратура':'Бакалаврат',p.year?p.year+' курс':'',p.semester?p.semester+' семестр':'',p.groupCode||''].filter(Boolean).join(' · ');const info=document.createElement('div');info.innerHTML='<b>'+p52TeacherText(p.nickname||p.name||'Студент')+'</b><div class="p52-teacher-muted">'+p52TeacherText(academic)+' · '+p52TeacherText(p.practiceTitle||'Практика не обрана')+'</div><div class="p52-teacher-muted">'+p52TeacherText(u.groups.join(', '))+' · Опрацьовано: '+done+'/52 · Точність: '+(accuracy===null?'—':accuracy+'%')+'</div>';
   const btn=document.createElement('button');btn.className='p52-teacher-action';btn.type='button';btn.textContent='Показати результати';btn.setAttribute('aria-expanded','false');
   btn.onclick=()=>togglePractice52TeacherStudent(u.uid,btn);
   card.append(info,btn);el.appendChild(card);
