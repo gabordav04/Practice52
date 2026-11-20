@@ -955,8 +955,14 @@ $('registrationForm').addEventListener('submit',async e=>{
  }catch(err){console.error(err);setAuthStatus(err.message||'Не вдалося створити акаунт.',true);}
 });
 $('emailLogin').addEventListener('click',async()=>{
- try{setAuthStatus('Входимо…');await auth.signInWithEmailAndPassword($('regEmail').value.trim(),$('regPassword').value);setAuthStatus('Вхід успішний.');}
- catch(err){setAuthStatus(err.message||'Не вдалося увійти.',true);}
+ const email=$('regEmail').value.trim(),password=$('regPassword').value;
+ if(!email){setAuthStatus('Введи електронну пошту для входу або скористайся кнопкою «Увійти через Google».',true);$('regEmail').focus();return;}
+ if(!password){setAuthStatus('Поле пароля порожнє. Введи пароль від акаунта або натисни «Увійти через Google», якщо реєструвався через Google.',true);$('regPassword').focus();return;}
+ try{setAuthStatus('Входимо…');await auth.signInWithEmailAndPassword(email,password);setAuthStatus('Вхід успішний.');}
+ catch(err){
+  const messages={'auth/invalid-email':'Перевір адресу електронної пошти.','auth/user-not-found':'Акаунта з такою поштою не знайдено.','auth/wrong-password':'Неправильний пароль.','auth/invalid-credential':'Неправильна пошта або пароль.','auth/too-many-requests':'Забагато спроб. Спробуй пізніше.'};
+  setAuthStatus(messages[err.code]||err.message||'Не вдалося увійти.',true);
+ }
 });
 $('googleLogin').addEventListener('click',async()=>{
  try{
