@@ -1549,8 +1549,18 @@ async function saveP52TeacherReview(id,button){
 }
 async function requestP52Resubmission(id,button){
  const card=button.closest('[data-p52-submission]');if(!card)return;button.disabled=true;
- try{await db.collection('practiceSubmissions').doc(id).update({status:'resubmission_requested',practicalGrade:firebase.firestore.FieldValue.delete(),teacherComment:card.querySelector('[data-p52-comment]').value.trim(),reviewedBy:firebaseUser.uid,reviewedAt:firebase.firestore.FieldValue.serverTimestamp(),updatedAt:firebase.firestore.FieldValue.serverTimestamp()});card.querySelector('[data-p52-review-status]').textContent='Запит на повторне відео надіслано студенту.';}
- catch(err){console.error('Resubmission request failed:',err);card.querySelector('[data-p52-review-status]').textContent='Не вдалося оновити статус. Перевір правила Firestore.';}finally{button.disabled=false;}
+ try{
+  const ref=db.collection('practiceSubmissions').doc(id),snap=await ref.get();if(!snap.exists)throw new Error('Submission not found');
+  const s=snap.data()||{},group=practice52TeacherGroups.find(g=>g.id===s.groupId);
+  if(!group||(group.studentUids||[]).indexOf(s.studentUid)<0)throw new Error('Submission is outside assigned groups');
+  const stamp=firebase.firestore.FieldValue.serverTimestamp(),batch=db.batch();
+  batch.update(ref,{status:'resubmission_requested',practicalGrade:firebase.firestore.FieldValue.delete(),teacherComment:card.querySelector('[data-p52-comment]').value.trim(),reviewedBy:firebaseUser.uid,reviewedAt:stamp,updatedAt:stamp});
+  batch.delete(db.collection('groups').doc(s.groupId).collection('gradebook').doc(s.studentUid+'_'+String(s.skillIndex)));
+  await batch.commit();
+  card.querySelector('[data-p52-review-status]').textContent='Запит на повторне відео надіслано студенту. Поточну оцінку прибрано з журналу до повторної перевірки.';
+  renderP52TeacherJournal();
+ }catch(err){console.error('Resubmission request failed:',err);card.querySelector('[data-p52-review-status]').textContent='Не вдалося оновити статус. Перевір правила Firestore.';}
+ finally{button.disabled=false;}
 }
 async function renderP52TeacherSubmissions(uid,container){
  container.innerHTML='<h4>Практичні відео</h4><p class="p52-teacher-muted">Завантажуємо подання…</p>';
