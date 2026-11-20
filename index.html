@@ -263,12 +263,14 @@ body.p52-teacher-mode #skillCatalog{margin-top:18px}
  <div class="p52-teacher-tabs">
   <button type="button" class="active" data-teacher-tab="groups">Мої групи</button>
   <button type="button" data-teacher-tab="students">Студенти</button>
+  <button type="button" data-teacher-tab="journal">Журнал</button>
   <button type="button" data-teacher-tab="exams">Екзамени</button>
   <button type="button" id="p52TeacherRefresh">Оновити дані</button>
  </div>
  <div id="p52TeacherStatus" class="p52-teacher-status" role="status">Завантажуємо призначені групи…</div>
  <section data-teacher-section="groups"><h3>Мої навчальні групи</h3><div id="p52TeacherGroups" class="p52-teacher-list"></div></section>
  <section data-teacher-section="students" class="hidden"><h3>Студенти моїх груп</h3><div id="p52TeacherStudents" class="p52-teacher-list"></div><div id="p52TeacherStudentDetail"></div></section>
+ <section data-teacher-section="journal" class="hidden"><h3>Журнал групи</h3><p class="p52-teacher-muted">Теоретичне підтвердження та практична оцінка відображаються окремо. Практичну оцінку виставляє лише викладач.</p><div id="p52TeacherJournal"></div></section>
  <section data-teacher-section="exams" class="hidden"><h3>Результати екзаменаційних етапів</h3><p class="p52-teacher-muted">Тут відображаються позначені студентами завершені екзаменаційні етапи за кожною навичкою. Це не окрема оцінка викладача.</p><div id="p52TeacherExams" class="p52-teacher-list"></div></section>
 
 </section>
@@ -1368,7 +1370,7 @@ async function loadPractice52TeacherDashboard(){
     groups:practice52TeacherGroups.filter(g=>(g.studentUids||[]).includes(uid)).map(g=>g.name||'Без назви')};
   });
   const active=practice52TeacherStudents.filter(u=>u.progress&&(Number(u.progress.answered)>0||(u.progress.done||[]).length>0)).length;
-  renderPractice52TeacherGroups();renderPractice52TeacherStudents();renderPractice52TeacherExams();
+  renderPractice52TeacherGroups();renderPractice52TeacherStudents();renderPractice52TeacherExams();renderP52TeacherJournal();
   setTeacherStatus('Дані оновлено. Показано лише групи, призначені цьому викладачу.');
  }catch(err){
   console.error('Teacher dashboard load failed:',err);
@@ -1518,10 +1520,24 @@ async function loadP52TeacherSubmissions(uid){
  return chunks.flat().sort((a,b)=>(Number(a.skillIndex)||0)-(Number(b.skillIndex)||0));
 }
 async function saveP52TeacherReview(id,button){
- const card=button.closest('[data-p52-submission]');if(!card)return;const grade=Number(card.querySelector('[data-p52-grade]').value),comment=card.querySelector('[data-p52-comment]').value.trim();
- if(![2,3,4,5].includes(grade)){card.querySelector('[data-p52-review-status]').textContent='Обери оцінку від 2 до 5.';return;}button.disabled=true;
- try{await db.collection('practiceSubmissions').doc(id).update({status:'reviewed',practicalGrade:grade,teacherComment:comment,reviewedBy:firebaseUser.uid,reviewedAt:firebase.firestore.FieldValue.serverTimestamp(),updatedAt:firebase.firestore.FieldValue.serverTimestamp()});card.querySelector('[data-p52-review-status]').textContent='Оцінку збережено.';}
- catch(err){console.error('Practice video review failed:',err);card.querySelector('[data-p52-review-status]').textContent='Не вдалося зберегти оцінку. Перевір правила Firestore.';}finally{button.disabled=false;}
+ const card=button.closest('[data-p52-submission]');if(!card)return;
+ const grade=Number(card.querySelector('[data-p52-grade]').value),comment=card.querySelector('[data-p52-comment]').value.trim();
+ if(![2,3,4,5].includes(grade)){card.querySelector('[data-p52-review-status]').textContent='Обери оцінку від 2 до 5.';return;}
+ button.disabled=true;
+ try{
+  const submissionRef=db.collection('practiceSubmissions').doc(id),submissionSnap=await submissionRef.get();
+  if(!submissionSnap.exists)throw new Error('Submission not found');
+  const s=submissionSnap.data()||{},group=practice52TeacherGroups.find(g=>g.id===s.groupId);
+  if(!group||(group.studentUids||[]).indexOf(s.studentUid)<0)throw new Error('Submission is outside assigned groups');
+  const reviewedAt=firebase.firestore.FieldValue.serverTimestamp(),gradebookId=s.studentUid+'_'+String(s.skillIndex);
+  const gradebookRef=db.collection('groups').doc(s.groupId).collection('gradebook').doc(gradebookId),batch=db.batch();
+  batch.update(submissionRef,{status:'reviewed',practicalGrade:grade,teacherComment:comment,reviewedBy:firebaseUser.uid,reviewedAt,updatedAt:reviewedAt});
+  batch.set(gradebookRef,{studentUid:s.studentUid,practiceId:s.practiceId||'practice-52',skillId:s.skillId,skillIndex:s.skillIndex,skillTitle:s.skillTitle||'',practicalGrade:grade,submissionId:id,teacherUid:firebaseUser.uid,teacherComment:comment,updatedAt:reviewedAt},{merge:true});
+  await batch.commit();
+  card.querySelector('[data-p52-review-status]').textContent='Оцінку збережено та внесено до журналу групи.';
+  renderP52TeacherJournal();
+ }catch(err){console.error('Practice video review failed:',err);card.querySelector('[data-p52-review-status]').textContent='Не вдалося зберегти оцінку або записати її в журнал. Перевір правила Firestore.';}
+ finally{button.disabled=false;}
 }
 async function requestP52Resubmission(id,button){
  const card=button.closest('[data-p52-submission]');if(!card)return;button.disabled=true;
@@ -1551,6 +1567,41 @@ function openPractice52TeacherStudent(uid){
  const skillNames=Array.isArray(pr.done)?pr.done.map(i=>skills[i]).filter(Boolean):[];
  el.innerHTML='<div class="p52-teacher-detail"><h3>'+p52TeacherText(p.nickname||p.name||'Студент')+'</h3><div class="p52-teacher-muted">'+p52TeacherText(p.name||'')+' · '+p52TeacherText(u.groups.join(', '))+'</div><div class="p52-teacher-detail-grid"><div><strong>'+done+'/52</strong><span>Опрацьовано навичок</span></div><div><strong>'+Number(pr.points||0)+'</strong><span>Балів</span></div><div><strong>'+correct+'/'+answered+'</strong><span>Правильних відповідей</span></div><div><strong>'+(accuracy===null?'—':accuracy+'%')+'</strong><span>Точність</span></div><div><strong>'+review+'</strong><span>Потребують повторення</span></div><div><strong>'+(Array.isArray(pr.mistakes)?pr.mistakes.length:0)+'</strong><span>Помилок для повторення</span></div><div><strong>'+Object.values(pr.lessonTestsCompleted||{}).filter(x=>x&&x.completed).length+'</strong><span>Завершено навчальних тестів</span></div><div><strong>'+Object.values(pr.learningProgress||{}).filter(x=>x&&x.exam).length+'</strong><span>Завершено екзаменаційних етапів</span></div></div><b>Опрацьовані навички</b><p>'+p52TeacherText(skillNames.length?skillNames.join(' · '):'Поки немає позначених опрацьованих навичок.')+'</p><p class="p52-teacher-muted">Деталі окремих відповідей доступні лише якщо вони зберігаються в прогресі студента.</p></div>';
  const submissionsRoot=document.createElement('section');submissionsRoot.id='p52TeacherSubmissionList';el.appendChild(submissionsRoot);renderP52TeacherSubmissions(uid,submissionsRoot);
+}
+function renderP52TeacherJournal(){
+ const root=document.getElementById('p52TeacherJournal');if(!root)return;
+ root.innerHTML='';
+ if(!practice52TeacherGroups.length){root.textContent='Немає призначених груп.';return;}
+ const controls=document.createElement('div');controls.className='p52-teacher-card';
+ const label=document.createElement('label');label.textContent='Навчальна група ';
+ const select=document.createElement('select');select.style.maxWidth='100%';
+ practice52TeacherGroups.forEach(g=>{const o=document.createElement('option');o.value=g.id;o.textContent=g.name||g.id;select.appendChild(o);});
+ label.appendChild(select);const tableRoot=document.createElement('div');tableRoot.style.overflowX='auto';controls.append(label);root.append(controls,tableRoot);
+ const draw=async()=>{
+  tableRoot.textContent='Завантажуємо журнал…';
+  try{
+   const group=practice52TeacherGroups.find(g=>g.id===select.value);if(!group){tableRoot.textContent='Групу не знайдено.';return;}
+   const [gradeSnap,progressSnaps]=await Promise.all([
+    db.collection('groups').doc(group.id).collection('gradebook').get(),
+    Promise.all((group.studentUids||[]).map(uid=>db.collection('groups').doc(group.id).collection('studentProgress').doc(uid).get()))
+   ]);
+   const grades=new Map();gradeSnap.forEach(d=>{const v=d.data()||{};if(v.practiceId==='practice-52')grades.set(v.studentUid+'_'+v.skillIndex,v);});
+   const progress=new Map();progressSnaps.forEach(d=>{if(d.exists){const v=d.data()||{};progress.set(v.studentUid,v.progress||{});}});
+   const roster=(group.studentUids||[]).map(uid=>({uid,profile:practice52TeacherStudents.find(s=>s.uid===uid)?.profile||{},progress:progress.get(uid)||{}}));
+   const table=document.createElement('table');table.style.width='100%';table.style.borderCollapse='collapse';table.style.minWidth='760px';
+   const thead=document.createElement('thead'),hr=document.createElement('tr');
+   ['Студент','Практична навичка','Теорія','Практика'].forEach(t=>{const th=document.createElement('th');th.textContent=t;th.style.textAlign='left';th.style.padding='9px';th.style.borderBottom='1px solid var(--line)';hr.appendChild(th);});thead.appendChild(hr);table.appendChild(thead);
+   const tbody=document.createElement('tbody');
+   roster.forEach(student=>{for(let i=0;i<52;i++){
+    const tr=document.createElement('tr'),learning=student.progress.learningProgress||{},theory=learning[i]&&learning[i].exam===true,grade=grades.get(student.uid+'_'+i);
+    [student.profile.nickname||student.profile.name||'Студент',String(i+1)+'. '+(skills[i]||'Практична навичка'),theory?'✓':'—',grade?String(grade.practicalGrade):'—'].forEach((value,index)=>{const td=document.createElement('td');td.textContent=value;td.style.padding='8px 9px';td.style.borderBottom='1px solid var(--line)';if((index===2&&theory)||(index===3&&grade))td.style.fontWeight='700';tr.appendChild(td);});
+    tbody.appendChild(tr);
+   }});
+   table.appendChild(tbody);tableRoot.innerHTML='';tableRoot.appendChild(table);
+   const foot=document.createElement('p');foot.className='p52-teacher-muted';foot.textContent='Показано '+roster.length+' студентів і 52 навички для кожного. «✓» — теоретичний етап за даними прогресу; оцінка 2–5 — практична оцінка викладача.';tableRoot.appendChild(foot);
+  }catch(err){console.error('Gradebook load failed:',err);tableRoot.textContent='Не вдалося завантажити журнал. Перевір правила читання gradebook та studentProgress.';}
+ };
+ select.addEventListener('change',draw);draw();
 }
 function renderPractice52TeacherExams(){
  const el=document.getElementById('p52TeacherExams');if(!el)return;el.innerHTML='';
