@@ -1174,7 +1174,7 @@ async function refreshPractice52Role(user){
   document.body.classList.toggle('p52-admin-mode',adminMode);
   if(panel)panel.classList.toggle('hidden',!adminMode);
   if(button){
-   button.classList.toggle('hidden',!isPrimaryAdmin);
+   button.classList.toggle('hidden',!adminMode);
    button.textContent=adminMode?'⚙ Повернутися до навчання':'⚙ Адміністрування';
    button.setAttribute('aria-expanded',String(adminMode));
   }
