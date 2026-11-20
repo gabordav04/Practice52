@@ -1075,7 +1075,8 @@ async function p52SubmitAcademicAccess(user,profile){
  const a=p52ReadAcademicFields(),existingGroups=await db.collection('groups').where('studentUids','array-contains',user.uid).get(),activeMembership=existingGroups.docs.find(d=>(d.data()||{}).status!=='archived'),existingGroup=activeMembership&&(activeMembership.id===a.groupCode||(activeMembership.data()||{}).groupCode===a.groupCode)?activeMembership:null;
  if(activeMembership&&!existingGroup)throw new Error('Твій акаунт уже прив’язаний до іншої активної групи. Звернися до адміністратора для виправлення.');
  if(existingGroup){const p={...profile,...a,academicAccessStatus:'approved'};writeLocalProfile(p,user);await db.collection('users').doc(user.uid).set({profile:p,academicAccessStatus:'approved',updatedAt:firebase.firestore.FieldValue.serverTimestamp()},{merge:true});return;}
- const data={studentUid:user.uid,studentEmail:user.email||'',studentName:profile.name||'',nickname:profile.nickname||'',...a,status:'pending',createdAt:firebase.firestore.FieldValue.serverTimestamp(),updatedAt:firebase.firestore.FieldValue.serverTimestamp()};
+ const codeSnap=await db.collection('academicGroupCodes').doc(a.groupCode).get(),groupId=codeSnap.exists?(codeSnap.data()||{}).groupId||'':(a.groupCode);
+ const data={studentUid:user.uid,studentEmail:user.email||'',studentName:profile.name||'',nickname:profile.nickname||'',...a,groupId,status:'pending',createdAt:firebase.firestore.FieldValue.serverTimestamp(),updatedAt:firebase.firestore.FieldValue.serverTimestamp()};
  const requestRef=db.collection('academicAccessRequests').doc(user.uid),previous=await requestRef.get();if(previous.exists)data.createdAt=(previous.data()||{}).createdAt||firebase.firestore.FieldValue.serverTimestamp();await requestRef.set(data,{merge:true});
  const p={...profile,...a,academicAccessStatus:'pending'};writeLocalProfile(p,user);await db.collection('users').doc(user.uid).set({profile:p,academicAccessStatus:'pending',updatedAt:firebase.firestore.FieldValue.serverTimestamp()},{merge:true});
 }
@@ -1282,7 +1283,7 @@ async function createAdminGroup(e){
  if(!teacherUid)return;
  try{
   const teacherSelect=document.getElementById('p52GroupTeacher'),teacherName=teacherSelect?.selectedOptions?.[0]?.dataset?.teacherName||teacherSelect?.selectedOptions?.[0]?.textContent||'Викладач';
-  const groupRef=db.collection('groups').doc(name),existing=await groupRef.get();if(existing.exists)throw new Error('Група з таким кодом уже існує.');await groupRef.set({name,groupCode:name,teacherUid,teacherName,studentUids:[],createdBy:firebaseUser.uid,createdAt:firebase.firestore.FieldValue.serverTimestamp(),updatedAt:firebase.firestore.FieldValue.serverTimestamp()});
+  const groupRef=db.collection('groups').doc(name),existing=await groupRef.get();if(existing.exists)throw new Error('Група з таким кодом уже існує.');await groupRef.set({name,groupCode:name,teacherUid,teacherName,studentUids:[],createdBy:firebaseUser.uid,createdAt:firebase.firestore.FieldValue.serverTimestamp(),updatedAt:firebase.firestore.FieldValue.serverTimestamp()});await db.collection('academicGroupCodes').doc(name).set({groupId:name,groupCode:name,teacherUid,updatedAt:firebase.firestore.FieldValue.serverTimestamp()});
   document.getElementById('p52GroupName').value='';setAdminStatus('Групу створено.');await loadAdminGroups();
  }catch(err){console.error(err);setAdminStatus('Не вдалося створити групу. Спочатку потрібно додати правила Firestore для groups.',true);}
 }
@@ -1293,6 +1294,7 @@ async function loadAdminGroups(){
   if(snap.empty){list.textContent='Поки немає навчальних груп.';}
   snap.forEach(doc=>{
    const data=doc.data()||{},card=adminNode('div','p52-admin-group'),head=adminNode('div','p52-admin-row');
+   const inferredCode=data.groupCode||(P52_GROUP_CODE_RE.test(data.name||'')?data.name:'');if(inferredCode)db.collection('academicGroupCodes').doc(inferredCode).set({groupId:doc.id,groupCode:inferredCode,teacherUid:data.teacherUid||'',updatedAt:firebase.firestore.FieldValue.serverTimestamp()},{merge:true}).catch(err=>console.warn('Group code registry sync failed:',err));
    const info=adminNode('div');info.append(adminNode('strong','',data.name||'Без назви'),adminNode('small','','Викладач UID: '+(data.teacherUid||'—')+' · Студентів: '+(Array.isArray(data.studentUids)?data.studentUids.length:0)));
    const del=adminNode('button','btn','Видалити');del.type='button';del.addEventListener('click',async()=>{if(!confirm('Видалити групу «'+(data.name||'')+'»?'))return;try{await db.collection('groups').doc(doc.id).delete();await loadAdminGroups();setAdminStatus('Групу видалено.');}catch(err){setAdminStatus('Не вдалося видалити групу.',true);}});
    head.append(info,del);card.appendChild(head);
@@ -1321,7 +1323,7 @@ async function loadAdminGroups(){
     const q=req.data()||{},row=adminNode('div','p52-admin-group');
     row.append(adminNode('strong','',(q.studentName||q.nickname||'Студент')+' · '+(q.groupCode||'—')),adminNode('small','',(q.degree==='master'?'Магістратура':'Бакалаврат')+' · '+q.year+' курс · '+q.semester+' семестр · '+(q.practiceTitle||'')+' · '+(q.studentEmail||'')));
     const approve=adminNode('button','btn primary','Підтвердити доступ');approve.type='button';
-    approve.onclick=async()=>{try{approve.disabled=true;const gr=db.collection('groups').doc(q.groupCode),gs=await gr.get();if(!gs.exists)throw new Error('Спочатку створи академічну групу з таким кодом і признач викладача.');await gr.update({studentUids:firebase.firestore.FieldValue.arrayUnion(q.studentUid),updatedAt:firebase.firestore.FieldValue.serverTimestamp()});await req.ref.update({status:'approved',approvedBy:firebaseUser.uid,approvedAt:firebase.firestore.FieldValue.serverTimestamp(),updatedAt:firebase.firestore.FieldValue.serverTimestamp()});setAdminStatus('Доступ підтверджено: '+(q.studentName||q.nickname||q.studentUid));await loadAdminGroups();}catch(err){console.error(err);approve.disabled=false;setAdminStatus('Не вдалося підтвердити заявку. Перевір правила Firestore та код групи.',true);}};
+    approve.onclick=async()=>{try{approve.disabled=true;const gr=db.collection('groups').doc(q.groupId||q.groupCode),gs=await gr.get();if(!gs.exists)throw new Error('Спочатку прив’яжи код до академічної групи в адмініструванні.');await gr.update({studentUids:firebase.firestore.FieldValue.arrayUnion(q.studentUid),updatedAt:firebase.firestore.FieldValue.serverTimestamp()});await req.ref.update({status:'approved',approvedBy:firebaseUser.uid,approvedAt:firebase.firestore.FieldValue.serverTimestamp(),updatedAt:firebase.firestore.FieldValue.serverTimestamp()});setAdminStatus('Доступ підтверджено: '+(q.studentName||q.nickname||q.studentUid));await loadAdminGroups();}catch(err){console.error(err);approve.disabled=false;setAdminStatus('Не вдалося підтвердити заявку. Перевір правила Firestore та код групи.',true);}};
     const reject=adminNode('button','btn','Відхилити');reject.type='button';reject.onclick=async()=>{try{await req.ref.update({status:'rejected',reviewedBy:firebaseUser.uid,reviewedAt:firebase.firestore.FieldValue.serverTimestamp(),updatedAt:firebase.firestore.FieldValue.serverTimestamp()});await loadAdminGroups();}catch(err){setAdminStatus('Не вдалося відхилити заявку.',true);}};
     row.append(approve,reject);list.appendChild(row);
    });
@@ -1426,7 +1428,7 @@ async function loadPractice52TeacherDashboard(){
   const teacherAppsTitle=document.createElement('h3');teacherAppsTitle.textContent='Заявки студентів на підтвердження';teacherApps.appendChild(teacherAppsTitle);
   let pendingApps=0;
   for(const group of practice52TeacherGroups){
-   const appSnap=await db.collection('academicAccessRequests').where('groupCode','==',group.id).where('status','==','pending').get();
+   const appSnap=await db.collection('academicAccessRequests').where('groupId','==',group.id).where('status','==','pending').get();
    appSnap.forEach(req=>{
     pendingApps++;const q=req.data()||{},row=document.createElement('div');row.className='p52-admin-row';
     const info=document.createElement('span');info.textContent=(q.studentName||q.nickname||'Студент')+' · '+q.groupCode+' · '+(q.degree==='master'?'Магістратура':'Бакалаврат')+' '+q.year+' курс · '+q.semester+' семестр · '+(q.practiceTitle||'');
