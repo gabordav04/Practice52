@@ -103,7 +103,7 @@ service cloud.firestore {
           )
           && exists(/databases/$(database)/documents/academicAccessRequests/$(request.resource.data.studentUids[resource.data.studentUids.size()]))
           && get(/databases/$(database)/documents/academicAccessRequests/$(request.resource.data.studentUids[resource.data.studentUids.size()])).data.status == 'pending'
-          && get(/databases/$(database)/documents/academicAccessRequests/$(request.resource.data.studentUids[resource.data.studentUids.size()])).data.groupCode == groupId;
+          && get(/databases/$(database)/documents/academicAccessRequests/$(request.resource.data.studentUids[resource.data.studentUids.size()])).data.groupId == groupId;
       }
 
       // Викладач призначеної групи
@@ -429,23 +429,29 @@ service cloud.firestore {
         && request.resource.data.updatedAt is timestamp;
       allow delete: if isPlatformAdmin();
     }
+    match /academicGroupCodes/{groupCode} {
+      allow get: if request.auth != null;
+      allow list: if isPlatformAdmin();
+      allow create, update, delete: if isPlatformAdmin();
+    }
     match /academicAccessRequests/{studentUid} {
       function isOwnRequest() { return request.auth != null && request.auth.uid == studentUid && request.resource.data.studentUid == request.auth.uid; }
       function requestGroupLeader() {
         return request.auth != null
-          && exists(/databases/$(database)/documents/groups/$(resource.data.groupCode))
-          && get(/databases/$(database)/documents/groups/$(resource.data.groupCode)).data.groupLeaderUid == request.auth.uid;
+          && exists(/databases/$(database)/documents/groups/$(resource.data.groupId))
+          && get(/databases/$(database)/documents/groups/$(resource.data.groupId)).data.groupLeaderUid == request.auth.uid;
       }
       function isAssignedTeacher() {
         return request.auth != null
-          && exists(/databases/$(database)/documents/groups/$(resource.data.groupCode))
-          && get(/databases/$(database)/documents/groups/$(resource.data.groupCode)).data.teacherUid == request.auth.uid;
+          && exists(/databases/$(database)/documents/groups/$(resource.data.groupId))
+          && get(/databases/$(database)/documents/groups/$(resource.data.groupId)).data.teacherUid == request.auth.uid;
       }
       allow create: if isOwnRequest()
-        && request.resource.data.keys().hasAll(['studentUid','studentEmail','studentName','nickname','degree','year','courseId','semester','groupCode','practiceId','practiceTitle','status','createdAt','updatedAt'])
+        && request.resource.data.keys().hasAll(['studentUid','studentEmail','studentName','nickname','degree','year','courseId','semester','groupCode','groupId','practiceId','practiceTitle','status','createdAt','updatedAt'])
         && request.resource.data.keys().hasOnly(['studentUid','studentEmail','studentName','nickname','degree','year','courseId','semester','groupCode','practiceId','practiceTitle','status','createdAt','updatedAt'])
         && request.resource.data.status == 'pending'
         && request.resource.data.groupCode is string
+        && request.resource.data.groupId is string
         && request.resource.data.groupCode.size() == 7
         && request.resource.data.groupCode.matches('^[0-9]{5}fr')
         && request.resource.data.degree in ['bachelor','master']
@@ -468,7 +474,7 @@ service cloud.firestore {
         || (request.auth != null && request.auth.uid == studentUid && resource.data.status == 'rejected'
           && request.resource.data.status == 'pending'
           && request.resource.data.studentUid == resource.data.studentUid
-          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['studentEmail','studentName','nickname','degree','year','courseId','semester','groupCode','practiceId','practiceTitle','status','updatedAt']));
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['studentEmail','studentName','nickname','degree','year','courseId','semester','groupCode','groupId','practiceId','practiceTitle','status','updatedAt']));
       allow delete: if isPlatformAdmin();
     }
     match /nicknames/{nicknameId} {
