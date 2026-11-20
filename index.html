@@ -1514,7 +1514,7 @@ function togglePractice52TeacherStudent(uid,button){
 }
 async function loadP52TeacherSubmissions(uid){
  const groups=practice52TeacherGroups.filter(g=>(g.studentUids||[]).includes(uid));
- const chunks=await Promise.all(groups.map(async g=>{const snap=await db.collection('practiceSubmissions').where('groupId','==',g.id).where('studentUid','==',uid).get();return snap.docs.map(d=>({id:d.id,...(d.data()||{})}));}));
+ const chunks=await Promise.all(groups.map(async g=>{const snap=await db.collection('practiceSubmissions').where('groupId','==',g.id).get();return snap.docs.map(d=>({id:d.id,...(d.data()||{})})).filter(d=>d.studentUid===uid);}));
  return chunks.flat().sort((a,b)=>(Number(a.skillIndex)||0)-(Number(b.skillIndex)||0));
 }
 async function saveP52TeacherReview(id,button){
@@ -1934,8 +1934,8 @@ async function renderP52StudentVideoSubmission(skillIndex){
  button.disabled=true;status.textContent='Перевіряємо попереднє подання…';
  try{
   const groupSnap=await db.collection('groups').where('studentUids','array-contains',firebaseUser.uid).limit(1).get();if(groupSnap.empty){status.textContent='Спочатку потрібно приєднатися до навчальної групи.';return;}
-  const group=groupSnap.docs[0];const query=await db.collection('practiceSubmissions').where('groupId','==',group.id).where('studentUid','==',firebaseUser.uid).where('skillIndex','==',skillIndex).get();
-  const previous=query.docs.map(d=>({id:d.id,...(d.data()||{})})).sort((x,y)=>{const tx=x.submittedAt&&x.submittedAt.toMillis?x.submittedAt.toMillis():0,ty=y.submittedAt&&y.submittedAt.toMillis?y.submittedAt.toMillis():0;return ty-tx;})[0];
+  const group=groupSnap.docs[0];const query=await db.collection('practiceSubmissions').where('studentUid','==',firebaseUser.uid).get();
+  const previous=query.docs.map(d=>({id:d.id,...(d.data()||{})})).filter(d=>d.groupId===group.id&&Number(d.skillIndex)===skillIndex).sort((x,y)=>{const tx=x.submittedAt&&x.submittedAt.toMillis?x.submittedAt.toMillis():0,ty=y.submittedAt&&y.submittedAt.toMillis?y.submittedAt.toMillis():0;return ty-tx;})[0];
   if(previous){input.value=previous.driveUrl||'';check.checked=previous.accessConfirmed===true;status.textContent=({submitted:'Надіслано на перевірку',resubmission_requested:'Потрібне повторне відео',reviewed:'Відео перевірено'})[previous.status]||'Подання збережено';}else status.textContent='Відео ще не подано.';
   button.disabled=false;button.onclick=async()=>{
    const url=input.value.trim();if(!p52DriveUrlIsValid(url)){status.textContent='Встав коректне HTTPS-посилання на Google Drive.';return;}if(!check.checked){status.textContent='Підтверди, що надав викладачу доступ до перегляду.';return;}
