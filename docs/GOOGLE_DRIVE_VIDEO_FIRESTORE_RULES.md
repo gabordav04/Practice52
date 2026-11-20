@@ -146,20 +146,6 @@ match /gradebook/{entryId} {
       ).data.studentUids;
   }
 
-  function validGradebookEntry() {
-    return request.resource.data.keys().hasAll([
-      'studentUid', 'practiceId', 'skillId', 'skillIndex',
-      'skillTitle', 'practicalGrade', 'submissionId',
-      'teacherUid', 'teacherComment', 'updatedAt'
-    ])
-      && request.resource.data.keys().hasOnly([
-        'studentUid', 'practiceId', 'skillId', 'skillIndex',
-        'skillTitle', 'practicalGrade', 'submissionId',
-        'teacherUid', 'teacherComment', 'updatedAt'
-      ])
-      && request.resource.data.studentUid in resource.data.studentUid == false;
-  }
-
   allow get, list: if isPlatformAdmin()
     || isAssignedTeacher()
     || isMemberReadingOwnGrade();
@@ -205,4 +191,4 @@ match /gradebook/{entryId} {
 }
 ```
 
-**Important correction before publishing:** the helper `validGradebookEntry()` above is not used by the allow statements and can be omitted. Use the explicit checks in `allow create` and `allow update` as the operative policy. Test both first-time grade creation and re-grading, plus student self-read and cross-student denial in the Emulator.
+Use the explicit checks in `allow create` and `allow update` as the operative policy. Test both first-time grade creation and re-grading, plus student self-read and cross-student denial in the Emulator.
