@@ -2364,7 +2364,7 @@ renderStats();renderSkills();renderHeaderIdentity();
   document.querySelectorAll('[data-entry-role]').forEach(b=>b.classList.toggle('selected',b.dataset.entryRole===selected));
   actions.classList.toggle('hidden',!selected);
  }
- function openEntry(){backdrop.classList.remove('hidden');selected=localStorage.getItem(ROLE_KEY)||'';updateRoleUI();}
+ function openEntry(){if(!onboardingFlow){backdrop.querySelector('.eyebrow').textContent='ЗМІНА КОРИСТУВАЧА';backdrop.querySelector('p').textContent='Обери роль нового користувача. Поточний сеанс буде завершено, локальні дані попереднього користувача на цьому пристрої очищено. Для продовження потрібно створити акаунт або увійти.';}backdrop.classList.remove('hidden');selected=localStorage.getItem(ROLE_KEY)||'';updateRoleUI();}
  window.practice52StartOnboardingRole=function(){onboardingFlow=true;backdrop.querySelector('.eyebrow').textContent='ВИБІР РОЛІ';backdrop.querySelector('p').textContent='Оберіть, у якій ролі ви працюватимете на платформі. Для продовження потрібно увійти або створити власний акаунт.';openEntry();};
  document.querySelectorAll('[data-entry-role]').forEach(b=>b.addEventListener('click',()=>{selected=b.dataset.entryRole;updateRoleUI();}));
  document.getElementById('p52EntryBack').addEventListener('click',()=>{backdrop.classList.add('hidden');});
@@ -2392,7 +2392,7 @@ renderStats();renderSkills();renderHeaderIdentity();
    const createButton=document.querySelector('#registrationForm button[type="submit"]');
    if(createButton)createButton.classList.toggle('hidden',selected==='admin');
    const google=document.getElementById('googleLogin');if(google)google.classList.remove('hidden');
-   document.getElementById('regStatus').textContent=selected==='admin'?'Увійди у свій наявний адміністративний акаунт.':'Локальні дані попереднього користувача очищено. Створи власний акаунт або увійди, щоб завантажити лише свої дані.';
+   document.getElementById('regStatus').textContent=selected==='admin'?'Увійди у свій наявний адміністративний акаунт.':'Створи власний акаунт або увійди, щоб завантажити лише свої дані.';
    document.getElementById('regEmail').value='';document.getElementById('regPassword').value='';
    document.getElementById('regName').value='';document.getElementById('regPhone').value='';
    document.getElementById('regNickname').value='';document.getElementById('regNickname').disabled=false;
