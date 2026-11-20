@@ -1,0 +1,66 @@
+{
+  "university": {
+    "id": "practice52-university",
+    "name": "PRACTICE 52 — Університет",
+    "slug": "practice52-university",
+    "status": "active"
+  },
+  "program": {
+    "id": "physical-therapy-rehabilitation",
+    "universityId": "practice52-university",
+    "name": "Фізична терапія та реабілітація",
+    "status": "active"
+  },
+  "courses": [
+    {
+      "id": "bachelor-1",
+      "educationLevel": "bachelor",
+      "yearNumber": 1,
+      "title": "Бакалаврат · 1 курс"
+    },
+    {
+      "id": "bachelor-2",
+      "educationLevel": "bachelor",
+      "yearNumber": 2,
+      "title": "Бакалаврат · 2 курс"
+    },
+    {
+      "id": "bachelor-3",
+      "educationLevel": "bachelor",
+      "yearNumber": 3,
+      "title": "Бакалаврат · 3 курс"
+    },
+    {
+      "id": "bachelor-4",
+      "educationLevel": "bachelor",
+      "yearNumber": 4,
+      "title": "Бакалаврат · 4 курс"
+    },
+    {
+      "id": "master-1",
+      "educationLevel": "master",
+      "yearNumber": 1,
+      "title": "Магістратура · 1 курс"
+    },
+    {
+      "id": "master-2",
+      "educationLevel": "master",
+      "yearNumber": 2,
+      "title": "Магістратура · 2 курс"
+    }
+  ],
+  "practices": [
+    {
+      "id": "master-2-cardiorespiratory-professional-practice",
+      "courseId": "master-2",
+      "title": "Професійна практика з фізичної терапії та реабілітації при порушеннях діяльності серцево-судинної та дихальної системи",
+      "skillSetId": "practice-52-cardiorespiratory",
+      "legacySource": "groups/15711fr",
+      "status": "active"
+    }
+  ],
+  "notes": [
+    "Manifest is declarative only; importing it into production Firestore is a separate controlled operation.",
+    "Do not modify or move legacy groups or progress during Stage 1."
+  ]
+}
