@@ -2897,12 +2897,12 @@ body.p52-auth-locked header{position:relative;z-index:1001}
        let accessData={};try{const accessSnap=await db.collection('academicAccessRequests').doc(user.uid).get();accessData=accessSnap.exists?(accessSnap.data()||{}):{};}catch(err){console.warn('Academic access status unavailable',err);}
        if(accessData.status!=='approved'){
          const rejected=accessData.status==='rejected';lockApp();panel.classList.remove('hidden');
-         $('regTitle').textContent=rejected?'Оновлення заявки на вступ до групи':'Очікування підтвердження групи';
+         $('regTitle').textContent=rejected?'Оновлення заявки на вступ до групи':'🎉 Вітаємо у PRACTICE 52!';
          $('regEmail').value=user.email||'';$('regEmail').readOnly=true;
          $('regPassword').value='';$('regPassword').required=false;$('regPassword').closest('.reg-field').classList.add('hidden');
          $('emailLogin').classList.add('hidden');$('googleLogin').classList.add('hidden');
-         $('regStatus').textContent=rejected?'Заявку відхилено. Перевір групу та надішли її повторно.':'Заявка на доступ до PRACTICE 52 очікує підтвердження викладачем або адміністратором. До цього навчальні матеріали та надсилання практичних робіт закриті.';
-         $('regStatus').style.color='var(--muted)';document.querySelectorAll('.p52-academic-field').forEach(el=>el.classList.toggle('hidden',!rejected));
+         $('regStatus').textContent=rejected?'Заявку відхилено. Перевір групу та надішли її повторно.':`🎊 Тебе успішно зареєстровано в PRACTICE 52!\n\n✨ Заявку на вступ до групи «${accessData.groupCode||'обраної групи'}» надіслано викладачу або адміністратору.\n\n⏳ Зачекай, будь ласка, на підтвердження. Щойно доступ буде надано, навчальний кабінет відкриється автоматично.\n\n🚀 Дякуємо, що навчаєшся з PRACTICE 52!`;
+         $('regStatus').style.color=rejected?'var(--muted)':'var(--success, #16845b)';$('regStatus').style.whiteSpace='pre-line';$('regStatus').style.fontWeight=rejected?'400':'600';document.querySelectorAll('.p52-academic-field').forEach(el=>el.classList.toggle('hidden',!rejected));
          const submit=form.querySelector('button[type="submit"]');submit.classList.toggle('hidden',!rejected);if(rejected)submit.textContent='Оновити заявку';
          $('saveProfileBtn').classList.add('hidden');$('hideProfileBtn').classList.add('hidden');$('logoutBtn').classList.remove('hidden');
          if(window.p52AcademicAccessUnsubscribe)window.p52AcademicAccessUnsubscribe();
