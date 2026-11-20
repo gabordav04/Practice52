@@ -100,7 +100,10 @@ service cloud.firestore {
             request.resource.data.studentUids[
               resource.data.studentUids.size()
             ]
-          );
+          )
+          && exists(/databases/$(database)/documents/academicAccessRequests/$(request.resource.data.studentUids[resource.data.studentUids.size()]))
+          && get(/databases/$(database)/documents/academicAccessRequests/$(request.resource.data.studentUids[resource.data.studentUids.size()])).data.status == 'pending'
+          && get(/databases/$(database)/documents/academicAccessRequests/$(request.resource.data.studentUids[resource.data.studentUids.size()])).data.groupCode == groupId;
       }
 
       // Викладач призначеної групи
@@ -533,10 +536,10 @@ service cloud.firestore {
         && request.resource.data.courseId is string
         && request.resource.data.practiceId is string
         && request.resource.data.practiceTitle is string;
-      allow get: if isPlatformAdmin() || (request.auth != null && request.auth.uid == studentUid) || isAssignedTeacher();
+      allow get: if isPlatformAdmin() || (request.auth != null && request.auth.uid == studentUid) || isAssignedTeacher() || (request.auth != null && exists(/databases/$(database)/documents/groups/$(resource.data.groupCode)) && get(/databases/$(database)/documents/groups/$(resource.data.groupCode)).data.groupLeaderUid == request.auth.uid);
       allow list: if isPlatformAdmin() || isAssignedTeacher();
       allow update: if isPlatformAdmin()
-        || (isAssignedTeacher() && resource.data.status == 'pending'
+        || ((isAssignedTeacher() || (request.auth != null && exists(/databases/$(database)/documents/groups/$(resource.data.groupCode)) && get(/databases/$(database)/documents/groups/$(resource.data.groupCode)).data.groupLeaderUid == request.auth.uid)) && resource.data.status == 'pending'
           && request.resource.data.status in ['approved','rejected']
           && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status','approvedBy','approvedAt','reviewedBy','reviewedAt','updatedAt']));
       allow delete: if isPlatformAdmin();
