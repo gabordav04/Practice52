@@ -2799,6 +2799,10 @@ body.p52-auth-locked header{position:relative;z-index:1001}
      $('regEmail').readOnly=false;$('regPassword').required=true;$('regPassword').closest('.reg-field').classList.remove('hidden');
      form.querySelector('button[type="submit"]').textContent='Створити акаунт';
      $('emailLogin').classList.remove('hidden');$('googleLogin').classList.add('hidden');
+     if(selected==='student'&&profile.academicAccessStatus!=='approved'){
+       let approved=false;try{const access=await db.collection('academicAccessRequests').doc(user.uid).get();approved=access.exists&&(access.data()||{}).status==='approved';}catch(err){console.warn('Academic access status unavailable',err);}
+       if(!approved){lockApp();panel.classList.remove('hidden');$('regStatus').textContent='Заявка на доступ до PRACTICE 52 очікує підтвердження викладачем або адміністратором. До цього навчальні матеріали та надсилання практичних робіт закриті.';$('regStatus').style.color='var(--muted)';form.querySelector('button[type="submit"]').classList.add('hidden');$('saveProfileBtn').classList.add('hidden');$('hideProfileBtn').classList.add('hidden');return;}
+     }
      unlockApp();
    }catch(err){
      console.error('Mandatory profile check failed:',err);lockApp();panel.classList.remove('hidden');
