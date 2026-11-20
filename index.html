@@ -2687,7 +2687,8 @@ body.p52-auth-locked header{position:relative;z-index:1001}
      $('regStatus').style.color='var(--red)';profileGateBusy=false;btn.disabled=false;
    }
  },true);
- if(!auth.currentUser)showRoleGate();
+ // Do not gate synchronously here: Firebase may still be restoring its persisted session.
+ // The onAuthStateChanged listener above decides whether to show the role/login gate.
 })();
 </script>
 
