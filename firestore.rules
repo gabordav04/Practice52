@@ -429,16 +429,23 @@ service cloud.firestore {
         && request.resource.data.updatedAt is timestamp;
       allow delete: if isPlatformAdmin();
     }
-
     match /academicAccessRequests/{studentUid} {
       function isOwnRequest() { return request.auth != null && request.auth.uid == studentUid && request.resource.data.studentUid == request.auth.uid; }
+      function requestGroupLeader() {
+        return request.auth != null
+          && exists(/databases/$(database)/documents/groups/$(resource.data.groupCode))
+          && get(/databases/$(database)/documents/groups/$(resource.data.groupCode)).data.groupLeaderUid == request.auth.uid;
+      }
       function isAssignedTeacher() {
         return request.auth != null
           && exists(/databases/$(database)/documents/groups/$(resource.data.groupCode))
           && get(/databases/$(database)/documents/groups/$(resource.data.groupCode)).data.teacherUid == request.auth.uid;
       }
       allow create: if isOwnRequest()
+        && request.resource.data.keys().hasAll(['studentUid','studentEmail','studentName','nickname','degree','year','courseId','semester','groupCode','practiceId','practiceTitle','status','createdAt','updatedAt'])
+        && request.resource.data.keys().hasOnly(['studentUid','studentEmail','studentName','nickname','degree','year','courseId','semester','groupCode','practiceId','practiceTitle','status','createdAt','updatedAt'])
         && request.resource.data.status == 'pending'
+        && request.resource.data.groupCode is string
         && request.resource.data.groupCode.matches('^[0-9]{5}fr
     match /nicknames/{nicknameId} {
       allow read: if request.auth != null;
@@ -532,19 +539,27 @@ service cloud.firestore {
 )
         && request.resource.data.degree in ['bachelor','master']
         && request.resource.data.year is int
+        && ((request.resource.data.degree == 'bachelor' && request.resource.data.year >= 1 && request.resource.data.year <= 4) || (request.resource.data.degree == 'master' && request.resource.data.year >= 1 && request.resource.data.year <= 2))
         && request.resource.data.semester in [1,2]
         && request.resource.data.courseId is string
         && request.resource.data.practiceId is string
-        && request.resource.data.practiceTitle is string;
-      allow get: if isPlatformAdmin() || (request.auth != null && request.auth.uid == studentUid) || isAssignedTeacher() || (request.auth != null && exists(/databases/$(database)/documents/groups/$(resource.data.groupCode)) && get(/databases/$(database)/documents/groups/$(resource.data.groupCode)).data.groupLeaderUid == request.auth.uid);
-      allow list: if isPlatformAdmin() || isAssignedTeacher();
+        && exists(/databases/$(database)/documents/practices/$(request.resource.data.practiceId))
+        && get(/databases/$(database)/documents/practices/$(request.resource.data.practiceId)).data.status == 'active'
+        && request.resource.data.practiceTitle is string
+        && request.resource.data.createdAt is timestamp
+        && request.resource.data.updatedAt is timestamp;
+      allow get: if isPlatformAdmin() || (request.auth != null && request.auth.uid == studentUid) || isAssignedTeacher() || requestGroupLeader();
+      allow list: if isPlatformAdmin() || isAssignedTeacher() || requestGroupLeader();
       allow update: if isPlatformAdmin()
-        || ((isAssignedTeacher() || (request.auth != null && exists(/databases/$(database)/documents/groups/$(resource.data.groupCode)) && get(/databases/$(database)/documents/groups/$(resource.data.groupCode)).data.groupLeaderUid == request.auth.uid)) && resource.data.status == 'pending'
+        || ((isAssignedTeacher() || requestGroupLeader()) && resource.data.status == 'pending'
           && request.resource.data.status in ['approved','rejected']
-          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status','approvedBy','approvedAt','reviewedBy','reviewedAt','updatedAt']));
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status','approvedBy','approvedAt','reviewedBy','reviewedAt','updatedAt']))
+        || (request.auth != null && request.auth.uid == studentUid && resource.data.status == 'rejected'
+          && request.resource.data.status == 'pending'
+          && request.resource.data.studentUid == resource.data.studentUid
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['studentEmail','studentName','nickname','degree','year','courseId','semester','groupCode','practiceId','practiceTitle','status','updatedAt']));
       allow delete: if isPlatformAdmin();
     }
-
     // Унікальні нікнейми користувачів
     match /nicknames/{nicknameId} {
       allow read: if request.auth != null;
