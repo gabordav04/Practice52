@@ -1509,7 +1509,8 @@ async function addStudentByTeacher(groupId,studentUid,button){
   if(!group||group.teacherUid!==firebaseUser?.uid)return;
   button.disabled=true;
   await db.collection('groups').doc(groupId).update({studentUids:firebase.firestore.FieldValue.arrayUnion(studentUid),updatedAt:firebase.firestore.FieldValue.serverTimestamp()});
-  setTeacherStatus('Студента додано до групи.');
+  await db.collection('academicAccessRequests').doc(studentUid).update({status:'approved',approvedBy:firebaseUser.uid,approvedAt:firebase.firestore.FieldValue.serverTimestamp(),updatedAt:firebase.firestore.FieldValue.serverTimestamp()});
+  setTeacherStatus('Студента додано до групи та підтверджено доступ.');
   await loadPractice52TeacherDashboard();
  }catch(err){console.error(err);button.disabled=false;setTeacherStatus('Не вдалося додати студента. Перевір правила Firestore.',true);}
 }
