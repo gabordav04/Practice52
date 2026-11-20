@@ -387,6 +387,43 @@ service cloud.firestore {
       allow delete: if isPlatformAdmin();
     }
 
+    // Запити студентів на перехід до наступної навчальної комірки
+    match /courseTransitionRequests/{requestId} {
+      function isRequestStudent() {
+        return request.auth != null
+          && request.resource.data.studentUid == request.auth.uid
+          && exists(/databases/$(database)/documents/groups/$(request.resource.data.groupId))
+          && request.auth.uid in get(/databases/$(database)/documents/groups/$(request.resource.data.groupId)).data.studentUids;
+      }
+      function isRequestGroupTeacher() {
+        return request.auth != null
+          && exists(/databases/$(database)/documents/groups/$(resource.data.groupId))
+          && get(/databases/$(database)/documents/groups/$(resource.data.groupId)).data.teacherUid == request.auth.uid;
+      }
+      allow create: if isRequestStudent()
+        && request.resource.data.status == 'pending'
+        && request.resource.data.keys().hasOnly([
+          'groupId','studentUid','studentName','currentCourseId',
+          'currentSemester','requestedSemester','status','createdAt','updatedAt'
+        ])
+        && request.resource.data.currentSemester in [1,2]
+        && request.resource.data.requestedSemester in [1,2]
+        && request.resource.data.createdAt is timestamp
+        && request.resource.data.updatedAt is timestamp;
+      allow get, list: if isPlatformAdmin()
+        || (request.auth != null && resource.data.studentUid == request.auth.uid)
+        || isRequestGroupTeacher();
+      allow update: if isPlatformAdmin()
+        && resource.data.status == 'pending'
+        && request.resource.data.status == 'approved'
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'status','newGroupId','reviewedBy','reviewedAt','updatedAt'
+        ])
+        && request.resource.data.reviewedBy == request.auth.uid
+        && request.resource.data.reviewedAt is timestamp
+        && request.resource.data.updatedAt is timestamp;
+      allow delete: if isPlatformAdmin();
+    }
     // Унікальні нікнейми користувачів
     match /nicknames/{nicknameId} {
       allow read: if request.auth != null;
