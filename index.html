@@ -1078,12 +1078,12 @@ function ensureAdminPanel(){
  });
  document.querySelector('.header-right')?.appendChild(toggle);
  const panel=adminNode('section','p52-admin-panel hidden');panel.id='p52AdminPanel';
- panel.innerHTML='<div class="p52-admin-heading"><div><div class="eyebrow">ПАНЕЛЬ КЕРУВАННЯ</div><h2>Адміністратор</h2><p>Керуйте доступом викладачів і складом навчальних груп.</p></div></div><div class="p52-admin-tabs"><button type="button" class="p52-admin-tab active" data-admin-tab="teachers">Викладачі та доступ</button><button type="button" class="p52-admin-tab" data-admin-tab="groups">Навчальні групи</button><button type="button" class="p52-admin-tab" data-admin-tab="university">Університет і курси</button></div><div class="p52-admin-status" id="p52AdminStatus" role="status"></div><section data-admin-section="teachers"><h3 class="p52-admin-subhead">Запросити викладача</h3><form class="p52-admin-form" id="p52InviteForm"><button class="btn primary" type="submit">＋ Створити код запрошення</button></form><div class="p52-admin-list" id="p52InviteList">Завантаження…</div><h3>Призначити викладача</h3><input class="p52-admin-search" id="p52TeacherSearch" placeholder="Пошук за нікнеймом або UID"><div class="p52-admin-list" id="p52TeacherSearchResults"></div><h3>Керування викладачами</h3><div class="p52-admin-list" id="p52AdminRoleList">Завантаження…</div></section><section data-admin-section="university" class="hidden"><div class="p52-admin-heading"><div><h3>Структура університету</h3><p>Єдиний університет · Фізична терапія та реабілітація · 6 курсів</p></div><button type="button" class="btn primary" id="p52UniversitySeed">Створити / оновити структуру</button></div><div class="p52-admin-status" id="p52UniversityStatus">Поки не завантажено.</div><div id="p52UniversityCourses"></div><h3>Додати практику</h3><form id="p52UniversityPracticeForm" class="p52-university-form"><select id="p52UniversityCourse" required><option value="">Оберіть курс</option></select><input id="p52UniversityPracticeTitle" class="p52-university-wide" maxlength="220" placeholder="Назва практики" required><textarea id="p52UniversityPracticeDescription" class="p52-university-wide" placeholder="Короткий опис (необов’язково)"></textarea><button class="btn primary" type="submit">＋ Створити практику</button></form><div id="p52UniversityPracticeList"></div><p class="note">На цьому етапі каталог доступний адміністратору. Підключення студентів, викладачів і груп буде наступним етапом після перевірки правил доступу.</p></section><section data-admin-section="groups" class="hidden"><h3>Створити навчальну групу</h3><form class="p52-admin-form" id="p52GroupForm"><input id="p52GroupName" maxlength="80" placeholder="Код групи (наприклад 15711fr)" maxlength="7" pattern="[0-9]{5}fr" title="5 цифр + маленькі латинські fr" required><select id="p52GroupTeacher" required><option value="">Оберіть викладача</option></select><button class="btn primary" type="submit">Створити групу</button></form><h3>Керування групами та студентами</h3><div class="p52-admin-list" id="p52GroupList">Завантаження…</div></section>';
+ panel.innerHTML='<div class="p52-admin-heading"><div><div class="eyebrow">ПАНЕЛЬ КЕРУВАННЯ</div><h2>Адміністратор</h2><p>Керуйте доступом викладачів і складом навчальних груп.</p></div></div><div class="p52-admin-tabs"><button type="button" class="p52-admin-tab active" data-admin-tab="teachers">Викладачі та доступ</button><button type="button" class="p52-admin-tab" data-admin-tab="groups">Навчальні групи</button><button type="button" class="p52-admin-tab" data-admin-tab="applications">Заявки студентів</button><button type="button" class="p52-admin-tab" data-admin-tab="university">Університет і курси</button></div><div class="p52-admin-status" id="p52AdminStatus" role="status"></div><section data-admin-section="teachers"><h3 class="p52-admin-subhead">Запросити викладача</h3><form class="p52-admin-form" id="p52InviteForm"><button class="btn primary" type="submit">＋ Створити код запрошення</button></form><div class="p52-admin-list" id="p52InviteList">Завантаження…</div><h3>Призначити викладача</h3><input class="p52-admin-search" id="p52TeacherSearch" placeholder="Пошук за нікнеймом або UID"><div class="p52-admin-list" id="p52TeacherSearchResults"></div><h3>Керування викладачами</h3><div class="p52-admin-list" id="p52AdminRoleList">Завантаження…</div></section><section data-admin-section="university" class="hidden"><div class="p52-admin-heading"><div><h3>Структура університету</h3><p>Єдиний університет · Фізична терапія та реабілітація · 6 курсів</p></div><button type="button" class="btn primary" id="p52UniversitySeed">Створити / оновити структуру</button></div><div class="p52-admin-status" id="p52UniversityStatus">Поки не завантажено.</div><div id="p52UniversityCourses"></div><h3>Додати практику</h3><form id="p52UniversityPracticeForm" class="p52-university-form"><select id="p52UniversityCourse" required><option value="">Оберіть курс</option></select><input id="p52UniversityPracticeTitle" class="p52-university-wide" maxlength="220" placeholder="Назва практики" required><textarea id="p52UniversityPracticeDescription" class="p52-university-wide" placeholder="Короткий опис (необов’язково)"></textarea><button class="btn primary" type="submit">＋ Створити практику</button></form><div id="p52UniversityPracticeList"></div><p class="note">На цьому етапі каталог доступний адміністратору. Підключення студентів, викладачів і груп буде наступним етапом після перевірки правил доступу.</p></section><section data-admin-section="groups" class="hidden"><h3>Створити навчальну групу</h3><form class="p52-admin-form" id="p52GroupForm"><input id="p52GroupName" maxlength="80" placeholder="Код групи (наприклад 15711fr)" maxlength="7" pattern="[0-9]{5}fr" title="5 цифр + маленькі латинські fr" required><select id="p52GroupTeacher" required><option value="">Оберіть викладача</option></select><button class="btn primary" type="submit">Створити групу</button></form><h3>Керування групами та студентами</h3><div class="p52-admin-list" id="p52GroupList">Завантаження…</div></section><section data-admin-section="applications" class="hidden"><h3>Заявки на вступ до навчальних груп</h3><p>Підтверджуй заявки студентів. Після схвалення студент автоматично отримає доступ до навчального кабінету.</p><div class="p52-admin-list" id="p52ApplicationList">Завантаження заявок…</div></section>';
  header.insertAdjacentElement('afterend',panel);
  panel.querySelectorAll('[data-admin-tab]').forEach(btn=>btn.addEventListener('click',()=>{
   panel.querySelectorAll('[data-admin-tab]').forEach(b=>b.classList.toggle('active',b===btn));
   panel.querySelectorAll('[data-admin-section]').forEach(sec=>sec.classList.toggle('hidden',sec.dataset.adminSection!==btn.dataset.adminTab));
-  if(btn.dataset.adminTab==='groups')loadAdminGroups();if(btn.dataset.adminTab==='university')loadP52UniversityCatalog();
+  if(btn.dataset.adminTab==='groups')loadAdminGroups();if(btn.dataset.adminTab==='applications')loadAdminApplications();if(btn.dataset.adminTab==='university')loadP52UniversityCatalog();
  }));
  document.getElementById('p52InviteForm').addEventListener('submit',createTeacherInvite);
   document.getElementById('p52TeacherSearch').addEventListener('input',e=>renderAdminUserSearch(e.target.value,'p52TeacherSearchResults',assignTeacher,'Немає відкритих профілів за цим запитом.'));
@@ -1124,22 +1124,24 @@ function p52ReadAcademicFields(){
  return {groupCode,groupId};
 }
 async function p52SubmitAcademicAccess(user,profile){
- const {groupCode,groupId}=p52ReadAcademicFields();
- const existingGroups=await db.collection('groups').where('studentUids','array-contains',user.uid).get();
- const activeMembership=existingGroups.docs.find(d=>(d.data()||{}).status!=='archived');
- if(activeMembership&&activeMembership.id!==groupId)throw new Error('Твій акаунт уже прив’язаний до іншої активної групи. Звернися до адміністратора для виправлення.');
- const requestRef=db.collection('academicAccessRequests').doc(user.uid);
- const previous=await requestRef.get(),previousData=previous.exists?(previous.data()||{}):{};
- if(activeMembership&&activeMembership.id===groupId){
-  const p={...profile,groupCode,groupId,academicAccessStatus:'approved'};
-  writeLocalProfile(p,user);await db.collection('users').doc(user.uid).set({profile:p,academicAccessStatus:'approved',updatedAt:firebase.firestore.FieldValue.serverTimestamp()},{merge:true});return;
- }
+ const groupCode=String(profile.groupCode||'').trim(),groupId=String(profile.groupId||'').trim();
+ if(!groupId||!P52_GROUP_CODE_RE.test(groupCode))throw new Error('Обери свою академічну групу зі списку.');
  const directory=await db.collection('availableAcademicGroups').doc(groupId).get();
  if(!directory.exists||(directory.data()||{}).status!=='active'||(directory.data()||{}).groupCode!==groupCode)throw new Error('Обрана група більше недоступна. Онови список і вибери іншу.');
+ const requestRef=db.collection('academicAccessRequests').doc(user.uid);
+ const previous=await requestRef.get(),previousData=previous.exists?(previous.data()||{}):{};
+ if(previous.exists&&previousData.status==='approved'&&previousData.groupId===groupId){
+  const approvedProfile={...profile,groupCode,groupId,academicAccessStatus:'approved'};
+  writeLocalProfile(approvedProfile,user);
+  await db.collection('users').doc(user.uid).set({profile:approvedProfile,academicAccessStatus:'approved',updatedAt:firebase.firestore.FieldValue.serverTimestamp()},{merge:true});
+  return 'approved';
+ }
  const data={studentUid:user.uid,studentEmail:user.email||'',studentName:profile.name||'',nickname:profile.nickname||'',groupCode,groupId,status:'pending',createdAt:previous.exists?(previousData.createdAt||firebase.firestore.FieldValue.serverTimestamp()):firebase.firestore.FieldValue.serverTimestamp(),updatedAt:firebase.firestore.FieldValue.serverTimestamp()};
  await requestRef.set(data,{merge:true});
- const p={...profile,groupCode,groupId,academicAccessStatus:'pending'};writeLocalProfile(p,user);
- await db.collection('users').doc(user.uid).set({profile:p,academicAccessStatus:'pending',updatedAt:firebase.firestore.FieldValue.serverTimestamp()},{merge:true});
+ const pendingProfile={...profile,groupCode,groupId,academicAccessStatus:'pending'};
+ writeLocalProfile(pendingProfile,user);
+ await db.collection('users').doc(user.uid).set({profile:pendingProfile,academicAccessStatus:'pending',updatedAt:firebase.firestore.FieldValue.serverTimestamp()},{merge:true});
+ return 'pending';
 }
 
 const P52_COURSES=[
@@ -1440,6 +1442,32 @@ async function loadAdminAnalytics(){
   [[practice52PublicUsers.length,'Відкритих профілів рейтингу'],[teachers.size,'Викладачів'],[groups.size,'Навчальних груп'],[totalStudents.size,'Студентів у групах']].forEach(([n,label])=>{const box=adminNode('div','p52-admin-stat');box.append(adminNode('strong','',String(n)),adminNode('span','',label));el.appendChild(box);});
  }catch(err){console.error(err);el.textContent='Аналітика недоступна до налаштування правил Firestore.';}
 }
+async function loadAdminApplications(){
+ const list=document.getElementById('p52ApplicationList');if(!list)return;
+ list.textContent='Завантажуємо заявки…';
+ try{
+  const snap=await db.collection('academicAccessRequests').where('status','==','pending').get();
+  list.innerHTML='';
+  if(snap.empty){list.textContent='🎉 Наразі немає заявок, що очікують підтвердження.';return;}
+  snap.forEach(req=>{
+   const q=req.data()||{},row=adminNode('div','p52-admin-group');
+   row.append(adminNode('strong','',(q.studentName||q.nickname||'Студент')+' · '+(q.groupCode||'—')),adminNode('small','',(q.studentEmail||'')+' · Заявка очікує підтвердження'));
+   const approve=adminNode('button','btn primary','Підтвердити вступ');approve.type='button';
+   approve.onclick=async()=>{try{
+    approve.disabled=true;
+    const groupId=q.groupId||'';if(!groupId)throw new Error('У заявці не вказано групу.');
+    const groupRef=db.collection('groups').doc(groupId),groupSnap=await groupRef.get();
+    if(!groupSnap.exists)throw new Error('Навчальну групу не знайдено.');
+    await groupRef.update({studentUids:firebase.firestore.FieldValue.arrayUnion(q.studentUid),updatedAt:firebase.firestore.FieldValue.serverTimestamp()});
+    await req.ref.update({status:'approved',approvedBy:firebaseUser.uid,approvedAt:firebase.firestore.FieldValue.serverTimestamp(),updatedAt:firebase.firestore.FieldValue.serverTimestamp()});
+    setAdminStatus('Доступ підтверджено для '+(q.studentName||q.nickname||q.studentUid)+'.');await loadAdminApplications();
+   }catch(err){console.error('Admin approval failed:',err);approve.disabled=false;setAdminStatus(err.message||'Не вдалося підтвердити заявку.',true);}};
+   const reject=adminNode('button','btn','Відхилити');reject.type='button';
+   reject.onclick=async()=>{try{reject.disabled=true;await req.ref.update({status:'rejected',reviewedBy:firebaseUser.uid,reviewedAt:firebase.firestore.FieldValue.serverTimestamp(),updatedAt:firebase.firestore.FieldValue.serverTimestamp()});setAdminStatus('Заявку відхилено.');await loadAdminApplications();}catch(err){reject.disabled=false;setAdminStatus('Не вдалося відхилити заявку.',true);}};
+   row.append(approve,reject);list.appendChild(row);
+  });
+ }catch(err){console.error('Admin applications load failed:',err);list.textContent='Не вдалося завантажити заявки. Перевір правила academicAccessRequests.';}
+}
 async function loadAdminDashboard(){
  if(practice52CurrentRole!=='admin')return;
  setAdminStatus('Завантажуємо дані…');
@@ -1520,7 +1548,7 @@ async function loadPractice52TeacherDashboard(){
     row.append(info,approve,reject);teacherApps.appendChild(row);
    });
   }
-  if(pendingApps)groupsEl?.prepend(teacherApps);else teacherApps.remove();
+  if(pendingApps){groupsEl?.prepend(teacherApps);}else{const empty=document.createElement('p');empty.className='p52-teacher-muted';empty.textContent='Наразі немає заявок на вступ до твоїх груп.';teacherApps.appendChild(empty);groupsEl?.prepend(teacherApps);}
 
   await loadAdminPublicUsers(); // Публічний каталог студентів для спадних списків викладача.
   const studentIds=[...new Set(practice52TeacherGroups.flatMap(g=>Array.isArray(g.studentUids)?g.studentUids:[]))];
@@ -2893,8 +2921,16 @@ body.p52-auth-locked header{position:relative;z-index:1001}
      $('regEmail').readOnly=false;$('regPassword').required=true;$('regPassword').closest('.reg-field').classList.remove('hidden');
      form.querySelector('button[type="submit"]').textContent='Створити акаунт';
      $('emailLogin').classList.remove('hidden');$('googleLogin').classList.add('hidden');
-     if(selected==='student'&&profile.academicAccessStatus!=='approved'){
-       let accessData={};try{const accessSnap=await db.collection('academicAccessRequests').doc(user.uid).get();accessData=accessSnap.exists?(accessSnap.data()||{}):{};}catch(err){console.warn('Academic access status unavailable',err);}
+     if(selected==='student'){
+       let accessData={};try{
+        const accessSnap=await db.collection('academicAccessRequests').doc(user.uid).get();
+        accessData=accessSnap.exists?(accessSnap.data()||{}):{};
+        if(!accessSnap.exists&&profile.groupId&&profile.groupCode){
+         const status=await p52SubmitAcademicAccess(user,profile);
+         if(status==='pending')accessData={status:'pending',groupCode:profile.groupCode,groupId:profile.groupId};
+         else accessData={status:'approved',groupCode:profile.groupCode,groupId:profile.groupId};
+        }
+       }catch(err){console.error('Academic access request recovery failed:',err);lockApp();panel.classList.remove('hidden');$('regTitle').textContent='Не вдалося надіслати заявку';$('regStatus').textContent='Не вдалося створити заявку на вступ до групи: '+(err.message||'перевір з’єднання та правила доступу.');$('regStatus').style.color='var(--red)';return;}
        if(accessData.status!=='approved'){
          const rejected=accessData.status==='rejected';lockApp();panel.classList.remove('hidden');
          $('regTitle').textContent=rejected?'Оновлення заявки на вступ до групи':'🎉 Вітаємо у PRACTICE 52!';
