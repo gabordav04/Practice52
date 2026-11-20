@@ -202,6 +202,19 @@ body.p52-teacher-mode #skillCatalog{margin-top:18px}
 .p52-teacher-group-card>label{display:flex;flex-direction:column;align-items:stretch;gap:6px;width:min(100%,440px);font-size:13px}
 .p52-teacher-group-card select{width:100%;min-width:0;max-width:100%;box-sizing:border-box;padding:10px;border:1px solid var(--line);border-radius:10px;background:#fff;color:var(--ink);font:inherit}
 .p52-teacher-group-card>button{align-self:flex-start;white-space:normal}
+/* Student group cards use a vertical desktop flow; prevent flex compression of labels and roster. */
+.p52-student-group-card{display:flex;flex-direction:column;align-items:stretch;justify-content:flex-start;gap:12px;min-width:0;width:100%;box-sizing:border-box}
+.p52-student-group-card>*{min-width:0;max-width:100%;box-sizing:border-box}
+.p52-student-group-card h3,.p52-student-group-card h4{margin:0}
+.p52-student-group-card>.p52-teacher-muted{overflow-wrap:anywhere;line-height:1.5}
+.p52-student-group-card .p52-student-roster{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:8px;width:100%;min-width:0}
+.p52-student-group-card .p52-student-roster .p52-admin-row{display:flex;align-items:center;justify-content:flex-start;min-width:0;width:100%;box-sizing:border-box;overflow-wrap:anywhere}
+.p52-student-group-card .p52-student-roster .p52-admin-row span{min-width:0;max-width:100%;white-space:normal;overflow-wrap:anywhere}
+.p52-student-group-card>label{display:flex;flex-direction:column;align-items:stretch;gap:6px;width:min(100%,440px);font-size:13px}
+.p52-student-group-card select{width:100%;min-width:0;max-width:100%;box-sizing:border-box;padding:10px;border:1px solid var(--line);border-radius:10px;background:#fff;color:var(--ink);font:inherit}
+.p52-student-group-card>button{align-self:flex-start;white-space:normal}
+@media(max-width:600px){.p52-student-group-card>button{align-self:stretch;width:100%}.p52-student-group-card .p52-student-roster{grid-template-columns:1fr}}
+
 @media(max-width:900px){.p52-teacher-group-card>.p52-teacher-detail-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:600px){.p52-teacher-group-card>.p52-teacher-detail-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.p52-teacher-group-card>button{align-self:stretch;width:100%}}
 
@@ -1323,14 +1336,14 @@ async function loadPractice52StudentGroups(){
   root.classList.remove('hidden');
   root.innerHTML='<div class="eyebrow">ТВОЄ НАВЧАННЯ</div><h2>Мої групи</h2><p class="teacher-lead">Твої навчальні групи, викладачі та одногрупники.</p>';
   groups.forEach(g=>{
-   const card=document.createElement('article');card.className='p52-teacher-card';
+   const card=document.createElement('article');card.className='p52-teacher-card p52-student-group-card';
    const title=document.createElement('h3');title.textContent=g.name||'Навчальна група';
    const teacher=document.createElement('p');teacher.className='p52-teacher-muted';teacher.textContent='Викладач: '+(g.teacherName||g.teacherDisplayName||'Ім’я викладача ще не вказане');
    const isLeader=g.groupLeaderUid===firebaseUser.uid;
    const leader=document.createElement('p');leader.className='p52-teacher-muted';leader.textContent=isLeader?'⭐ Ти — староста цієї групи':(g.groupLeaderUid?'Староста: '+(profiles.get(g.groupLeaderUid)?.nickname||'Призначений студент'):'Старосту ще не призначено');
    const count=document.createElement('p');count.className='p52-teacher-muted';count.textContent='Одногрупників: '+Math.max(0,(g.studentUids||[]).length-1);
    const membersTitle=document.createElement('h4');membersTitle.textContent='Одногрупники';
-   const roster=document.createElement('div');roster.className='p52-admin-list';
+   const roster=document.createElement('div');roster.className='p52-admin-list p52-student-roster';
    (g.studentUids||[]).forEach(uid=>{const row=document.createElement('div');row.className='p52-admin-row';const p=profiles.get(uid);const name=document.createElement('span');name.textContent=(uid===firebaseUser.uid?'Ти — ':'')+(p?p.nickname:'Учасник групи');row.appendChild(name);roster.appendChild(row);});
    card.append(title,teacher,leader,count,membersTitle,roster);
    if(isLeader){
