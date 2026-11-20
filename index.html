@@ -1224,20 +1224,38 @@ function renderPractice52TeacherGroups(){
  const el=document.getElementById('p52TeacherGroups');if(!el)return;el.innerHTML='';
  if(!practice52TeacherGroups.length){el.textContent='Поки немає груп, призначених цьому викладачу.';return;}
  practice52TeacherGroups.forEach(g=>{
+  const members=practice52TeacherStudents.filter(u=>(g.studentUids||[]).includes(u.uid));
+  const withResults=members.filter(u=>u.progress);
+  const totalDone=withResults.reduce((sum,u)=>sum+(Array.isArray(u.progress.done)?u.progress.done.length:0),0);
+  const completion=members.length?Math.round(totalDone/(members.length*52)*100):0;
+  const totalAnswered=withResults.reduce((sum,u)=>sum+(Number(u.progress.answered)||0),0);
+  const totalCorrect=withResults.reduce((sum,u)=>sum+(Number(u.progress.correct)||0),0);
+  const accuracy=totalAnswered?Math.round(totalCorrect/totalAnswered*100):null;
+  const skillCounts=new Map();
+  withResults.forEach(u=>(Array.isArray(u.progress.done)?u.progress.done:[]).forEach(index=>{
+   const name=skills[index];if(name)skillCounts.set(name,(skillCounts.get(name)||0)+1);
+  }));
+  const topSkills=[...skillCounts.entries()].sort((a,b)=>b[1]-a[1]).slice(0,5);
   const card=document.createElement('article');card.className='p52-teacher-card';
-  const info=document.createElement('div');info.innerHTML='<b>'+p52TeacherText(g.name||'Навчальна група')+'</b><div class="p52-teacher-muted">Студентів: '+((g.studentUids||[]).length)+'</div>';
-  const btn=document.createElement('button');btn.className='p52-teacher-action';btn.type='button';btn.textContent='Переглянути студентів';btn.onclick=()=>{showTeacherTab('students');};
+  const info=document.createElement('div');info.innerHTML='<b>'+p52TeacherText(g.name||'Навчальна група')+'</b><div class="p52-teacher-muted">Студентів у групі: '+members.length+' · Опублікували результати: '+withResults.length+'</div>';
+  const stats=document.createElement('div');stats.className='p52-teacher-detail-grid';stats.style.marginTop='12px';
+  [[completion+'%','Загальний прогрес групи'],[totalDone+'/'+(members.length*52),'Опрацьовано навичок сумарно'],[accuracy===null?'—':accuracy+'%','Загальна точність'],[totalAnswered,'Відповідей усього']].forEach(([value,label])=>{
+   const box=document.createElement('div');const strong=document.createElement('strong');strong.textContent=String(value);const span=document.createElement('span');span.textContent=label;box.append(strong,span);stats.appendChild(box);
+  });
+  const skillSummary=document.createElement('div');skillSummary.className='p52-teacher-muted';skillSummary.style.marginTop='10px';
+  skillSummary.textContent=topSkills.length?'Найчастіше опрацьовані навички: '+topSkills.map(([name,count])=>name+' ('+count+'/'+members.length+')').join(' · '):'Ще немає опублікованих результатів для аналізу навичок.';
+  const btn=document.createElement('button');btn.className='p52-teacher-action';btn.type='button';btn.textContent='Переглянути список студентів';btn.onclick=()=>{showTeacherTab('students');};
   const leaderWrap=document.createElement('div');leaderWrap.className='p52-teacher-muted';leaderWrap.style.marginTop='10px';
   const label=document.createElement('label');label.textContent='Староста групи: ';const select=document.createElement('select');select.style.maxWidth='100%';
   const none=document.createElement('option');none.value='';none.textContent='Не призначено';select.appendChild(none);
-  (g.studentUids||[]).forEach(uid=>{const u=practice52TeacherStudents.find(x=>x.uid===uid);const option=document.createElement('option');option.value=uid;option.textContent=(u?.profile?.nickname||u?.profile?.name||uid);select.appendChild(option);});
+  (g.studentUids||[]).forEach(uid=>{const u=members.find(x=>x.uid===uid);const option=document.createElement('option');option.value=uid;option.textContent=(u?.profile?.nickname||u?.profile?.name||uid);select.appendChild(option);});
   select.value=g.groupLeaderUid||'';
   select.addEventListener('change',()=>setPractice52GroupLeader(g.id,select.value));
   label.appendChild(select);leaderWrap.appendChild(label);
   const addSearch=document.createElement('input');addSearch.className='p52-admin-search';addSearch.placeholder='Знайти студента для додавання';
   const addResults=document.createElement('div');addResults.className='p52-admin-list';
   addSearch.addEventListener('input',()=>searchStudentsForGroup(g.id,addSearch.value,addResults,'teacher'));
-  card.append(info,btn,leaderWrap,addSearch,addResults);el.appendChild(card);
+  card.append(info,stats,skillSummary,btn,leaderWrap,addSearch,addResults);el.appendChild(card);
  });
 }
 async function searchStudentsForGroup(groupId,query,target,actor){
