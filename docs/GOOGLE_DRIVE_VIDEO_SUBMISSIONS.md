@@ -47,6 +47,8 @@ Every resubmission creates a new document, preserving earlier attempts. A new at
 
 ## Required Firestore authorization
 
+A proposed additive Rules block and test checklist are documented in [`GOOGLE_DRIVE_VIDEO_FIRESTORE_RULES.md`](./GOOGLE_DRIVE_VIDEO_FIRESTORE_RULES.md). It must be merged into the complete exported live rules and tested; it is not a replacement for the existing policy.
+
 The existing rules supplied for review deny unmatched paths by default. Add a dedicated `match /practiceSubmissions/{submissionId}` block before the final catch-all deny. The block must enforce all of the following:
 
 - Unauthenticated users cannot read or write submissions.
