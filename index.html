@@ -1304,32 +1304,53 @@ function ensurePractice52GroupLeaderWorkspace(){
 }
 async function loadPractice52StudentGroups(){
  if(!firebaseUser||practice52CurrentRole==='teacher')return;
- const root=document.getElementById('p52GroupLeaderWorkspace');if(!root)return;
+ const root=ensurePractice52GroupLeaderWorkspace();if(!root)return;
  root.classList.add('hidden');root.innerHTML='';
  try{
   const snap=await db.collection('groups').where('studentUids','array-contains',firebaseUser.uid).get();
   const groups=snap.docs.map(d=>({id:d.id,...(d.data()||{})}));
-  const led=groups.filter(g=>g.groupLeaderUid===firebaseUser.uid);
-  if(!led.length)return;
+  if(!groups.length)return;
+  let publicProfiles=new Map();
+  try{
+   const publicSnap=await db.collection('leaderboard').get();
+   publicSnap.forEach(d=>{const p=d.data()||{};publicProfiles.set(d.id,{nickname:p.nickname||'Учасник',avatar:p.avatar||'👤'});});
+  }catch(profileErr){console.warn('Could not load public classmate names:',profileErr);}
   root.classList.remove('hidden');
-  root.innerHTML='<h3>Керування групою</h3><p class="p52-teacher-muted">Ви призначені старостою. Можете додавати студентів до своєї групи.</p>';
-  for(const g of led){
+  root.innerHTML='<div class="eyebrow">ТВОЄ НАВЧАННЯ</div><h2>Мої групи</h2><p class="teacher-lead">Тут видно навчальні групи, викладачів та одногрупників, до яких тебе додали або до яких ти приєднався за запрошенням.</p>';
+  groups.forEach(g=>{
    const card=document.createElement('article');card.className='p52-teacher-card';
-   const title=document.createElement('b');title.textContent=g.name||'Навчальна група';
-   const search=document.createElement('input');search.className='p52-admin-search';search.placeholder='Знайти студента за нікнеймом';
-   const results=document.createElement('div');results.className='p52-admin-list';
-   search.addEventListener('input',async()=>{
-    results.innerHTML='';const q=search.value.trim().toLowerCase();if(!q)return;
-    try{
-     const users=await db.collection('leaderboard').get();
-     const matches=users.docs.map(d=>({uid:d.id,...(d.data()||{})})).filter(u=>u.uid!==firebaseUser.uid&&String(u.nickname||'').toLowerCase().includes(q)&&!(g.studentUids||[]).includes(u.uid)).slice(0,8);
-     if(!matches.length){results.textContent='Студентів не знайдено або вони вже в групі.';return;}
-     matches.forEach(u=>{const row=document.createElement('div');row.className='p52-admin-row';const name=document.createElement('span');name.textContent=(u.nickname||'Студент')+' · '+u.uid;const add=document.createElement('button');add.type='button';add.className='btn';add.textContent='Додати';add.addEventListener('click',()=>addStudentByGroupLeader(g.id,u.uid,add));row.append(name,add);results.appendChild(row);});
-    }catch(err){console.error(err);results.textContent='Не вдалося знайти студентів. Перевір правила Firestore.';}
+   const title=document.createElement('h3');title.textContent=g.name||'Навчальна група';
+   const teacher=document.createElement('p');teacher.className='p52-teacher-muted';
+   teacher.textContent='Викладач: '+(g.teacherName||g.teacherDisplayName||g.teacherUid||'Не призначений');
+   const count=document.createElement('p');count.className='p52-teacher-muted';count.textContent='Одногрупників: '+Math.max(0,(g.studentUids||[]).length-1);
+   const roster=document.createElement('div');roster.className='p52-admin-list';
+   (g.studentUids||[]).forEach(uid=>{
+    const row=document.createElement('div');row.className='p52-admin-row';
+    const profile=publicProfiles.get(uid);
+    const name=document.createElement('span');
+    name.textContent=(uid===firebaseUser.uid?'Ти — ':'')+(profile?profile.nickname:'Учасник групи');
+    row.appendChild(name);roster.appendChild(row);
    });
-   card.append(title,search,results);root.appendChild(card);
-  }
- }catch(err){console.warn('Student group workspace unavailable:',err);}
+   const membersTitle=document.createElement('h4');membersTitle.textContent='Одногрупники';
+   card.append(title,teacher,count,membersTitle,roster);
+   if(g.groupLeaderUid===firebaseUser.uid){
+    const leaderNote=document.createElement('p');leaderNote.className='p52-teacher-muted';leaderNote.textContent='Ти староста цієї групи. Можеш допомогти викладачу та додавати студентів.';
+    const search=document.createElement('input');search.className='p52-admin-search';search.placeholder='Знайти студента за нікнеймом';
+    const results=document.createElement('div');results.className='p52-admin-list';
+    search.addEventListener('input',async()=>{
+     results.innerHTML='';const q=search.value.trim().toLowerCase();if(!q)return;
+     try{
+      const users=await db.collection('leaderboard').get();
+      const matches=users.docs.map(d=>({uid:d.id,...(d.data()||{})})).filter(u=>u.uid!==firebaseUser.uid&&String(u.nickname||'').toLowerCase().includes(q)&&!(g.studentUids||[]).includes(u.uid)).slice(0,8);
+      if(!matches.length){results.textContent='Студентів не знайдено або вони вже в групі.';return;}
+      matches.forEach(u=>{const row=document.createElement('div');row.className='p52-admin-row';const name=document.createElement('span');name.textContent=(u.nickname||'Студент');const add=document.createElement('button');add.type='button';add.className='btn';add.textContent='Додати';add.addEventListener('click',()=>addStudentByGroupLeader(g.id,u.uid,add));row.append(name,add);results.appendChild(row);});
+     }catch(err){console.error(err);results.textContent='Не вдалося знайти студентів. Перевір правила Firestore.';}
+    });
+    card.append(leaderNote,search,results);
+   }
+   root.appendChild(card);
+  });
+ }catch(err){console.warn('Student group workspace unavailable:',err);root.classList.add('hidden');}
 }
 async function addStudentByGroupLeader(groupId,studentUid,button){
  try{
