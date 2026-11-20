@@ -289,7 +289,7 @@ body.p52-teacher-mode #skillCatalog{margin-top:18px}
    <div class="reg-field p52-academic-field p52-route-field-legacy"><label for="p52Degree">Освітній рівень</label><select id="p52Degree"><option value="">Оберіть рівень</option><option value="bachelor">Бакалаврат</option><option value="master">Магістратура</option></select></div>
    <div class="reg-field p52-academic-field p52-route-field-legacy"><label for="p52Year">Курс</label><select id="p52Year"><option value="">Оберіть рівень навчання</option></select></div>
    <div class="reg-field p52-academic-field p52-route-field-legacy"><label for="p52Semester">Семестр</label><select id="p52Semester"><option value="">Оберіть семестр</option><option value="1">1 семестр</option><option value="2">2 семестр</option></select></div>
-   <div class="reg-field p52-academic-field"><label for="p52GroupCode">Код академічної групи</label><input id="p52GroupCode" type="text" maxlength="7" placeholder="15711fr" pattern="[0-9]{5}fr" title="Рівно 5 цифр і маленькі латинські fr"></div>
+   <div class="reg-field p52-academic-field"><label for="p52GroupCode">Навчальна група</label><select id="p52GroupCode" required><option value="">Завантаження списку груп…</option></select><small>Обери групу, яку створив адміністратор. Доступ відкриється після підтвердження.</small></div>
    <div class="reg-field p52-academic-field p52-route-field-legacy"><label for="p52Practice">Професійна практика з каталогу</label><select id="p52Practice"><option value="">Завантаження каталогу практик…</option></select></div>
    <div class="reg-field p52-academic-field p52-route-field-legacy"><small>Доступ до матеріалів і надсилання практичних робіт відкриється після підтвердження заявки.</small></div>
    <div class="reg-field"><label for="regEmail">Електронна пошта</label><input id="regEmail" name="email" type="email" autocomplete="email" placeholder="name@example.com" required></div>
@@ -1087,35 +1087,45 @@ function p52InitAcademicFields(profile={}){
  degree.value=profile.degree||'';let practiceDocs=[];
  const fill=()=>{year.innerHTML='<option value="">Оберіть курс</option>';const n=degree.value==='bachelor'?4:degree.value==='master'?2:0;for(let i=1;i<=n;i++){const o=document.createElement('option');o.value=String(i);o.textContent=i+' курс';year.appendChild(o);}if(profile.year)year.value=String(profile.year);};
  const renderPractices=()=>{const courseId=(degree.value==='bachelor'?'bachelor-':'master-')+year.value,filtered=practiceDocs.filter(x=>!x.data.courseId||x.data.courseId===courseId);practice.innerHTML='<option value="">Оберіть професійну практику</option>';filtered.forEach(x=>{const o=document.createElement('option');o.value=x.id;o.textContent=x.data.title||x.id;o.dataset.courseId=x.data.courseId||'';practice.appendChild(o);});if(profile.practiceId&&filtered.some(x=>x.id===profile.practiceId))practice.value=profile.practiceId;if(!filtered.length)practice.innerHTML='<option value="">Для цього курсу немає активних практик</option>';};
- degree.onchange=()=>{profile.year=0;fill();renderPractices();};year.onchange=renderPractices;fill();semester.value=profile.semester?String(profile.semester):'';group.value=profile.groupCode||'';
+ degree.onchange=()=>{profile.year=0;fill();renderPractices();};year.onchange=renderPractices;fill();semester.value=profile.semester?String(profile.semester):'';
+ group.disabled=true;group.innerHTML='<option value="">Завантаження списку створених груп…</option>';
+ db.collection('availableAcademicGroups').where('status','==','active').get().then(snap=>{
+  const groups=snap.docs.map(doc=>({id:doc.id,data:doc.data()||{}})).filter(x=>x.data.groupCode&&P52_GROUP_CODE_RE.test(x.data.groupCode));
+  groups.sort((a,b)=>a.data.groupCode.localeCompare(b.data.groupCode,'uk'));
+  group.innerHTML='<option value="">Оберіть свою академічну групу</option>';
+  groups.forEach(item=>{const o=document.createElement('option');o.value=item.id;o.textContent=item.data.groupName&&item.data.groupName!==item.data.groupCode?item.data.groupName+' · '+item.data.groupCode:item.data.groupCode;o.dataset.groupCode=item.data.groupCode;group.appendChild(o);});
+  group.disabled=false;
+  const selected=groups.find(x=>x.id===(profile.groupId||'')||x.data.groupCode===(profile.groupCode||''));
+  if(selected)group.value=selected.id;
+  if(!groups.length){group.innerHTML='<option value="">Поки немає доступних груп</option>';group.disabled=true;}
+ }).catch(err=>{console.error('Available academic groups failed:',err);group.innerHTML='<option value="">Не вдалося завантажити групи — онови сторінку</option>';group.disabled=true;});
  practice.innerHTML='<option value="">Завантаження каталогу практик…</option>';
  db.collection('practices').where('status','==','active').get().then(snap=>{practiceDocs=snap.docs.map(doc=>({id:doc.id,data:doc.data()||{}}));renderPractices();}).catch(()=>{practice.innerHTML='<option value="">Каталог недоступний — повтори пізніше</option>';});
 }
 function p52ReadAcademicFields(){
- const groupCode=(document.getElementById('p52GroupCode')?.value||'').trim().toLowerCase();
- if(!P52_GROUP_CODE_RE.test(groupCode))throw Error('Вкажи код своєї академічної групи у форматі 5 цифр + fr. Наприклад: 15711fr.');
- return {groupCode};
+ const group=document.getElementById('p52GroupCode'),selected=group?.selectedOptions?.[0],groupId=group?.value||'',groupCode=(selected?.dataset?.groupCode||'').trim().toLowerCase();
+ if(!groupId||!P52_GROUP_CODE_RE.test(groupCode))throw Error('Оберіть навчальну групу зі списку створених адміністратором.');
+ return {groupCode,groupId};
 }
 async function p52SubmitAcademicAccess(user,profile){
- const {groupCode}=p52ReadAcademicFields();
+ const {groupCode,groupId}=p52ReadAcademicFields();
  const existingGroups=await db.collection('groups').where('studentUids','array-contains',user.uid).get();
  const activeMembership=existingGroups.docs.find(d=>(d.data()||{}).status!=='archived');
- const existingGroup=activeMembership&&(activeMembership.id===groupCode||(activeMembership.data()||{}).groupCode===groupCode)?activeMembership:null;
+ const existingGroup=activeMembership&&(activeMembership.id===groupId||(activeMembership.data()||{}).groupCode===groupCode)?activeMembership:null;
  if(activeMembership&&!existingGroup)throw new Error('Твій акаунт уже прив’язаний до іншої активної групи. Звернися до адміністратора для виправлення.');
  const requestRef=db.collection('academicAccessRequests').doc(user.uid);
  const previous=await requestRef.get(),previousData=previous.exists?(previous.data()||{}):{};
  if(existingGroup){
-  const p={...profile,groupCode,academicAccessStatus:'approved'};
+  const p={...profile,groupCode,groupId,academicAccessStatus:'approved'};
   writeLocalProfile(p,user);
   await db.collection('users').doc(user.uid).set({profile:p,academicAccessStatus:'approved',updatedAt:firebase.firestore.FieldValue.serverTimestamp()},{merge:true});
   return;
  }
- const codeSnap=await db.collection('academicGroupCodes').doc(groupCode).get();
- const groupId=codeSnap.exists?(codeSnap.data()||{}).groupId||groupCode:groupCode;
- // Перевірку існування та відповідності групи виконує Firestore Rules; новому студенту не відкриваємо приватний документ групи.
+ const groupRef=await db.collection('availableAcademicGroups').doc(groupId).get();
+ if(!groupRef.exists||(groupRef.data()||{}).status!=='active'||(groupRef.data()||{}).groupCode!==groupCode)throw new Error('Обрана група більше недоступна. Онови список і вибери іншу.');
  const data={studentUid:user.uid,studentEmail:user.email||'',studentName:profile.name||'',nickname:profile.nickname||'',groupCode,groupId,status:'pending',createdAt:previous.exists?(previousData.createdAt||firebase.firestore.FieldValue.serverTimestamp()):firebase.firestore.FieldValue.serverTimestamp(),updatedAt:firebase.firestore.FieldValue.serverTimestamp()};
  await requestRef.set(data,{merge:true});
- const p={...profile,groupCode,academicAccessStatus:'pending'};
+ const p={...profile,groupCode,groupId,academicAccessStatus:'pending'};
  writeLocalProfile(p,user);
  await db.collection('users').doc(user.uid).set({profile:p,academicAccessStatus:'pending',updatedAt:firebase.firestore.FieldValue.serverTimestamp()},{merge:true});
 }
@@ -1322,7 +1332,7 @@ async function createAdminGroup(e){
  if(!teacherUid)return;
  try{
   const teacherSelect=document.getElementById('p52GroupTeacher'),teacherName=teacherSelect?.selectedOptions?.[0]?.dataset?.teacherName||teacherSelect?.selectedOptions?.[0]?.textContent||'Викладач';
-  const groupRef=db.collection('groups').doc(name),existing=await groupRef.get(),codeExisting=await db.collection('academicGroupCodes').doc(name).get();if(existing.exists||codeExisting.exists)throw new Error('Група з таким кодом уже існує.');await groupRef.set({name,groupCode:name,teacherUid,teacherName,studentUids:[],createdBy:firebaseUser.uid,createdAt:firebase.firestore.FieldValue.serverTimestamp(),updatedAt:firebase.firestore.FieldValue.serverTimestamp()});await db.collection('academicGroupCodes').doc(name).set({groupId:name,groupCode:name,teacherUid,updatedAt:firebase.firestore.FieldValue.serverTimestamp()});
+  const groupRef=db.collection('groups').doc(name),existing=await groupRef.get(),codeExisting=await db.collection('academicGroupCodes').doc(name).get();if(existing.exists||codeExisting.exists)throw new Error('Група з таким кодом уже існує.');await groupRef.set({name,groupCode:name,teacherUid,teacherName,studentUids:[],status:'active',createdBy:firebaseUser.uid,createdAt:firebase.firestore.FieldValue.serverTimestamp(),updatedAt:firebase.firestore.FieldValue.serverTimestamp()});await db.collection('academicGroupCodes').doc(name).set({groupId:name,groupCode:name,teacherUid,updatedAt:firebase.firestore.FieldValue.serverTimestamp()});await db.collection('availableAcademicGroups').doc(name).set({groupId:name,groupCode:name,groupName:name,teacherName,status:'active',updatedAt:firebase.firestore.FieldValue.serverTimestamp()});
   document.getElementById('p52GroupName').value='';setAdminStatus('Групу створено.');await loadAdminGroups();
  }catch(err){console.error(err);setAdminStatus('Не вдалося створити групу. Спочатку потрібно додати правила Firestore для groups.',true);}
 }
@@ -1340,12 +1350,12 @@ async function loadAdminGroups(){
   if(snap.empty){list.textContent='Поки немає навчальних груп.';}
   snap.forEach(doc=>{
    const data=doc.data()||{},card=adminNode('div','p52-admin-group'),head=adminNode('div','p52-admin-row');
-   const inferredCode=data.groupCode||(P52_GROUP_CODE_RE.test(data.name||'')?data.name:'');if(inferredCode)db.collection('academicGroupCodes').doc(inferredCode).set({groupId:doc.id,groupCode:inferredCode,teacherUid:data.teacherUid||'',updatedAt:firebase.firestore.FieldValue.serverTimestamp()},{merge:true}).catch(err=>console.warn('Group code registry sync failed:',err));
+   const inferredCode=data.groupCode||(P52_GROUP_CODE_RE.test(data.name||'')?data.name:'');if(inferredCode){db.collection('academicGroupCodes').doc(inferredCode).set({groupId:doc.id,groupCode:inferredCode,teacherUid:data.teacherUid||'',updatedAt:firebase.firestore.FieldValue.serverTimestamp()},{merge:true}).catch(err=>console.warn('Group code registry sync failed:',err));db.collection('availableAcademicGroups').doc(doc.id).set({groupId:doc.id,groupCode:inferredCode,groupName:data.name||inferredCode,teacherName:data.teacherName||'Викладач',status:data.status==='archived'?'archived':'active',updatedAt:firebase.firestore.FieldValue.serverTimestamp()},{merge:true}).catch(err=>console.warn('Public group list sync failed:',err));}
    const info=adminNode('div');info.append(adminNode('strong','',data.name||'Без назви'),adminNode('small','','Викладач UID: '+(data.teacherUid||'—')+' · Студентів: '+(Array.isArray(data.studentUids)?data.studentUids.length:0)));
-   const del=adminNode('button','btn','Видалити');del.type='button';del.addEventListener('click',async()=>{if(!confirm('Видалити групу «'+(data.name||'')+'»?'))return;try{await db.collection('groups').doc(doc.id).delete();await loadAdminGroups();setAdminStatus('Групу видалено.');}catch(err){setAdminStatus('Не вдалося видалити групу.',true);}});
+   const del=adminNode('button','btn','Видалити');del.type='button';del.addEventListener('click',async()=>{if(!confirm('Видалити групу «'+(data.name||'')+'»?'))return;try{await db.collection('groups').doc(doc.id).delete();await db.collection('academicGroupCodes').doc(inferredCode||doc.id).delete().catch(()=>{});await db.collection('availableAcademicGroups').doc(doc.id).delete().catch(()=>{});await loadAdminGroups();setAdminStatus('Групу видалено.');}catch(err){setAdminStatus('Не вдалося видалити групу.',true);}});
    head.append(info,del);card.appendChild(head);
    const codeWrap=adminNode('div','p52-university-form'),codeInput=adminNode('input');codeInput.placeholder='Код академічної групи: 5 цифр + fr';codeInput.maxLength=7;codeInput.value=data.groupCode||(P52_GROUP_CODE_RE.test(data.name||'')?data.name:'');
-   const saveCode=adminNode('button','btn','Зберегти код групи');saveCode.type='button';saveCode.addEventListener('click',async()=>{const code=codeInput.value.trim();if(!P52_GROUP_CODE_RE.test(code)){setAdminStatus('Код групи має бути у форматі 15711fr.',true);return;}try{saveCode.disabled=true;const mapping=await db.collection('academicGroupCodes').doc(code).get();if(mapping.exists&&(mapping.data()||{}).groupId!==doc.id)throw new Error('Цей код уже прив’язаний до іншої групи.');await db.collection('groups').doc(doc.id).update({groupCode:code,updatedAt:firebase.firestore.FieldValue.serverTimestamp()});await db.collection('academicGroupCodes').doc(code).set({groupId:doc.id,groupCode:code,teacherUid:data.teacherUid||'',updatedAt:firebase.firestore.FieldValue.serverTimestamp()},{merge:true});setAdminStatus('Код групи збережено.');await loadAdminGroups();}catch(err){console.error(err);setAdminStatus(err.message||'Не вдалося зберегти код групи.',true);}finally{saveCode.disabled=false;}});codeWrap.append(codeInput,saveCode);card.appendChild(codeWrap);
+   const saveCode=adminNode('button','btn','Зберегти код групи');saveCode.type='button';saveCode.addEventListener('click',async()=>{const code=codeInput.value.trim();if(!P52_GROUP_CODE_RE.test(code)){setAdminStatus('Код групи має бути у форматі 15711fr.',true);return;}try{saveCode.disabled=true;const mapping=await db.collection('academicGroupCodes').doc(code).get();if(mapping.exists&&(mapping.data()||{}).groupId!==doc.id)throw new Error('Цей код уже прив’язаний до іншої групи.');await db.collection('groups').doc(doc.id).update({groupCode:code,updatedAt:firebase.firestore.FieldValue.serverTimestamp()});await db.collection('academicGroupCodes').doc(code).set({groupId:doc.id,groupCode:code,teacherUid:data.teacherUid||'',updatedAt:firebase.firestore.FieldValue.serverTimestamp()},{merge:true});await db.collection('availableAcademicGroups').doc(doc.id).set({groupId:doc.id,groupCode:code,groupName:data.name||code,teacherName:data.teacherName||'Викладач',status:data.status==='archived'?'archived':'active',updatedAt:firebase.firestore.FieldValue.serverTimestamp()},{merge:true});setAdminStatus('Код групи збережено.');await loadAdminGroups();}catch(err){console.error(err);setAdminStatus(err.message||'Не вдалося зберегти код групи.',true);}finally{saveCode.disabled=false;}});codeWrap.append(codeInput,saveCode);card.appendChild(codeWrap);
    const academic=adminNode('div','p52-university-form');
    const course=adminNode('select');course.appendChild(new Option('Оберіть курс із каталогу',''));
    catalogCourses.sort((a,b)=>(a.data.yearNumber||0)-(b.data.yearNumber||0)).forEach(item=>course.appendChild(new Option(item.data.title||item.id,item.id)));
