@@ -1684,19 +1684,25 @@ async function loadPractice52StudentGroups(){
   const snap=await db.collection('groups').where('studentUids','array-contains',firebaseUser.uid).get();
   const allGroups=snap.docs.map(d=>({id:d.id,...(d.data()||{})}));const groups=allGroups.filter(g=>g.status!=='archived');const archivedGroups=allGroups.filter(g=>g.status==='archived');
   if(!groups.length)return;
-  const profileSnap=await db.collection('leaderboard').get();
+  const [profileSnap,userSnap]=await Promise.all([db.collection('leaderboard').get(),db.collection('users').doc(firebaseUser.uid).get()]);
   const profiles=new Map();profileSnap.forEach(d=>{const p=d.data()||{};profiles.set(d.id,{nickname:p.nickname||p.name||'Учасник',avatar:p.avatar||'👤'});});
+  const studentProfile={...(userSnap.exists?(userSnap.data().profile||{}):{}),...(readLocalProfile()||{})};
   root.classList.remove('hidden');
   root.innerHTML='<div class="eyebrow">ТВОЄ НАВЧАННЯ</div><h2>Моя група</h2><p class="teacher-lead">Твоя навчальна група, викладач та одногрупники.</p>';
+  const routeButton=document.createElement('button');routeButton.type='button';routeButton.className='reg-btn secondary';routeButton.textContent='🗺️ Повернутися до навчального маршруту';
+  routeButton.addEventListener('click',()=>{const route=document.getElementById('p52StudentRoute');if(route){route.classList.remove('hidden');route.scrollIntoView({behavior:'smooth',block:'start'});}});
+  root.appendChild(routeButton);
   if(archivedGroups.length){const history=document.createElement('section');history.className='p52-teacher-guide';const heading=document.createElement('h3');heading.textContent='Історія навчання';history.appendChild(heading);archivedGroups.forEach(g=>{const item=document.createElement('p');item.className='p52-teacher-muted';item.textContent=(g.name||'Навчальна група')+' · '+((P52_COURSES.find(c=>c.id===g.courseId)||{}).title||'Курс не вказано')+' · '+(g.semester||'—')+' семестр · '+(g.practiceTitle||'Практика не вказана');history.appendChild(item);});root.appendChild(history);}
   groups.forEach(g=>{
    const card=document.createElement('article');card.className='p52-teacher-card p52-student-group-card';
    const title=document.createElement('h3');title.textContent=g.name||'Навчальна група';
    const teacher=document.createElement('p');teacher.className='p52-teacher-muted';teacher.textContent='Викладач: '+(g.teacherName||g.teacherDisplayName||'Ім’я викладача ще не вказане');
-   const studentProfile=readLocalProfile()||{};const courseInfo=document.createElement('div');courseInfo.className='p52-teacher-detail-grid';
-   const courseTitle=(P52_COURSES.find(c=>c.id===studentProfile.courseId)||{}).title||'Курс ще не обрано';
-   const semesterTitle=studentProfile.semester?studentProfile.semester+' семестр':'Семестр не обрано';
-   [[courseTitle,'Курс'],[semesterTitle,'Семестр'],[studentProfile.practiceTitle||'Практику не обрано','Професійна практика'],[studentProfile.groupCode||g.groupCode||g.name||'—','Академічна група']].forEach(([v,l])=>{const box=document.createElement('div');const strong=document.createElement('strong');strong.textContent=v;const small=document.createElement('span');small.textContent=l;box.append(strong,small);courseInfo.appendChild(box);});
+   const courseInfo=document.createElement('div');courseInfo.className='p52-teacher-detail-grid';
+   const degreeTitle=studentProfile.degree==='master'?'Магістратура':studentProfile.degree==='bachelor'?'Бакалаврат':'Не обрано';
+   const courseTitle=(P52_COURSES.find(c=>c.id===studentProfile.courseId)||{}).title||'Не обрано';
+   const semesterTitle=studentProfile.semester?studentProfile.semester+' семестр':'Не обрано';
+   const practiceTitle=studentProfile.practiceTitle||'Не обрано';
+   [[degreeTitle,'Освітній рівень'],[courseTitle,'Курс'],[semesterTitle,'Семестр'],[practiceTitle,'Практика'],[studentProfile.groupCode||g.groupCode||g.name||'—','Академічна група']].forEach(([v,l])=>{const box=document.createElement('div');const strong=document.createElement('strong');strong.textContent=v;const small=document.createElement('span');small.textContent=l;box.append(strong,small);courseInfo.appendChild(box);});
    card.appendChild(courseInfo);
    const isLeader=g.groupLeaderUid===firebaseUser.uid;
    const leader=document.createElement('p');leader.className='p52-teacher-muted';leader.textContent=isLeader?'⭐ Ти — староста цієї групи':(g.groupLeaderUid?'Староста: '+(profiles.get(g.groupLeaderUid)?.nickname||'Призначений студент'):'Старосту ще не призначено');
@@ -3035,9 +3041,8 @@ body.p52-auth-locked header{position:relative;z-index:1001}
    degree.value=profile.degree||'';fillCourses(profile.courseId||'');
    semester.value=profile.semester?String(profile.semester):'';fillPractices(profile.practiceId||'');
    const ready=!!(profile.practiceId&&profile.courseId&&profile.degree&&profile.semester);
-   route.classList.remove('hidden');
-   if(ready){status.textContent='Збережений маршрут: '+(degree.selectedOptions[0]?.textContent||'')+' · '+(course.selectedOptions[0]?.textContent||'')+' · '+semester.value+' семестр · '+(practice.selectedOptions[0]?.textContent||'');setUnavailable(profile.practiceId!==supportedPracticeId);if(profile.practiceId!==supportedPracticeId)status.textContent+=' Ця практика ще не має підключеного навчального набору матеріалів. Твої попередні результати не видалені.';}
-   else{status.textContent='Обери рівень, курс, семестр і практику, щоб відкрити відповідний навчальний простір.';setUnavailable(true);}
+   if(ready){route.classList.add('hidden');status.textContent='Збережений маршрут: '+(degree.selectedOptions[0]?.textContent||'')+' · '+(course.selectedOptions[0]?.textContent||'')+' · '+semester.value+' семестр · '+(practice.selectedOptions[0]?.textContent||'');setUnavailable(profile.practiceId!==supportedPracticeId);if(profile.practiceId!==supportedPracticeId)status.textContent+=' Ця практика ще не має підключеного навчального набору матеріалів. Твої попередні результати не видалені.';}
+   else{route.classList.remove('hidden');status.textContent='Обери рівень, курс, семестр і практику, щоб відкрити відповідний навчальний простір.';setUnavailable(true);}
   }catch(err){console.error('Student route load failed',err);status.textContent='Не вдалося завантажити каталог практик. Онови сторінку або спробуй пізніше.';setUnavailable(true);}
  }
  degree.addEventListener('change',()=>fillCourses());course.addEventListener('change',()=>fillPractices());semester.addEventListener('change',()=>fillPractices());
