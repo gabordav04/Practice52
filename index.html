@@ -1860,6 +1860,7 @@ auth.onAuthStateChanged(async user=>{
     const rejected=access.status==='rejected';document.querySelectorAll('.p52-academic-field').forEach(el=>el.classList.toggle('hidden',!rejected));
     const requestSubmit=$('registrationForm').querySelector('button[type="submit"]');requestSubmit.classList.toggle('hidden',!rejected);if(rejected)requestSubmit.textContent='Оновити заявку';$('saveProfileBtn').classList.add('hidden');$('hideProfileBtn').classList.add('hidden');$('logoutBtn').classList.remove('hidden');
     $('regStatus').textContent=rejected?'Заявку відхилено. Перевір код групи та навчальні дані, після чого можеш надіслати її повторно.':'Заявку на доступ надіслано. Очікуй підтвердження викладачем або адміністратором. До підтвердження навчальні матеріали, екзамени та надсилання практичних робіт недоступні.';
+    if(!rejected){const check=document.createElement('button');check.type='button';check.className='reg-btn secondary';check.textContent='Перевірити підтвердження';check.style.marginTop='10px';check.onclick=async()=>{try{const latest=await db.collection('academicAccessRequests').doc(firebaseUser.uid).get();if(latest.exists&&(latest.data()||{}).status==='approved')location.reload();else $('regStatus').textContent='Заявка ще очікує підтвердження.';}catch(err){$('regStatus').textContent='Не вдалося перевірити статус. Спробуй пізніше.';}};$('regStatus').appendChild(check);}
     return;
    }
    document.body.classList.remove('p52-auth-locked');
