@@ -2003,7 +2003,7 @@ async function renderP52StudentVideoSubmission(skillIndex){
  button.disabled=true;status.textContent='Перевіряємо попереднє подання…';
  try{
   const groupSnap=await db.collection('groups').where('studentUids','array-contains',firebaseUser.uid).limit(1).get();if(groupSnap.empty){status.textContent='Спочатку потрібно приєднатися до навчальної групи.';return;}
-  const group=groupSnap.docs[0];const query=await db.collection('practiceSubmissions').where('studentUid','==',firebaseUser.uid).get();
+  const group=groupSnap.docs[0];const query=await db.collection('practiceSubmissions').where('studentUid','==',firebaseUser.uid).where('groupId','==',group.id).get();
   const previous=query.docs.map(d=>({id:d.id,...(d.data()||{})})).filter(d=>d.groupId===group.id&&Number(d.skillIndex)===skillIndex).sort((x,y)=>{const tx=x.submittedAt&&x.submittedAt.toMillis?x.submittedAt.toMillis():0,ty=y.submittedAt&&y.submittedAt.toMillis?y.submittedAt.toMillis():0;return ty-tx;})[0];
   if(previous){input.value=previous.driveUrl||'';check.checked=previous.accessConfirmed===true;status.textContent=({submitted:'Надіслано на перевірку',resubmission_requested:'Потрібне повторне відео',reviewed:'Відео перевірено'})[previous.status]||'Подання збережено';}else status.textContent='Відео ще не подано.';
   button.disabled=false;button.onclick=async()=>{
