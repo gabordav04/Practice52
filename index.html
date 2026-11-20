@@ -235,12 +235,16 @@ body.p52-teacher-mode #skillCatalog{margin-top:18px}
 .p52-university-wide{grid-column:1/-1}
 @media(max-width:650px){.p52-university-grid{grid-template-columns:1fr}.p52-university-form{grid-template-columns:1fr}.p52-university-form textarea{grid-column:auto}}
 
+
+/* University entry portal */
+#p52UniversityPortal{position:fixed;inset:0;z-index:10000;overflow:auto;background:linear-gradient(145deg,#eef5fa,#f6faf8);padding:clamp(18px,4vw,48px)}#p52UniversityPortal .portal-wrap{max-width:960px;margin:0 auto}#p52UniversityPortal .portal-brand{display:flex;align-items:center;gap:13px;margin-bottom:28px}#p52UniversityPortal .portal-mark{width:48px;height:48px;border-radius:15px;background:#2477a8;color:white;display:grid;place-items:center;font-size:23px;font-weight:800}#p52UniversityPortal .portal-university{font-size:clamp(22px,4vw,34px);line-height:1.2;margin:0;color:#183247}#p52UniversityPortal .portal-intro{padding:clamp(20px,4vw,34px);background:white;border:1px solid #dce8ee;border-radius:22px;box-shadow:0 12px 36px #1d41590d}#p52UniversityPortal h2{font-size:clamp(22px,4vw,30px);margin:6px 0 8px}#p52UniversityPortal .portal-program{font-weight:750;color:#2477a8;font-size:17px}#p52UniversityPortal .portal-level{margin:24px 0 10px;font-size:16px}#p52UniversityPortal .portal-courses{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}#p52UniversityPortal .portal-course{padding:16px;text-align:left;border:1px solid #dce7ed;border-radius:14px;background:#fff;color:#183247;font-weight:700;min-height:76px}#p52UniversityPortal .portal-course small{display:block;font-weight:500;color:#718394;margin-top:4px}#p52UniversityPortal .portal-course.active{border:2px solid #2477a8;background:#f0f8fc;cursor:pointer}#p52UniversityPortal .portal-course:disabled{cursor:not-allowed;opacity:.7}#p52UniversityPortal .portal-foot{margin-top:18px;color:#718394;font-size:12px;line-height:1.6}@media(max-width:560px){#p52UniversityPortal .portal-courses{grid-template-columns:1fr}#p52UniversityPortal{padding:16px}}
 </style>
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
 </head>
 <body>
+<div id="p52UniversityPortal" class="hidden" aria-label="Вибір освітньої програми та курсу"><div class="portal-wrap"><div class="portal-brand"><div class="portal-mark">52</div><div><div class="eyebrow">PRACTICE 52 · ОСВІТНЯ ПЛАТФОРМА</div><h1 class="portal-university">Національний медичний університет імені О. О. Богомольця</h1></div></div><section class="portal-intro"><div class="eyebrow">ВІТАЄМО</div><h2>Оберіть освітню програму</h2><div class="portal-program">Фізична терапія та реабілітація</div><p>Оберіть курс, щоб перейти до навчального простору. Зараз доступна практика для магістратури першого року.</p><h3 class="portal-level">Бакалаврат</h3><div class="portal-courses"><button class="portal-course" disabled>1 курс<small>Невдовзі</small></button><button class="portal-course" disabled>2 курс<small>Невдовзі</small></button><button class="portal-course" disabled>3 курс<small>Невдовзі</small></button><button class="portal-course" disabled>4 курс<small>Невдовзі</small></button></div><h3 class="portal-level">Магістратура</h3><div class="portal-courses"><button class="portal-course active" id="p52OpenMaster1" type="button">Магістратура · 1 курс<small>52 практичні навички · Відкрити курс →</small></button><button class="portal-course" disabled>Магістратура · 2 курс<small>Невдовзі</small></button></div><p class="portal-foot">PRACTICE 52 — навчальна платформа, створена студентом для освітньої спільноти. Платформа не заявляє про офіційне представництво чи схвалення університету.</p></section></div></div>
 <div class="app">
 <div id="p52EntryBackdrop" class="p52-entry-backdrop hidden" role="dialog" aria-modal="true" aria-labelledby="p52EntryTitle"><div class="p52-entry-card"><div class="eyebrow">ЗМІНА КОРИСТУВАЧА</div><h2 id="p52EntryTitle">Хто користуватиметься PRACTICE 52?</h2><p>Обери роль нового користувача. Поточний сеанс буде завершено, локальні дані попереднього користувача на цьому пристрої очищено. Для продовження потрібно створити акаунт або увійти.</p><div class="p52-entry-choices"><button type="button" class="p52-entry-choice" data-entry-role="student">🎓 Я — студент</button><button type="button" class="p52-entry-choice" data-entry-role="teacher">👩‍🏫 Я — викладач</button><button type="button" class="p52-entry-choice" data-entry-role="admin">🛡️ Я — адміністратор</button></div><div class="p52-entry-actions hidden" id="p52EntryActions"><button type="button" class="btn primary" id="p52EntryConfirm">Підтвердити роль і перейти до входу</button><button type="button" class="btn" id="p52EntryBack">Скасувати</button></div><p class="note" id="p52EntryNote">Гостьовий режим вимкнено: кожен користувач входить у власний акаунт. Права викладача й адміністратора підтверджуються окремо.</p></div></div>
 
@@ -1038,7 +1042,7 @@ const P52_COURSES=[
 ];
 const P52_INITIAL_PRACTICE={
  id:'master-2-cardiorespiratory-professional-practice',
- courseId:'master-2',
+ courseId:'master-1',
  title:'Професійна практика з фізичної терапії та реабілітації при порушеннях діяльності серцево-судинної та дихальної системи',
  description:'Практика з 52 практичних навичок. Наявні результати зберігаються у чинній системі.',
  skillSetId:'practice-52-cardiorespiratory',
@@ -1064,7 +1068,7 @@ async function loadP52UniversityCatalog(){
   P52_COURSES.forEach(c=>{const o=document.createElement('option');o.value=c.id;o.textContent=c.title;courseSelect.appendChild(o);});
   list.innerHTML='';
   const header=document.createElement('div');header.className='p52-university-card';
-  const h=document.createElement('h4');h.textContent=u.exists?(u.data().name||'PRACTICE 52 — Університет'):'Університет ще не створений';
+  const h=document.createElement('h4');h.textContent=u.exists?(u.data().name||'Національний медичний університет імені О. О. Богомольця'):'Університет ще не створений';
   const ptext=document.createElement('p');ptext.textContent=(p.exists?(p.data().name||'Фізична терапія та реабілітація'):'Освітню програму ще не створено')+' · '+(courses.size||0)+'/6 курсів';
   header.append(h,ptext);list.appendChild(header);
   const renderLevel=(label,level)=>{
@@ -1094,7 +1098,7 @@ async function seedP52UniversityFoundation(){
  const btn=document.getElementById('p52UniversitySeed');if(btn)btn.disabled=true;
  try{
   const batch=db.batch(),now=firebase.firestore.FieldValue.serverTimestamp();
-  batch.set(db.collection('universities').doc(P52_UNIVERSITY_ID),{name:'PRACTICE 52 — Університет',slug:'practice52-university',status:'active',updatedAt:now},{merge:true});
+  batch.set(db.collection('universities').doc(P52_UNIVERSITY_ID),{name:'Національний медичний університет імені О. О. Богомольця',slug:'practice52-university',status:'active',updatedAt:now},{merge:true});
   batch.set(db.collection('programs').doc(P52_PROGRAM_ID),{universityId:P52_UNIVERSITY_ID,name:'Фізична терапія та реабілітація',status:'active',updatedAt:now},{merge:true});
   P52_COURSES.forEach(c=>batch.set(db.collection('courses').doc(c.id),{universityId:P52_UNIVERSITY_ID,programId:P52_PROGRAM_ID,educationLevel:c.level,yearNumber:c.year,title:c.title,status:'active',updatedAt:now},{merge:true}));
   batch.set(db.collection('practices').doc(P52_INITIAL_PRACTICE.id),{universityId:P52_UNIVERSITY_ID,programId:P52_PROGRAM_ID,courseId:P52_INITIAL_PRACTICE.courseId,title:P52_INITIAL_PRACTICE.title,description:P52_INITIAL_PRACTICE.description,skillSetId:P52_INITIAL_PRACTICE.skillSetId,legacySource:P52_INITIAL_PRACTICE.legacySource,status:'active',updatedAt:now},{merge:true});
@@ -2355,25 +2359,31 @@ renderStats();renderSkills();renderHeaderIdentity();
  const ROLE_KEY='practice52_entry_role_v1',DONE_KEY='practice52_entry_done_v1';
  const backdrop=document.getElementById('p52EntryBackdrop'),actions=document.getElementById('p52EntryActions');
  let selected=localStorage.getItem(ROLE_KEY)||'';
+ let onboardingFlow=false;
  function updateRoleUI(){
   document.querySelectorAll('[data-entry-role]').forEach(b=>b.classList.toggle('selected',b.dataset.entryRole===selected));
   actions.classList.toggle('hidden',!selected);
  }
- function openEntry(){backdrop.classList.remove('hidden');selected=localStorage.getItem(ROLE_KEY)||'';updateRoleUI();}
+ function openEntry(){if(!onboardingFlow){backdrop.querySelector('.eyebrow').textContent='ЗМІНА КОРИСТУВАЧА';backdrop.querySelector('p').textContent='Обери роль нового користувача. Поточний сеанс буде завершено, локальні дані попереднього користувача на цьому пристрої очищено. Для продовження потрібно створити акаунт або увійти.';}backdrop.classList.remove('hidden');selected=localStorage.getItem(ROLE_KEY)||'';updateRoleUI();}
+ window.practice52StartOnboardingRole=function(){onboardingFlow=true;backdrop.querySelector('.eyebrow').textContent='ВИБІР РОЛІ';backdrop.querySelector('p').textContent='Оберіть, у якій ролі ви працюватимете на платформі. Для продовження потрібно увійти або створити власний акаунт.';openEntry();};
  document.querySelectorAll('[data-entry-role]').forEach(b=>b.addEventListener('click',()=>{selected=b.dataset.entryRole;updateRoleUI();}));
  document.getElementById('p52EntryBack').addEventListener('click',()=>{backdrop.classList.add('hidden');});
  document.getElementById('p52EntryConfirm').addEventListener('click',async()=>{
   if(!selected)return;
   const confirmButton=document.getElementById('p52EntryConfirm');confirmButton.disabled=true;
   try{
-   // Очистити лише локальні дані PRACTICE 52. Хмарні профілі та прогрес акаунтів не видаляються.
-   for(const key of Object.keys(localStorage)){
-    if(key.startsWith('practice52_profile_v1')||key.startsWith('practice52_v1'))localStorage.removeItem(key);
+   if(!onboardingFlow){
+    for(const key of Object.keys(localStorage)){
+     if(key.startsWith('practice52_profile_v1')||key.startsWith('practice52_v1'))localStorage.removeItem(key);
+    }
+    KEY='practice52_v1:guest';state=emptyPracticeState();localStorage.removeItem(KEY);
+    renderStats();renderSkills();
+    if(firebase.auth().currentUser)await firebase.auth().signOut();
    }
    localStorage.setItem(ROLE_KEY,selected);localStorage.setItem(DONE_KEY,'1');
-   KEY='practice52_v1:guest';state=emptyPracticeState();localStorage.removeItem(KEY);
-   renderStats();renderSkills();
-   if(firebase.auth().currentUser)await firebase.auth().signOut();
+   localStorage.setItem('practice52_university_portal_done_v1','1');
+   onboardingFlow=false;
+   document.getElementById('p52UniversityPortal').classList.add('hidden');
    backdrop.classList.add('hidden');
    const panel=document.getElementById('accountPanel');panel.classList.remove('hidden');
    document.getElementById('studentIdentity').setAttribute('aria-expanded','true');
@@ -2382,7 +2392,7 @@ renderStats();renderSkills();renderHeaderIdentity();
    const createButton=document.querySelector('#registrationForm button[type="submit"]');
    if(createButton)createButton.classList.toggle('hidden',selected==='admin');
    const google=document.getElementById('googleLogin');if(google)google.classList.remove('hidden');
-   document.getElementById('regStatus').textContent=selected==='admin'?'Увійди у свій наявний адміністративний акаунт.':'Локальні дані попереднього користувача очищено. Створи власний акаунт або увійди, щоб завантажити лише свої дані.';
+   document.getElementById('regStatus').textContent=selected==='admin'?'Увійди у свій наявний адміністративний акаунт.':'Створи власний акаунт або увійди, щоб завантажити лише свої дані.';
    document.getElementById('regEmail').value='';document.getElementById('regPassword').value='';
    document.getElementById('regName').value='';document.getElementById('regPhone').value='';
    document.getElementById('regNickname').value='';document.getElementById('regNickname').disabled=false;
@@ -2418,5 +2428,6 @@ renderStats();renderSkills();renderHeaderIdentity();
 })();
 </script>
 
+<script>(function(){const portal=document.getElementById('p52UniversityPortal');const openCourse=document.getElementById('p52OpenMaster1');if(!portal||!openCourse)return;let entered=false;try{entered=localStorage.getItem('practice52_university_portal_done_v1')==='1'||localStorage.getItem('practice52_entry_done_v1')==='1';}catch(e){}const keys=Object.keys(localStorage);const hasProfile=keys.some(k=>k.startsWith('practice52_profile_v1'));const hasProgress=keys.some(k=>k.startsWith('practice52_v1:')&&!k.endsWith(':guest'));const signedIn=!!(window.firebase&&firebase.auth&&firebase.auth().currentUser);if(!entered&&!hasProfile&&!hasProgress&&!signedIn)portal.classList.remove('hidden');openCourse.addEventListener('click',()=>window.practice52StartOnboardingRole());})();</script>
 </body>
 </html>

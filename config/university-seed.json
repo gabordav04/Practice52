@@ -1,7 +1,7 @@
 {
   "university": {
     "id": "practice52-university",
-    "name": "PRACTICE 52 — Університет",
+    "name": "Національний медичний університет імені О. О. Богомольця",
     "slug": "practice52-university",
     "status": "active"
   },
@@ -52,7 +52,7 @@
   "practices": [
     {
       "id": "master-2-cardiorespiratory-professional-practice",
-      "courseId": "master-2",
+      "courseId": "master-1",
       "title": "Професійна практика з фізичної терапії та реабілітації при порушеннях діяльності серцево-судинної та дихальної системи",
       "skillSetId": "practice-52-cardiorespiratory",
       "legacySource": "groups/15711fr",
