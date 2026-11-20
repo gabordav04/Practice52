@@ -126,3 +126,83 @@ match /practiceSubmissions/{submissionId} {
 10. Unauthenticated users cannot read or write submissions.
 11. Administrator can read, review, and delete records.
 12. Existing group, studentProgress, role, invite, and university rules continue to behave as before.
+
+
+## Additive rules for the group gradebook
+
+The teacher UI writes one gradebook document per student and skill at:
+
+`groups/{groupId}/gradebook/{studentUid}_{skillIndex}`
+
+Add this nested block **inside the existing** `match /groups/{groupId}` block, alongside (not inside) the existing `studentProgress` match. It relies on the existing `isPlatformAdmin()` and `isAssignedTeacher()` helpers already present in the supplied rules. The student read check is scoped to the parent group's membership list.
+
+```firestore
+match /gradebook/{entryId} {
+  function isMemberReadingOwnGrade() {
+    return request.auth != null
+      && resource.data.studentUid == request.auth.uid
+      && request.auth.uid in get(
+        /databases/$(database)/documents/groups/$(groupId)
+      ).data.studentUids;
+  }
+
+  function validGradebookEntry() {
+    return request.resource.data.keys().hasAll([
+      'studentUid', 'practiceId', 'skillId', 'skillIndex',
+      'skillTitle', 'practicalGrade', 'submissionId',
+      'teacherUid', 'teacherComment', 'updatedAt'
+    ])
+      && request.resource.data.keys().hasOnly([
+        'studentUid', 'practiceId', 'skillId', 'skillIndex',
+        'skillTitle', 'practicalGrade', 'submissionId',
+        'teacherUid', 'teacherComment', 'updatedAt'
+      ])
+      && request.resource.data.studentUid in resource.data.studentUid == false;
+  }
+
+  allow get, list: if isPlatformAdmin()
+    || isAssignedTeacher()
+    || isMemberReadingOwnGrade();
+
+  allow create: if request.auth != null
+    && (isPlatformAdmin() || isAssignedTeacher())
+    && request.resource.data.studentUid is string
+    && request.resource.data.studentUid in get(
+      /databases/$(database)/documents/groups/$(groupId)
+    ).data.studentUids
+    && request.resource.data.practiceId == 'practice-52'
+    && request.resource.data.skillId is string
+    && request.resource.data.skillIndex is int
+    && request.resource.data.skillIndex >= 0
+    && request.resource.data.skillIndex < 52
+    && request.resource.data.skillTitle is string
+    && request.resource.data.practicalGrade is int
+    && request.resource.data.practicalGrade >= 2
+    && request.resource.data.practicalGrade <= 5
+    && request.resource.data.submissionId is string
+    && request.resource.data.teacherUid == request.auth.uid
+    && request.resource.data.teacherComment is string
+    && request.resource.data.teacherComment.size() <= 3000
+    && request.resource.data.updatedAt is timestamp;
+
+  allow update: if request.auth != null
+    && (isPlatformAdmin() || isAssignedTeacher())
+    && request.resource.data.studentUid == resource.data.studentUid
+    && request.resource.data.practiceId == resource.data.practiceId
+    && request.resource.data.skillId == resource.data.skillId
+    && request.resource.data.skillIndex == resource.data.skillIndex
+    && request.resource.data.practicalGrade is int
+    && request.resource.data.practicalGrade >= 2
+    && request.resource.data.practicalGrade <= 5
+    && request.resource.data.teacherUid == request.auth.uid
+    && request.resource.data.updatedAt is timestamp
+    && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+      'skillTitle', 'practicalGrade', 'submissionId',
+      'teacherUid', 'teacherComment', 'updatedAt'
+    ]);
+
+  allow delete: if isPlatformAdmin();
+}
+```
+
+**Important correction before publishing:** the helper `validGradebookEntry()` above is not used by the allow statements and can be omitted. Use the explicit checks in `allow create` and `allow update` as the operative policy. Test both first-time grade creation and re-grading, plus student self-read and cross-student denial in the Emulator.
