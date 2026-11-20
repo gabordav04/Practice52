@@ -2760,7 +2760,8 @@ body.p52-auth-locked header{position:relative;z-index:1001}
      tx.set(ref,{uid:user.uid,nickname:p.nickname,updatedAt:firebase.firestore.FieldValue.serverTimestamp(),createdAt:snap.exists?(snap.data()||{}).createdAt||firebase.firestore.FieldValue.serverTimestamp():firebase.firestore.FieldValue.serverTimestamp()},{merge:true});
    });
    const old=readLocalProfile()||{};
-   const profile={...old,name:p.name,phone:p.phone,nickname:p.nickname,email:p.email,degree:p.degree,year:p.year,courseId:p.courseId,semester:p.semester,groupCode:p.groupCode,practiceId:p.practiceId,practiceTitle:p.practiceTitle};
+   const academicProfile=(localStorage.getItem(roleKey)||'student')==='student'?{degree:p.degree,year:p.year,courseId:p.courseId,semester:p.semester,groupCode:p.groupCode,practiceId:p.practiceId,practiceTitle:p.practiceTitle}:{};
+   const profile={...old,name:p.name,phone:p.phone,nickname:p.nickname,email:p.email,...academicProfile};
    writeLocalProfile(profile,user);
    await db.collection('users').doc(user.uid).set({profile,updatedAt:firebase.firestore.FieldValue.serverTimestamp()},{merge:true});
    if((localStorage.getItem(roleKey)||'student')==='student')await p52SubmitAcademicAccess(user,profile);
