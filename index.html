@@ -937,8 +937,18 @@ $('studentIdentity').addEventListener('click',()=>{
 });
 $('registrationForm').addEventListener('submit',async e=>{
  e.preventDefault();
+ // Authenticated Google/email users completing the mandatory profile must never enter the account-creation flow.
+ if(auth.currentUser&&document.body.classList.contains('p52-auth-locked')){
+  e.stopImmediatePropagation();
+  const submitButton=$('registrationForm').querySelector('button[type="submit"]');
+  if(submitButton)submitButton.disabled=true;
+  try{setAuthStatus('Зберігаємо профіль…');await saveRequiredProfile(auth.currentUser);setAuthStatus('Профіль збережено.');location.reload();}
+  catch(err){console.error('Required profile save failed:',err);setAuthStatus(err.message||'Не вдалося зберегти профіль.',true);if(submitButton)submitButton.disabled=false;}
+  return;
+ }
  try{
   const email=$('regEmail').value.trim(),password=$('regPassword').value;
+  if(!password||!password.trim())throw new Error('Поле пароля порожнє. Якщо ти вже входив через Google, не створюй акаунт повторно — заверши профіль. Якщо акаунта ще немає, скористайся кнопкою «Увійти через Google» або введи пароль для реєстрації.');
   const profile=validateProfile();
   if(!profile.name||!profile.phone)throw new Error('Для створення акаунта заповни ПІБ і номер телефону.');
   if(!profile.nickname)throw new Error('Придумай нікнейм.');
