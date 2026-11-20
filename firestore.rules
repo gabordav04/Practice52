@@ -463,8 +463,10 @@ service cloud.firestore {
           && data.groupId is string
           && exists(/databases/$(database)/documents/groups/$(data.groupId))
           && (
-            get(/databases/$(database)/documents/groups/$(data.groupId)).data.groupCode == data.groupCode
-            || get(/databases/$(database)/documents/groups/$(data.groupId)).data.name == data.groupCode
+            ('groupCode' in get(/databases/$(database)/documents/groups/$(data.groupId)).data
+              && get(/databases/$(database)/documents/groups/$(data.groupId)).data.groupCode == data.groupCode)
+            || ('name' in get(/databases/$(database)/documents/groups/$(data.groupId)).data
+              && get(/databases/$(database)/documents/groups/$(data.groupId)).data.name == data.groupCode)
             || data.groupId == data.groupCode
           );
       }
