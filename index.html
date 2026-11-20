@@ -929,15 +929,16 @@ $('registrationForm').addEventListener('submit',async e=>{
   const profile=validateProfile();
   if(!profile.name||!profile.phone)throw new Error('Для створення акаунта заповни ПІБ і номер телефону.');
   if(!profile.nickname)throw new Error('Придумай нікнейм.');
-  const academic=p52ReadAcademicFields();
+  const selectedRole=localStorage.getItem('practice52_entry_role_v1')||'student';
+  const academic=selectedRole==='student'?p52ReadAcademicFields():{};
   setAuthStatus('Створюємо акаунт…');
   const credential=await auth.createUserWithEmailAndPassword(email,password);
   await claimUniqueNickname(profile.nickname,credential.user);
   writeLocalProfile(profile);
   const studentProfile={...profile,...academic,academicAccessStatus:'pending'};writeLocalProfile(studentProfile,credential.user);
   await db.collection('users').doc(credential.user.uid).set({profile:studentProfile,progress:state,academicAccessStatus:'pending',createdAt:firebase.firestore.FieldValue.serverTimestamp(),updatedAt:firebase.firestore.FieldValue.serverTimestamp()},{merge:true});
-  await p52SubmitAcademicAccess(credential.user,studentProfile);
-  setAuthStatus('Акаунт створено. Заявка на доступ очікує підтвердження.');
+  if(selectedRole==='student')await p52SubmitAcademicAccess(credential.user,studentProfile);
+  setAuthStatus(selectedRole==='student'?'Акаунт створено. Заявка на доступ очікує підтвердження.':'Акаунт створено.');
  }catch(err){console.error(err);setAuthStatus(err.message||'Не вдалося створити акаунт.',true);}
 });
 $('emailLogin').addEventListener('click',async()=>{
@@ -1070,7 +1071,9 @@ function p52ReadAcademicFields(){
  return {degree,year,courseId:(degree==='bachelor'?'bachelor-':'master-')+year,semester,groupCode,practiceId,practiceTitle};
 }
 async function p52SubmitAcademicAccess(user,profile){
- const a=p52ReadAcademicFields(),data={studentUid:user.uid,studentEmail:user.email||'',studentName:profile.name||'',nickname:profile.nickname||'',...a,status:'pending',createdAt:firebase.firestore.FieldValue.serverTimestamp(),updatedAt:firebase.firestore.FieldValue.serverTimestamp()};
+ const a=p52ReadAcademicFields(),groupSnap=await db.collection('groups').doc(a.groupCode).get();
+ if(groupSnap.exists&&((groupSnap.data()||{}).studentUids||[]).includes(user.uid)){const p={...profile,...a,academicAccessStatus:'approved'};writeLocalProfile(p,user);await db.collection('users').doc(user.uid).set({profile:p,academicAccessStatus:'approved',updatedAt:firebase.firestore.FieldValue.serverTimestamp()},{merge:true});return;}
+ const data={studentUid:user.uid,studentEmail:user.email||'',studentName:profile.name||'',nickname:profile.nickname||'',...a,status:'pending',createdAt:firebase.firestore.FieldValue.serverTimestamp(),updatedAt:firebase.firestore.FieldValue.serverTimestamp()};
  await db.collection('academicAccessRequests').doc(user.uid).set(data,{merge:true});
  const p={...profile,...a,academicAccessStatus:'pending'};writeLocalProfile(p,user);await db.collection('users').doc(user.uid).set({profile:p,academicAccessStatus:'pending',updatedAt:firebase.firestore.FieldValue.serverTimestamp()},{merge:true});
 }
@@ -2733,7 +2736,8 @@ body.p52-auth-locked header{position:relative;z-index:1001}
    if(name.length<5||name.split(' ').length<2)throw new Error('Вкажи повне ПІБ: щонайменше прізвище та ім’я.');
    if(digits.length<10||digits.length>15)throw new Error('Вкажи коректний номер телефону (10–15 цифр).');
    if(!auth.currentUser||!auth.currentUser.email)throw new Error('Для синхронізації потрібен обліковий запис з електронною поштою.');
-   return {nickname,name,phone,email:auth.currentUser.email,...p52ReadAcademicFields()};
+   const selectedRole=localStorage.getItem(roleKey)||'student';
+   return {nickname,name,phone,email:auth.currentUser.email,...(selectedRole==='student'?p52ReadAcademicFields():{})};
  }
  async function saveRequiredProfile(user){
    const p=validRequiredProfile(),key=p.nickname.toLowerCase();
@@ -2748,7 +2752,7 @@ body.p52-auth-locked header{position:relative;z-index:1001}
    const profile={...old,name:p.name,phone:p.phone,nickname:p.nickname,email:p.email,degree:p.degree,year:p.year,courseId:p.courseId,semester:p.semester,groupCode:p.groupCode,practiceId:p.practiceId,practiceTitle:p.practiceTitle};
    writeLocalProfile(profile,user);
    await db.collection('users').doc(user.uid).set({profile,updatedAt:firebase.firestore.FieldValue.serverTimestamp()},{merge:true});
-   await p52SubmitAcademicAccess(user,profile);
+   if((localStorage.getItem(roleKey)||'student')==='student')await p52SubmitAcademicAccess(user,profile);
  }
  $('p52EntryConfirm').addEventListener('click',async e=>{
    e.preventDefault();e.stopImmediatePropagation();
@@ -2758,6 +2762,7 @@ body.p52-auth-locked header{position:relative;z-index:1001}
    const btn=$('p52EntryConfirm');btn.disabled=true;
    try{
      localStorage.setItem(roleKey,selected);
+     document.querySelectorAll('.p52-academic-field').forEach(el=>el.classList.toggle('hidden',selected!=='student'));
      if(auth.currentUser){await auth.signOut();showLoginGate();}
      else{
        if(typeof state!=='undefined')state=emptyPracticeState();
