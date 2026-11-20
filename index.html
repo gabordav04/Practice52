@@ -1313,7 +1313,14 @@ async function createAdminGroup(e){
 async function loadAdminGroups(){
  const list=document.getElementById('p52GroupList');if(!list)return;list.textContent='Завантаження…';
  try{
-  const snap=await db.collection('groups').orderBy('createdAt','desc').get();list.innerHTML='';
+  const [snap,courseSnap,practiceSnap]=await Promise.all([
+   db.collection('groups').orderBy('createdAt','desc').get(),
+   db.collection('courses').where('universityId','==',P52_UNIVERSITY_ID).get(),
+   db.collection('practices').where('universityId','==',P52_UNIVERSITY_ID).get()
+  ]);
+  const catalogCourses=courseSnap.docs.map(d=>({id:d.id,data:d.data()||{}}));
+  const catalogPractices=practiceSnap.docs.map(d=>({id:d.id,data:d.data()||{}}));
+  list.innerHTML='';
   if(snap.empty){list.textContent='Поки немає навчальних груп.';}
   snap.forEach(doc=>{
    const data=doc.data()||{},card=adminNode('div','p52-admin-group'),head=adminNode('div','p52-admin-row');
@@ -1324,12 +1331,24 @@ async function loadAdminGroups(){
    const codeWrap=adminNode('div','p52-university-form'),codeInput=adminNode('input');codeInput.placeholder='Код академічної групи: 5 цифр + fr';codeInput.maxLength=7;codeInput.value=data.groupCode||(P52_GROUP_CODE_RE.test(data.name||'')?data.name:'');
    const saveCode=adminNode('button','btn','Зберегти код групи');saveCode.type='button';saveCode.addEventListener('click',async()=>{const code=codeInput.value.trim();if(!P52_GROUP_CODE_RE.test(code)){setAdminStatus('Код групи має бути у форматі 15711fr.',true);return;}try{saveCode.disabled=true;const mapping=await db.collection('academicGroupCodes').doc(code).get();if(mapping.exists&&(mapping.data()||{}).groupId!==doc.id)throw new Error('Цей код уже прив’язаний до іншої групи.');await db.collection('groups').doc(doc.id).update({groupCode:code,updatedAt:firebase.firestore.FieldValue.serverTimestamp()});await db.collection('academicGroupCodes').doc(code).set({groupId:doc.id,groupCode:code,teacherUid:data.teacherUid||'',updatedAt:firebase.firestore.FieldValue.serverTimestamp()},{merge:true});setAdminStatus('Код групи збережено.');await loadAdminGroups();}catch(err){console.error(err);setAdminStatus(err.message||'Не вдалося зберегти код групи.',true);}finally{saveCode.disabled=false;}});codeWrap.append(codeInput,saveCode);card.appendChild(codeWrap);
    const academic=adminNode('div','p52-university-form');
-   const course=adminNode('select');course.innerHTML='<option value="">Курс не призначено</option>'+P52_COURSES.map(c=>'<option value="'+c.id+'">'+c.title+'</option>').join('');
+   const course=adminNode('select');course.appendChild(new Option('Оберіть курс із каталогу',''));
+   catalogCourses.sort((a,b)=>(a.data.yearNumber||0)-(b.data.yearNumber||0)).forEach(item=>course.appendChild(new Option(item.data.title||item.id,item.id)));
    course.value=data.courseId||'';
    const semester=adminNode('select');semester.innerHTML='<option value="">Семестр не призначено</option><option value="1">1 семестр</option><option value="2">2 семестр</option>';semester.value=data.semester?String(data.semester):'';
-   const practice=adminNode('input');practice.placeholder='Назва практики';practice.maxLength=220;practice.value=data.practiceTitle||'';
+   const practice=adminNode('select');
+   const fillGroupPractices=(selectedId)=>{
+    practice.innerHTML='';practice.appendChild(new Option('Оберіть практику з каталогу',''));
+    const matching=catalogPractices.filter(item=>item.data.courseId===course.value).sort((a,b)=>(a.data.title||'').localeCompare(b.data.title||'','uk'));
+    matching.forEach(item=>{const status=item.data.status||'draft',label=(item.data.title||item.id)+(status==='active'?'':' · чернетка');const option=new Option(label,item.id);option.disabled=status!=='active'&&item.id!==selectedId;practice.appendChild(option);});
+    if(!course.value){practice.options[0].textContent='Спочатку оберіть курс';practice.disabled=true;}
+    else{practice.disabled=matching.length===0;if(!matching.length)practice.options[0].textContent='Для цього курсу практик ще немає';}
+    if(selectedId&&matching.some(item=>item.id===selectedId))practice.value=selectedId;
+    else if(data.practiceTitle){const legacy=matching.find(item=>(item.data.title||'').trim()===String(data.practiceTitle).trim());if(legacy)practice.value=legacy.id;}
+   };
+   fillGroupPractices(data.practiceId||'');
+   course.addEventListener('change',()=>fillGroupPractices(''));
    const saveAcademic=adminNode('button','btn primary','Зберегти навчальну комірку');saveAcademic.type='button';
-   saveAcademic.addEventListener('click',async()=>{try{saveAcademic.disabled=true;await db.collection('groups').doc(doc.id).update({courseId:course.value||firebase.firestore.FieldValue.delete(),semester:semester.value?Number(semester.value):firebase.firestore.FieldValue.delete(),practiceTitle:practice.value.trim(),academicUpdatedAt:firebase.firestore.FieldValue.serverTimestamp(),updatedAt:firebase.firestore.FieldValue.serverTimestamp()});setAdminStatus('Навчальну комірку групи оновлено.');await loadAdminGroups();}catch(err){console.error(err);setAdminStatus('Не вдалося зберегти курс, семестр і практику.',true);}finally{saveAcademic.disabled=false;}});
+   saveAcademic.addEventListener('click',async()=>{try{if(!course.value){setAdminStatus('Спочатку обери курс із каталогу університету.',true);return;}if(!practice.value){setAdminStatus('Обери опубліковану практику з каталогу для цього курсу.',true);return;}const chosen=catalogPractices.find(item=>item.id===practice.value);if(!chosen||chosen.data.status!=='active'||chosen.data.courseId!==course.value)throw new Error('Обрана практика не активна або не належить до цього курсу.');saveAcademic.disabled=true;await db.collection('groups').doc(doc.id).update({courseId:course.value,semester:semester.value?Number(semester.value):firebase.firestore.FieldValue.delete(),practiceId:chosen.id,practiceTitle:chosen.data.title||chosen.id,universityId:chosen.data.universityId||P52_UNIVERSITY_ID,programId:chosen.data.programId||P52_PROGRAM_ID,academicUpdatedAt:firebase.firestore.FieldValue.serverTimestamp(),updatedAt:firebase.firestore.FieldValue.serverTimestamp()});setAdminStatus('Курс, семестр і практику з каталогу призначено групі.');await loadAdminGroups();}catch(err){console.error(err);setAdminStatus(err.message||'Не вдалося зберегти навчальну комірку.',true);}finally{saveAcademic.disabled=false;}});
    academic.append(course,semester,practice,saveAcademic);card.appendChild(academic);
    const search=adminNode('input','p52-admin-search');search.placeholder='Знайти студента за нікнеймом';search.setAttribute('aria-label','Знайти студента за нікнеймом');
    const results=adminNode('div','p52-admin-list');
