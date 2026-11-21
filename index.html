@@ -289,7 +289,7 @@ body.p52-teacher-mode #skillCatalog{margin-top:18px}
 
 <header>
  <div class="brand"><div class="logo">＋</div><div><h1>PRACTICE 52</h1><p>Навчальний тренажер практичних навичок</p></div></div>
- <div class="header-right"><button type="button" class="student-identity" id="studentIdentity" aria-controls="accountPanel" aria-expanded="false" title="Відкрити профіль або увійти; для зміни ролі натисни й утримуй"><span class="student-avatar" id="headerAvatar">🦊</span><span class="student-nickname" id="headerNickname">Гість</span><span class="sync-check" id="savedLabel" role="status" aria-label="Синхронізовано" title="Синхронізовано">✓</span></button></div>
+ <div class="header-right"><button type="button" class="student-identity" id="studentIdentity" aria-controls="accountPanel" aria-expanded="false" title="Відкрити профіль"><span class="student-avatar" id="headerAvatar">🦊</span><span class="student-nickname" id="headerNickname">Гість</span><span class="sync-check" id="savedLabel" role="status" aria-label="Синхронізовано" title="Синхронізовано">✓</span></button><button type="button" class="btn" id="p52RoleSwitcher" aria-label="Змінити роль користувача">⇄ Змінити роль</button></div>
 </header>
 
 <section id="p52TeacherDashboard" class="p52-teacher-dashboard hidden" aria-label="Кабінет викладача">
@@ -2917,7 +2917,7 @@ renderStats();renderSkills();renderHeaderIdentity();
  });
  document.getElementById('studentIdentity').addEventListener('contextmenu',e=>{e.preventDefault();openEntry();});
  window.practice52OpenEntry=openEntry;
- const roleButton=document.createElement('button');roleButton.type='button';roleButton.id='p52RoleSwitcher';roleButton.className='btn';roleButton.textContent='⇄ Змінити роль';roleButton.title='Відкрити вибір ролі: студент, викладач або адміністратор';roleButton.setAttribute('aria-label','Змінити роль користувача');roleButton.addEventListener('click',openEntry);const headerRight=document.querySelector('.header-right');if(headerRight&&!document.getElementById('p52RoleSwitcher'))headerRight.appendChild(roleButton);
+ const roleButton=document.getElementById('p52RoleSwitcher');if(roleButton)roleButton.addEventListener('click',openEntry);
 })();
 </script>
 
