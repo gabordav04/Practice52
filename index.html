@@ -2935,13 +2935,21 @@ body.p52-auth-locked header{position:relative;z-index:1001}
    $('studentIdentity').setAttribute('aria-expanded','false');
  }
   function applyRoleSpecificFields(role){
-    if(gate){const isTeacher=role==='teacher';gate.classList.toggle('hidden',!isTeacher);gate.style.setProperty('display',isTeacher?'block':'none','important');}
+    const isStudent=role==='student';
+    document.querySelectorAll('.p52-academic-field').forEach(el=>{
+      el.classList.toggle('hidden',!isStudent);
+      el.style.setProperty('display',isStudent?'':'none','important');
+    });
+    const group=$('p52GroupCode');
+    if(group)group.required=isStudent;
+    const gate=$('p52TeacherInviteGate');
+    if(gate){
+      const isTeacher=role==='teacher';
+      gate.classList.toggle('hidden',!isTeacher);
+      gate.style.setProperty('display',isTeacher?'block':'none','important');
+    }
   }
-   const isStudent=role==='student';
-   document.querySelectorAll('.p52-academic-field').forEach(el=>el.classList.toggle('hidden',!isStudent));
-   const group=$('p52GroupCode');if(group)group.required=isStudent;
- }
- function showLoginGate(){
+function showLoginGate(){
    lockApp();backdrop.classList.add('hidden');panel.classList.remove('hidden');
     const savedRole=localStorage.getItem(roleKey)||'student';
     const role=savedRole;
