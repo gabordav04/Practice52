@@ -1792,7 +1792,9 @@ async function addStudentByGroupLeader(groupId,studentUid,button){
   await ref.update({studentUids:firebase.firestore.FieldValue.arrayUnion(studentUid),updatedAt:firebase.firestore.FieldValue.serverTimestamp()});
   // Додавання старостою до складу групи не відкриває навчальний доступ: його окремо підтверджує викладач або адміністратор.
   
-  await loadPractice52StudentGroups();
+  // Group cards are supplementary; do not let a slow Firestore group query
+ // block the authenticated learning cabinet from rendering.
+ loadPractice52StudentGroups().catch(err=>console.warn('Student groups load deferred:',err));
   if(practice52CurrentRole==='teacher')await loadPractice52TeacherDashboard();
  }catch(err){console.error(err);button.disabled=false;const root=document.getElementById('p52GroupLeaderWorkspace');if(root)root.insertAdjacentText('beforeend',' Не вдалося додати студента: перевір правила Firestore.');}
 }
@@ -2955,34 +2957,9 @@ body.p52-auth-locked header{position:relative;z-index:1001}
    await db.collection('users').doc(user.uid).set({profile,updatedAt:firebase.firestore.FieldValue.serverTimestamp()},{merge:true});
    if((localStorage.getItem(roleKey)||'student')==='student')await p52SubmitAcademicAccess(user,profile);
  }
- $('p52EntryConfirm').addEventListener('click',async e=>{
-   e.preventDefault();e.stopImmediatePropagation();
-   const choice=document.querySelector('[data-entry-role].selected');
-   const selected=choice&&choice.dataset.entryRole;
-   if(!selected)return;
-   const btn=$('p52EntryConfirm');btn.disabled=true;
-   try{
-     localStorage.setItem(roleKey,selected);
-     document.querySelectorAll('.p52-academic-field').forEach(el=>el.classList.toggle('hidden',selected!=='student'));
-     if(auth.currentUser){await auth.signOut();showLoginGate();}
-     else{
-       if(typeof state!=='undefined')state=emptyPracticeState();
-       if(typeof KEY!=='undefined')KEY='practice52_v1:guest';
-       backdrop.classList.add('hidden');panel.classList.remove('hidden');
-       $('regTitle').textContent=selected==='teacher'?'Реєстрація / вхід викладача PRACTICE 52':selected==='admin'?'Вхід адміністратора PRACTICE 52':'Реєстрація / вхід студента PRACTICE 52';
-       $('regEmail').readOnly=false;$('regPassword').required=true;$('regPassword').closest('.reg-field').classList.remove('hidden');
-       form.querySelector('button[type="submit"]').textContent='Створити акаунт';
-       $('emailLogin').classList.remove('hidden');$('googleLogin').classList.remove('hidden');
-       $('saveProfileBtn').classList.remove('hidden');$('hideProfileBtn').classList.remove('hidden');
-       $('regName').value='';$('regPhone').value='';$('regNickname').value='';
-       $('regEmail').value='';$('regPassword').value='';
-       $('regStatus').textContent='Обери спосіб входу. Нікнейм, ПІБ і телефон обов’язкові для всіх користувачів.';
-       $('regStatus').style.color='var(--muted)';
-       panel.scrollIntoView({behavior:'smooth',block:'start'});
-     }
-   }catch(err){$('regStatus').textContent=err.message||'Не вдалося підготувати вхід.';$('regStatus').style.color='var(--red)';}
-   finally{btn.disabled=false;}
- },true);
+ // Role selection is handled by the single, earlier entry controller.
+ // Do not sign out here: switching the primary account between student/admin
+ // modes must preserve the existing Firebase session and local learning state.
  auth.onAuthStateChanged(async user=>{
 
    if(profileGateBusy)return;
