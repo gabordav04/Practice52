@@ -930,7 +930,10 @@ async function claimUniqueNickname(value,user,previousValue=''){
  await db.runTransaction(async tx=>{
   const snap=await tx.get(ref);
   const previousSnap=previousRef?await tx.get(previousRef):null;
-  if(snap.exists&&(snap.data()||{}).uid!==user.uid)throw new Error('Цей нікнейм уже зайнятий. Обери інший.');
+  const ownerUid=snap.exists?(snap.data()||{}).uid:null;
+  // Reclaim only the primary owner's known legacy UID after the Auth reset.
+  const isOwnLegacyClaim=ownerUid==='NIXSOWQ2c1Tkh5TVGU6z9zkbhOp2';
+  if(snap.exists&&ownerUid!==user.uid&&!isOwnLegacyClaim)throw new Error('Цей нікнейм уже зайнятий іншим користувачем. Обери інший.');
   tx.set(ref,{uid:user.uid,nickname,updatedAt:firebase.firestore.FieldValue.serverTimestamp(),createdAt:snap.exists?((snap.data()||{}).createdAt||firebase.firestore.FieldValue.serverTimestamp()):firebase.firestore.FieldValue.serverTimestamp()},{merge:true});
   if(previousSnap&&previousSnap.exists&&(previousSnap.data()||{}).uid===user.uid)tx.delete(previousRef);
  });
@@ -2968,7 +2971,10 @@ body.p52-auth-locked header{position:relative;z-index:1001}
    const ref=db.collection('nicknames').doc(key);
    await db.runTransaction(async tx=>{
      const snap=await tx.get(ref);
-     if(snap.exists&&(snap.data()||{}).uid!==user.uid)throw new Error('Цей нікнейм уже зайнятий. Обери інший.');
+     const ownerUid=snap.exists?(snap.data()||{}).uid:null;
+     // Reclaim only the primary owner's known legacy UID after the Auth reset.
+     const isOwnLegacyClaim=ownerUid==='NIXSOWQ2c1Tkh5TVGU6z9zkbhOp2';
+     if(snap.exists&&ownerUid!==user.uid&&!isOwnLegacyClaim)throw new Error('Цей нікнейм уже зайнятий іншим користувачем. Обери інший.');
      tx.set(ref,{uid:user.uid,nickname:p.nickname,updatedAt:firebase.firestore.FieldValue.serverTimestamp(),createdAt:snap.exists?(snap.data()||{}).createdAt||firebase.firestore.FieldValue.serverTimestamp():firebase.firestore.FieldValue.serverTimestamp()},{merge:true});
    });
    const old=readLocalProfile()||{};
