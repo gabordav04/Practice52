@@ -2885,36 +2885,7 @@ renderStats();renderSkills();renderHeaderIdentity();
  }
  document.querySelectorAll('[data-entry-role]').forEach(b=>b.addEventListener('click',()=>{selected=b.dataset.entryRole;updateRoleUI();}));
  document.getElementById('p52EntryBack').addEventListener('click',()=>{backdrop.classList.add('hidden');});
- document.getElementById('p52EntryConfirm').addEventListener('click',async()=>{
-  if(!selected)return;
-  const confirmButton=document.getElementById('p52EntryConfirm');confirmButton.disabled=true;
-  try{
-   // Зміна режиму ніколи не очищає локальний профіль або навчальний прогрес.
-   // Якщо користувач уже авторизований, зберігаємо ту саму Firebase-сесію та
-   // перезавантажуємо інтерфейс, щоб onAuthStateChanged застосував вибраний режим.
-   localStorage.setItem(ROLE_KEY,selected);localStorage.setItem(DONE_KEY,'1');
-   if(firebase.auth().currentUser){
-    location.reload();
-    return;
-   }
-   backdrop.classList.add('hidden');
-   const panel=document.getElementById('accountPanel');panel.classList.remove('hidden');
-   document.getElementById('studentIdentity').setAttribute('aria-expanded','true');
-   panel.scrollIntoView({behavior:'smooth',block:'start'});
-   document.getElementById('regTitle').textContent=selected==='teacher'?'Реєстрація / вхід викладача PRACTICE 52':selected==='admin'?'Вхід адміністратора PRACTICE 52':'Реєстрація / вхід студента PRACTICE 52';
-   const createButton=document.querySelector('#registrationForm button[type="submit"]');
-   if(createButton)createButton.classList.toggle('hidden',selected==='admin');
-   const google=document.getElementById('googleLogin');if(google)google.classList.remove('hidden');
-   document.getElementById('regStatus').textContent=selected==='admin'?'Увійди у свій наявний адміністративний акаунт.':'Увійди у свій акаунт. Наявні локальні навчальні дані збережено.';
-   document.getElementById('regEmail').value='';document.getElementById('regPassword').value='';
-   document.getElementById('regName').value='';document.getElementById('regPhone').value='';
-   document.getElementById('regNickname').value='';document.getElementById('regNickname').disabled=false;
-   renderAvatar('🦊');
-  }catch(err){
-   document.getElementById('regStatus').textContent='Не вдалося завершити зміну користувача: '+(err.message||'невідома помилка');
-   document.getElementById('regStatus').style.color='var(--red)';
-  }finally{confirmButton.disabled=false;}
- });
+ // Role confirmation is handled once by the mandatory account policy below.
  document.getElementById('studentIdentity').addEventListener('contextmenu',e=>{e.preventDefault();openEntry();});
  window.practice52OpenEntry=openEntry;
  const roleButton=document.getElementById('p52RoleSwitcher');if(roleButton)roleButton.addEventListener('click',openEntry);
@@ -3061,12 +3032,9 @@ function showLoginGate(){
      localStorage.setItem(roleKey,role);
      localStorage.setItem('practice52_entry_done_v1','1');
      applyRoleSpecificFields(role);
-     if(auth.currentUser){
-       // Keep the authenticated identity; reload lets the auth router open the
-       // selected role's interface and verify the admin UID.
-       location.reload();
-       return;
-     }
+     // Always show the selected role's login form explicitly.
+     // If an old session exists, close it first; never reload into the role gate.
+     if(auth.currentUser) await auth.signOut();
      showLoginGate();
      $('regStatus').textContent=role==='admin'
        ?'Вхід адміністратора. Увійди у свій наявний акаунт gabordav04@gmail.com через Google або електронну пошту.'
