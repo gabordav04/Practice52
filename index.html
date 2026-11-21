@@ -1038,6 +1038,14 @@ $('googleLogin').addEventListener('click',async()=>{
   setAuthStatus('Відкриваємо вхід через Google…');
   const provider=new firebase.auth.GoogleAuthProvider();
   provider.setCustomParameters({prompt:'select_account'});
+  // iOS Safari and embedded mobile browsers often leave popup auth pending.
+  // Use full-page redirect on iOS; retain popup flow on desktop and Android.
+  const isIOS=/iPad|iPhone|iPod/.test(navigator.userAgent)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);
+  if(isIOS){
+   setAuthStatus('Переходимо на сторінку Google для входу…');
+   await auth.signInWithRedirect(provider);
+   return;
+  }
   await auth.signInWithPopup(provider);
  }catch(err){
   console.error('Google sign-in failed:',err);
