@@ -3052,9 +3052,14 @@ function showLoginGate(){
    if(profileGateBusy)return;
    if(!user){document.getElementById('p52StudentRoute')?.classList.add('hidden');document.body.classList.remove('p52-route-unavailable');if(localStorage.getItem(roleKey))showLoginGate();else showRoleGate();return;}
    try{
-     const selected=localStorage.getItem(roleKey)||'';
+     let selected=localStorage.getItem(roleKey)||'';
      if(!selected){showRoleGate();return;}
      await refreshPractice52Role(user);
+     if(practice52CurrentRole==='teacher'&&selected!=='teacher'){
+       localStorage.setItem(roleKey,'teacher');
+       location.reload();
+       return;
+     }
      applyRoleSpecificFields(selected);
      if(selected==='admin'&&user.uid!=='fjJOrOvLxkdzHH0RzeFTUE1tSPS2'){
        lockApp();panel.classList.remove('hidden');
@@ -3109,7 +3114,7 @@ function showLoginGate(){
      }
      const snap=await db.collection('users').doc(user.uid).get();
      const profile=(snap.exists&&snap.data().profile)||{};
-     const needsAcademicProfile=selected==='student'&&!profile.groupCode;if(!profile.name||!profile.phone||!profile.nickname||!user.email||needsAcademicProfile){showProfileGate(user,profile);applyRoleSpecificFields(selected);if(selected==='student')await p52InitAcademicFields(profile);else applyRoleSpecificFields(selected);return;}
+     const needsAcademicProfile=selected==='student'&&user.uid!=='fjJOrOvLxkdzHH0RzeFTUE1tSPS2'&&!profile.groupCode;if(!profile.name||!profile.phone||!profile.nickname||!user.email||needsAcademicProfile){showProfileGate(user,profile);applyRoleSpecificFields(selected);if(selected==='student')await p52InitAcademicFields(profile);else applyRoleSpecificFields(selected);return;}
      $('regEmail').readOnly=false;$('regPassword').required=true;$('regPassword').closest('.reg-field').classList.remove('hidden');
      form.querySelector('button[type="submit"]').textContent='Створити акаунт';
      $('emailLogin').classList.remove('hidden');$('googleLogin').classList.add('hidden');
