@@ -2895,9 +2895,15 @@ body.p52-auth-locked header{position:relative;z-index:1001}
    lockApp();backdrop.classList.remove('hidden');panel.classList.add('hidden');
    $('studentIdentity').setAttribute('aria-expanded','false');
  }
+ function applyRoleSpecificFields(role){
+   const isStudent=role==='student';
+   document.querySelectorAll('.p52-academic-field').forEach(el=>el.classList.toggle('hidden',!isStudent));
+   const group=$('p52GroupCode');if(group)group.required=isStudent;
+ }
  function showLoginGate(){
    lockApp();backdrop.classList.add('hidden');panel.classList.remove('hidden');
    const role=localStorage.getItem(roleKey)||'student';
+   applyRoleSpecificFields(role);
    $('regTitle').textContent=role==='teacher'?'Реєстрація / вхід викладача PRACTICE 52':role==='admin'?'Вхід адміністратора PRACTICE 52':'Реєстрація / вхід студента PRACTICE 52';
    $('regEmail').readOnly=false;$('regPassword').required=true;$('regPassword').closest('.reg-field').classList.remove('hidden');
    form.querySelector('button[type="submit"]').textContent='Створити акаунт';
@@ -2907,18 +2913,20 @@ body.p52-auth-locked header{position:relative;z-index:1001}
    $('regStatus').style.color='var(--muted)';
  }
  function showProfileGate(user,profile){
+   const role=localStorage.getItem(roleKey)||'student';
+   applyRoleSpecificFields(role);
    lockApp();backdrop.classList.add('hidden');panel.classList.remove('hidden');
    $('studentIdentity').setAttribute('aria-expanded','true');
    $('regTitle').textContent='Заповнення обов’язкового профілю PRACTICE 52';
    $('regName').value=profile.name||'';$('regPhone').value=profile.phone||'';
-   $('regNickname').value=profile.nickname||'';$('regEmail').value=user.email||'';p52InitAcademicFields(profile);
+   $('regNickname').value=profile.nickname||'';$('regEmail').value=user.email||'';if(role==='student')p52InitAcademicFields(profile);
    $('regEmail').readOnly=true;$('regPassword').required=false;
    $('regPassword').closest('.reg-field').classList.add('hidden');
    const submit=form.querySelector('button[type="submit"]');
    submit.textContent='Зберегти профіль і продовжити';submit.classList.remove('hidden');
    $('emailLogin').classList.add('hidden');$('googleLogin').classList.add('hidden');
    $('logoutBtn').classList.remove('hidden');$('saveProfileBtn').classList.add('hidden');$('hideProfileBtn').classList.add('hidden');
-   $('regStatus').textContent='Для доступу до навчання заповни профіль і вкажи код своєї академічної групи. Курс, семестр і практика обираються вже в кабінеті.';
+   $('regStatus').textContent=role==='student'?'Для доступу до навчання заповни профіль і вкажи код своєї академічної групи. Курс, семестр і практика обираються вже в кабінеті.':'Заповни обов’язкові дані профілю. Навчальна група для цієї ролі не потрібна.';
    $('regStatus').style.color='var(--muted)';
    if(profile.avatar)renderAvatar(profile.avatar);
    setTimeout(()=>{if(auth.currentUser&&auth.currentUser.uid===user.uid&&document.body.classList.contains('p52-auth-locked'))panel.classList.remove('hidden');},1800);
@@ -2958,7 +2966,7 @@ body.p52-auth-locked header{position:relative;z-index:1001}
    const btn=$('p52EntryConfirm');btn.disabled=true;
    try{
      localStorage.setItem(roleKey,selected);
-     document.querySelectorAll('.p52-academic-field').forEach(el=>el.classList.toggle('hidden',selected!=='student'));
+     applyRoleSpecificFields(selected);
      if(auth.currentUser){await auth.signOut();showLoginGate();}
      else{
        if(typeof state!=='undefined')state=emptyPracticeState();
