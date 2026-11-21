@@ -515,6 +515,10 @@ service cloud.firestore {
             request.auth.uid == 'fjJOrOvLxkdzHH0RzeFTUE1tSPS2'
             && resource.data.uid == 'NIXSOWQ2c1Tkh5TVGU6z9zkbhOp2'
           )
+          || (
+            nicknameId == 'test_teacher'
+            && request.auth.token.email == 'mio.wind.massage@gmail.com'
+          )
         )
         && request.resource.data.uid == request.auth.uid
         && request.resource.data.keys().hasOnly([
