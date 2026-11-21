@@ -3022,9 +3022,17 @@ body.p52-auth-locked header{position:relative;z-index:1001}
      if(!selected){showRoleGate();return;}
      applyRoleSpecificFields(selected);
      if(selected==='admin'&&user.uid==='fjJOrOvLxkdzHH0RzeFTUE1tSPS2'){
-       // Verified primary administrator bypasses the student-only profile and academic-group gate.
+       // The primary owner is both student and administrator. Restore the selected
+       // admin interface explicitly after Google sign-in, not only the auth gate.
+       await refreshPractice52Role(user);
        unlockApp();panel.classList.add('hidden');backdrop.classList.add('hidden');
        $('studentIdentity').setAttribute('aria-expanded','false');
+       document.body.classList.add('p52-admin-mode');
+       const adminPanel=document.getElementById('p52AdminPanel');
+       if(adminPanel)adminPanel.classList.remove('hidden');
+       const adminToggle=document.getElementById('p52AdminToggle');
+       if(adminToggle){adminToggle.classList.remove('hidden');adminToggle.textContent='⚙ Повернутися до навчання';adminToggle.setAttribute('aria-expanded','true');}
+       await loadAdminDashboard();
        return;
      }
      const snap=await db.collection('users').doc(user.uid).get();
