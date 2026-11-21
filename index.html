@@ -1083,7 +1083,7 @@ function ensureAdminPanel(){
   }
   toggle.setAttribute('aria-expanded',String(opening));
   toggle.textContent=opening?'⚙ Повернутися до навчання':'⚙ Адміністрування';
-  if(opening){panel.scrollIntoView({behavior:'smooth',block:'start'});loadAdminDashboard();}
+  if(opening){installOwnerProgressResetButton();panel.scrollIntoView({behavior:'smooth',block:'start'});loadAdminDashboard();}
   else{document.querySelector('header')?.scrollIntoView({behavior:'smooth',block:'start'});ensurePractice52GroupLeaderWorkspace();loadPractice52StudentGroups();}
  });
  document.querySelector('.header-right')?.appendChild(toggle);
@@ -1958,10 +1958,11 @@ async function resetOwnPractice52Progress(){
 }
 function installOwnerProgressResetButton(){
  const OWNER_UID='NIXSOWQ2c1Tkh5TVGU6z9zkbhOp2';
- if(!firebaseUser||firebaseUser.uid!==OWNER_UID||!cloudReady||document.getElementById('p52OwnerResetProgress'))return;
- const btn=document.createElement('button');btn.type='button';btn.id='p52OwnerResetProgress';btn.className='reg-btn secondary';btn.style.marginTop='12px';btn.textContent='Почати навчання з нуля';
+ const panel=document.getElementById('p52AdminPanel');
+ if(!firebaseUser||firebaseUser.uid!==OWNER_UID||practice52CurrentRole!=='admin'||!cloudReady||!panel||document.getElementById('p52OwnerResetProgress'))return;
+ const btn=document.createElement('button');btn.type='button';btn.id='p52OwnerResetProgress';btn.className='btn primary';btn.style.margin='16px 0';btn.textContent='Скинути мій студентський прогрес до нуля';
  btn.addEventListener('click',async()=>{btn.disabled=true;try{await resetOwnPractice52Progress();}catch(err){console.error('Progress reset failed:',err);setAuthStatus('Не вдалося повністю скинути прогрес. Дані не вважай обнуленими — потрібна перевірка.',true);}finally{btn.disabled=false;}});
- const panel=document.getElementById('accountPanel');if(panel)panel.appendChild(btn);
+ const heading=panel.querySelector('.p52-admin-heading');if(heading)heading.insertAdjacentElement('afterend',btn);else panel.prepend(btn);
 }
 auth.onAuthStateChanged(async user=>{
  try{await window.practice52AuthPersistenceReady;}catch(err){console.error('Auth persistence initialization failed:',err);}
