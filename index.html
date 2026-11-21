@@ -3048,6 +3048,22 @@ body.p52-auth-locked header{position:relative;z-index:1001}
        // admin interface explicitly after Google sign-in, not only the auth gate.
        await refreshPractice52Role(user);
         renderHeaderIdentity();
+        const adminProfileSnap=await db.collection('users').doc(user.uid).get();
+        const adminProfile=(adminProfileSnap.exists&&adminProfileSnap.data().profile)||readLocalProfile()||{};
+        if(adminProfileSnap.exists&&adminProfileSnap.data().profile)writeLocalProfile(adminProfile,user);
+        $('regName').value=adminProfile.name||user.displayName||'';
+        $('regPhone').value=adminProfile.phone||'';
+        $('regNickname').value=adminProfile.nickname||'';
+        $('regNickname').disabled=false;
+        $('regEmail').value=user.email||'';
+        $('regEmail').readOnly=true;
+        $('profileVisible').checked=adminProfile.publicProfile!==false;
+        renderAvatar(adminProfile.avatar||DEFAULT_AVATAR);
+        $('regPassword').value='';$('regPassword').required=false;$('regPassword').closest('.reg-field').classList.add('hidden');
+        $('googleLogin').classList.add('hidden');$('emailLogin').classList.add('hidden');
+        $('logoutBtn').classList.remove('hidden');$('saveProfileBtn').classList.remove('hidden');$('hideProfileBtn').classList.remove('hidden');
+        $('regStatus').textContent='Адміністративний акаунт активний. Тут можна переглядати й редагувати свій профіль.';
+        $('regStatus').style.color='var(--green');
        unlockApp();panel.classList.add('hidden');backdrop.classList.add('hidden');
        $('studentIdentity').setAttribute('aria-expanded','false');
        document.body.classList.add('p52-admin-mode');
