@@ -1376,7 +1376,6 @@ async function redeemTeacherInvite(rawCode,user){
   tx.set(roleRef,{role:'teacher',inviteCode:code,assignedAt:firebase.firestore.FieldValue.serverTimestamp()});
  });
  await refreshPractice52Role(user);
-        renderHeaderIdentity();
 }
 
 document.getElementById('p52RedeemTeacherInvite')?.addEventListener('click',async()=>{
@@ -3048,6 +3047,7 @@ body.p52-auth-locked header{position:relative;z-index:1001}
        // The primary owner is both student and administrator. Restore the selected
        // admin interface explicitly after Google sign-in, not only the auth gate.
        await refreshPractice52Role(user);
+        renderHeaderIdentity();
        unlockApp();panel.classList.add('hidden');backdrop.classList.add('hidden');
        $('studentIdentity').setAttribute('aria-expanded','false');
        document.body.classList.add('p52-admin-mode');
