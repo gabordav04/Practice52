@@ -1097,9 +1097,23 @@ function adminNode(tag,cls,text){
  const el=document.createElement(tag);if(cls)el.className=cls;if(text!==undefined)el.textContent=text;return el;
 }
 async function loadAdminPublicUsers(){
- const snap=await db.collection('leaderboard').get();
  practice52PublicUsers=[];
- snap.forEach(doc=>{const d=doc.data()||{};practice52PublicUsers.push({uid:doc.id,nickname:d.nickname||'Без нікнейму',avatar:d.avatar||'👤',points:Number(d.points)||0,level:d.level||''});});
+ // Адміністратор бачить усі профілі, збережені в users, навіть якщо
+ // користувач вимкнув публічний показ у рейтингу. Викладач бачить лише
+ // публічний каталог; його групи та прогрес читаються окремо.
+ if(practice52CurrentRole==='admin'&&firebaseUser?.uid==='fjJOrOvLxkdzHH0RzeFTUE1tSPS2'){
+  const [usersSnap,rankSnap]=await Promise.all([db.collection('users').get(),db.collection('leaderboard').get()]);
+  const ranks=new Map();rankSnap.forEach(doc=>ranks.set(doc.id,doc.data()||{}));
+  usersSnap.forEach(doc=>{
+   const data=doc.data()||{},profile=data.profile||{},rank=ranks.get(doc.id)||{};
+   const points=Number(rank.points??data.progress?.points)||0;
+   practice52PublicUsers.push({uid:doc.id,nickname:profile.nickname||rank.nickname||profile.name||'Без нікнейму',name:profile.name||'',email:profile.email||'',avatar:profile.avatar||rank.avatar||'👤',points,level:rank.level||rankTitle(points),hasProfile:!!(profile.name||profile.nickname||profile.phone)});
+  });
+  rankSnap.forEach(doc=>{if(practice52PublicUsers.some(u=>u.uid===doc.id))return;const d=doc.data()||{};practice52PublicUsers.push({uid:doc.id,nickname:d.nickname||'Без нікнейму',name:'',email:'',avatar:d.avatar||'👤',points:Number(d.points)||0,level:d.level||'',hasProfile:false});});
+ }else{
+  const snap=await db.collection('leaderboard').get();
+  snap.forEach(doc=>{const d=doc.data()||{};practice52PublicUsers.push({uid:doc.id,nickname:d.nickname||'Без нікнейму',name:'',email:'',avatar:d.avatar||'👤',points:Number(d.points)||0,level:d.level||'',hasProfile:true});});
+ }
  practice52PublicUsers.sort((a,b)=>a.nickname.localeCompare(b.nickname,'uk'));
  return practice52PublicUsers;
 }
@@ -1119,7 +1133,10 @@ function renderAdminUserSearch(query,targetId,onChoose,emptyText){
    strong.append(document.createTextNode((u.avatar||'👤')+' '));
   }
   strong.append(document.createTextNode(u.nickname));
-  info.append(strong,adminNode('small','', 'UID: '+u.uid));
+  info.append(strong);
+  if(u.name)info.append(adminNode('small','', 'ПІБ: '+u.name));
+  if(u.email)info.append(adminNode('small','', 'Email: '+u.email));
+  info.append(adminNode('small','', 'UID: '+u.uid));
   const action=adminNode('button','btn', 'Обрати');action.type='button';action.addEventListener('click',()=>onChoose(u));
   row.append(info,action);target.appendChild(row);
  });
