@@ -5,7 +5,12 @@ service cloud.firestore {
 
     // Особисті профілі та прогрес
     match /users/{userId} {
-      allow read, write: if request.auth != null
+      // Користувач керує лише власним профілем; власник платформи
+      // може переглядати зареєстровані профілі в адміністративному кабінеті.
+      allow read: if request.auth != null
+        && (request.auth.uid == userId
+          || request.auth.uid == 'fjJOrOvLxkdzHH0RzeFTUE1tSPS2');
+      allow write: if request.auth != null
         && request.auth.uid == userId;
     }
 
