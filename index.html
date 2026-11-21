@@ -1044,7 +1044,10 @@ $('googleLogin').addEventListener('click',async()=>{
   // account and returns to this page for getRedirectResult/onAuthStateChanged.
   const isIOS=/iPad|iPhone|iPod/i.test(navigator.userAgent)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);
   if(isIOS){
-   setAuthStatus('Переходимо до Google для повторного входу…');
+   setAuthStatus('Зберігаємо сесію та переходимо до Google…');
+   // Persist the Firebase session explicitly before leaving the page. On iOS,
+   // redirect-based OAuth must be able to restore this session on return.
+   await auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL);
    await auth.signInWithRedirect(provider);
    return;
   }
