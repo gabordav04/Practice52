@@ -2917,7 +2917,7 @@ renderStats();renderSkills();renderHeaderIdentity();
  });
  document.getElementById('studentIdentity').addEventListener('contextmenu',e=>{e.preventDefault();openEntry();});
  window.practice52OpenEntry=openEntry;
- const roleButton=document.createElement('button');roleButton.type='button';roleButton.className='btn';roleButton.textContent='Змінити роль';roleButton.title='Завершити поточний сеанс і перейти до іншого користувача';roleButton.addEventListener('click',openEntry);document.querySelector('.header-right')?.appendChild(roleButton);
+ const roleButton=document.createElement('button');roleButton.type='button';roleButton.id='p52RoleSwitcher';roleButton.className='btn';roleButton.textContent='⇄ Змінити роль';roleButton.title='Відкрити вибір ролі: студент, викладач або адміністратор';roleButton.setAttribute('aria-label','Змінити роль користувача');roleButton.addEventListener('click',openEntry);const headerRight=document.querySelector('.header-right');if(headerRight&&!document.getElementById('p52RoleSwitcher'))headerRight.appendChild(roleButton);
 })();
 </script>
 
@@ -3268,5 +3268,9 @@ function showLoginGate(){
 body.p52-route-unavailable .app>:not(header):not(#accountPanel):not(#p52StudentRoute):not(#p52TeacherDashboard){display:none!important}
 </style>
 
+<style id="p52-role-switcher-visible">
+#p52RoleSwitcher{display:flex!important;align-items:center;justify-content:center;min-height:44px;padding:10px 16px;border:1px solid #b8d4e2;border-radius:14px;background:#edf6fa;color:#245f80;font-weight:750;font-size:14px;white-space:nowrap;cursor:pointer;position:relative;z-index:5}
+@media(max-width:760px){.header-right{display:flex!important;flex-direction:column!important;align-items:stretch!important;gap:9px!important}#p52RoleSwitcher{width:100%;box-sizing:border-box;order:2}.student-identity{order:1}}
+</style>
 </body>
 </html>
