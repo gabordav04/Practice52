@@ -32,7 +32,7 @@ service cloud.firestore {
     // Адміністратор PRACTICE 52
     function isPlatformAdmin() {
       return request.auth != null
-        && request.auth.uid == 'NIXSOWQ2c1Tkh5TVGU6z9zkbhOp2';
+        && request.auth.uid == 'GUJJCcS5QJY1LbpUlNWWTZZMDf32';
     }
     
     // Студент без заявки — чинний учасник старої системи; нові заявки мають бути підтверджені.
@@ -83,7 +83,7 @@ service cloud.firestore {
       // Перевірка, що користувач є студентом
       function isEligibleStudent(uid) {
         return uid is string
-          && uid != 'NIXSOWQ2c1Tkh5TVGU6z9zkbhOp2'
+          && uid != 'GUJJCcS5QJY1LbpUlNWWTZZMDf32'
           && (
             !exists(/databases/$(database)/documents/roles/$(uid))
             || get(/databases/$(database)/documents/roles/$(uid)).data.role == 'student'
@@ -282,7 +282,7 @@ service cloud.firestore {
         function isStudentAccount() {
           return request.auth != null
             && request.auth.uid == studentUid
-            && request.auth.uid != 'NIXSOWQ2c1Tkh5TVGU6z9zkbhOp2'
+            && request.auth.uid != 'GUJJCcS5QJY1LbpUlNWWTZZMDf32'
             && (
               !exists(/databases/$(database)/documents/roles/$(request.auth.uid))
               || get(/databases/$(database)/documents/roles/$(request.auth.uid)).data.role == 'student'
