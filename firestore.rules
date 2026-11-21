@@ -525,7 +525,7 @@ service cloud.firestore {
         && request.resource.data.nickname.size() <= 20
         && request.resource.data.diff(resource.data)
           .affectedKeys().hasOnly([
-            'nickname', 'updatedAt', 'createdAt'
+            'uid', 'nickname', 'updatedAt', 'createdAt'
           ]);
 
       allow delete: if isPlatformAdmin()
