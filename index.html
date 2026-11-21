@@ -1039,18 +1039,6 @@ $('googleLogin').addEventListener('click',async()=>{
 
   const provider=new firebase.auth.GoogleAuthProvider();
   provider.setCustomParameters({prompt:'select_account'});
-  // iOS Safari and embedded iOS browsers handle full-page OAuth redirects
-  // more reliably than popup windows. This preserves the existing Firebase
-  // account and returns to this page for getRedirectResult/onAuthStateChanged.
-  const isIOS=/iPad|iPhone|iPod/i.test(navigator.userAgent)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);
-  if(isIOS){
-   setAuthStatus('Зберігаємо сесію та переходимо до Google…');
-   // Persist the Firebase session explicitly before leaving the page. On iOS,
-   // redirect-based OAuth must be able to restore this session on return.
-   await auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL);
-   await auth.signInWithRedirect(provider);
-   return;
-  }
   await auth.signInWithPopup(provider);
  }catch(err){
   console.error('Google sign-in failed:',err);
