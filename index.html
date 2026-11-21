@@ -1078,7 +1078,18 @@ $('googleLogin').addEventListener('click',async()=>{
   // Firebase must finish LOCAL persistence setup before consuming redirect state.
   await window.practice52AuthPersistenceReady;
   const result=await auth.getRedirectResult();
-  if(result&&result.user)setAuthStatus('Вхід через Google успішний. Завантажуємо профіль…');
+  if(result&&result.user){
+   setAuthStatus('Google підтвердив вхід. Завантажуємо профіль…');
+  }else if(auth.currentUser){
+   setAuthStatus('Firebase уже має активну сесію: '+(auth.currentUser.email||auth.currentUser.uid)+'. Завантажуємо профіль…');
+  }else{
+   console.warn('Google redirect returned no credential and Firebase has no current user.',{
+    href:location.href,
+    authDomain:firebaseConfig.authDomain,
+    persistence:firebase.auth.Auth.Persistence.LOCAL
+   });
+   setAuthStatus('Google повернув на сайт, але Firebase не отримав підтвердження входу. Це не блокування Google-акаунта; потрібна діагностика повернення.',true);
+  }
  }catch(err){
   console.error('Google redirect result failed:',err);
   setAuthStatus('Помилка повернення з Google ('+(err.code||'невідома')+'): '+(err.message||''),true);
