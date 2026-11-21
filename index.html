@@ -1969,8 +1969,11 @@ auth.onAuthStateChanged(async user=>{
  ensurePractice52GroupLeaderWorkspace();
  await loadPractice52StudentGroups();
  const selectedEntryRole=localStorage.getItem('practice52_entry_role_v1')||'';
- document.querySelectorAll('.p52-academic-field').forEach(el=>el.classList.toggle('hidden',selectedEntryRole!=='student'));
- p52InitAcademicFields(readLocalProfile()||{});
+ const isStudentEntry=selectedEntryRole==='student';
+ document.querySelectorAll('.p52-academic-field').forEach(el=>el.classList.toggle('hidden',!isStudentEntry));
+ const academicGroup=document.getElementById('p52GroupCode');
+ if(academicGroup)academicGroup.required=isStudentEntry;
+ if(isStudentEntry)p52InitAcademicFields(readLocalProfile()||{});
  const teacherGate=document.getElementById('p52TeacherInviteGate');
  if(teacherGate)teacherGate.classList.toggle('hidden',!(user&&selectedEntryRole==='teacher'&&practice52CurrentRole!=='teacher'&&practice52CurrentRole!=='admin'));
  $('rankingJoinPrompt').classList.toggle('hidden',!!user);
