@@ -1965,14 +1965,18 @@ auth.onAuthStateChanged(async user=>{
  if(window.practice52ReconcileLearningCompletion)window.practice52ReconcileLearningCompletion();
  renderHeaderIdentity();await refreshPractice52Role(user);
 
- applyPractice52TeacherLayout(practice52CurrentRole==='teacher');
- ensurePractice52GroupLeaderWorkspace();
- await loadPractice52StudentGroups();
  const selectedEntryRole=localStorage.getItem('practice52_entry_role_v1')||'';
  const isStudentEntry=selectedEntryRole==='student';
+ applyPractice52TeacherLayout(practice52CurrentRole==='teacher');
  document.querySelectorAll('.p52-academic-field').forEach(el=>el.classList.toggle('hidden',!isStudentEntry));
  const academicGroup=document.getElementById('p52GroupCode');
  if(academicGroup)academicGroup.required=isStudentEntry;
+ ensurePractice52GroupLeaderWorkspace();
+ // Student-only group lookup must never block teacher/admin authentication.
+ if(user&&isStudentEntry){
+  try{await loadPractice52StudentGroups();}
+  catch(groupError){console.error('Student group lookup failed:',groupError);}
+ }
  if(isStudentEntry)p52InitAcademicFields(readLocalProfile()||{});
  const teacherGate=document.getElementById('p52TeacherInviteGate');
  if(teacherGate)teacherGate.classList.toggle('hidden',!(user&&selectedEntryRole==='teacher'&&practice52CurrentRole!=='teacher'&&practice52CurrentRole!=='admin'));
