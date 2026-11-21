@@ -1921,6 +1921,48 @@ function renderPractice52TeacherAnalytics(){
 document.getElementById('p52TeacherDashboard')?.querySelectorAll('[data-teacher-tab]').forEach(b=>b.addEventListener('click',()=>showTeacherTab(b.dataset.teacherTab)));
 document.getElementById('p52TeacherRefresh')?.addEventListener('click',loadPractice52TeacherDashboard);
 
+async function resetOwnPractice52Progress(){
+ const OWNER_UID='NIXSOWQ2c1Tkh5TVGU6z9zkbhOp2';
+ if(!firebaseUser||firebaseUser.uid!==OWNER_UID||!cloudReady)throw new Error('Скидання доступне лише власнику основного акаунта після синхронізації.');
+ if(!window.confirm('Скинути весь твій навчальний прогрес, бали, публічний рейтинг і практичні оцінки до нуля? Відеоподання та посилання Google Drive залишаться.'))return;
+ const typed=window.prompt('Для підтвердження введи RESET');
+ if(typed!=='RESET')return;
+ const uid=firebaseUser.uid,empty=emptyPracticeState(),groupsSnap=await db.collection('groups').where('studentUids','array-contains',uid).get();
+ const ops=[];
+ ops.push({type:'set',ref:db.collection('users').doc(uid),data:{progress:empty,updatedAt:firebase.firestore.FieldValue.serverTimestamp()},options:{merge:true}});
+ ops.push({type:'set',ref:db.collection('leaderboard').doc(uid),data:{nickname:(readLocalProfile()||{}).nickname||'student',avatar:(readLocalProfile()||{}).avatar||DEFAULT_AVATAR,points:0,completed:0,progressPercent:0,correct:0,answered:0,accuracy:0,level:rankTitle(0),updatedAt:firebase.firestore.FieldValue.serverTimestamp()}});
+ for(const groupDoc of groupsSnap.docs){
+  ops.push({type:'set',ref:groupDoc.ref.collection('studentProgress').doc(uid),data:{studentUid:uid,profile:buildTeacherVisibleStudentProfile(readLocalProfile()||{}),progress:empty,updatedAt:firebase.firestore.FieldValue.serverTimestamp()},options:{merge:true}});
+  const grades=await groupDoc.ref.collection('gradebook').where('studentUid','==',uid).get();
+  grades.docs.forEach(d=>ops.push({type:'delete',ref:d.ref}));
+ }
+ const submissions=await db.collection('practiceSubmissions').where('studentUid','==',uid).get();
+ submissions.docs.forEach(d=>{
+  const data=d.data()||{};
+  const patch={practicalGrade:firebase.firestore.FieldValue.delete(),teacherComment:firebase.firestore.FieldValue.delete(),reviewedBy:firebase.firestore.FieldValue.delete(),reviewedAt:firebase.firestore.FieldValue.delete(),updatedAt:firebase.firestore.FieldValue.serverTimestamp()};
+  if(data.status==='reviewed')patch.status='submitted';
+  ops.push({type:'update',ref:d.ref,data:patch});
+ });
+ for(let i=0;i<ops.length;i+=400){
+  const batch=db.batch();
+  ops.slice(i,i+400).forEach(op=>{
+   if(op.type==='delete')batch.delete(op.ref);
+   else if(op.type==='update')batch.update(op.ref,op.data);
+   else batch.set(op.ref,op.data,op.options||{});
+  });
+  await batch.commit();
+ }
+ state=empty;localStorage.setItem(KEY,JSON.stringify(state));
+ renderStats();renderSkills();renderMyRank();$('savedLabel').textContent='Firebase ✓';
+ setAuthStatus('Навчальний прогрес і рейтинг скинуто до нуля. Відеоподання та посилання Google Drive збережено.');
+}
+function installOwnerProgressResetButton(){
+ const OWNER_UID='NIXSOWQ2c1Tkh5TVGU6z9zkbhOp2';
+ if(!firebaseUser||firebaseUser.uid!==OWNER_UID||!cloudReady||document.getElementById('p52OwnerResetProgress'))return;
+ const btn=document.createElement('button');btn.type='button';btn.id='p52OwnerResetProgress';btn.className='reg-btn secondary';btn.style.marginTop='12px';btn.textContent='Почати навчання з нуля';
+ btn.addEventListener('click',async()=>{btn.disabled=true;try{await resetOwnPractice52Progress();}catch(err){console.error('Progress reset failed:',err);setAuthStatus('Не вдалося повністю скинути прогрес. Дані не вважай обнуленими — потрібна перевірка.',true);}finally{btn.disabled=false;}});
+ const panel=document.getElementById('accountPanel');if(panel)panel.appendChild(btn);
+}
 auth.onAuthStateChanged(async user=>{
  try{await window.practice52AuthPersistenceReady;}catch(err){console.error('Auth persistence initialization failed:',err);}
  if(window.practice52ProgressUnsubscribe){window.practice52ProgressUnsubscribe();window.practice52ProgressUnsubscribe=null;}
@@ -2019,6 +2061,7 @@ auth.onAuthStateChanged(async user=>{
    document.body.classList.remove('p52-auth-locked');
   }
   cloudReady=true;
+  installOwnerProgressResetButton();
   if(practice52CurrentRole!=='teacher'&&practice52CurrentRole!=='admin'){
    try{await publishStudentProgressForTeacher();}
    catch(progressPublishError){console.warn('Teacher-visible progress mirror is not available yet:',progressPublishError);}
