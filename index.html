@@ -2785,14 +2785,14 @@ renderStats();renderSkills();renderHeaderIdentity();
   if(!selected)return;
   const confirmButton=document.getElementById('p52EntryConfirm');confirmButton.disabled=true;
   try{
-   // Очистити лише локальні дані PRACTICE 52. Хмарні профілі та прогрес акаунтів не видаляються.
-   for(const key of Object.keys(localStorage)){
-    if(key.startsWith('practice52_profile_v1')||key.startsWith('practice52_v1'))localStorage.removeItem(key);
-   }
+   // Зміна режиму ніколи не очищає локальний профіль або навчальний прогрес.
+   // Якщо користувач уже авторизований, зберігаємо ту саму Firebase-сесію та
+   // перезавантажуємо інтерфейс, щоб onAuthStateChanged застосував вибраний режим.
    localStorage.setItem(ROLE_KEY,selected);localStorage.setItem(DONE_KEY,'1');
-   KEY='practice52_v1:guest';state=emptyPracticeState();localStorage.removeItem(KEY);
-   renderStats();renderSkills();
-   if(firebase.auth().currentUser)await firebase.auth().signOut();
+   if(firebase.auth().currentUser){
+    location.reload();
+    return;
+   }
    backdrop.classList.add('hidden');
    const panel=document.getElementById('accountPanel');panel.classList.remove('hidden');
    document.getElementById('studentIdentity').setAttribute('aria-expanded','true');
@@ -2801,7 +2801,7 @@ renderStats();renderSkills();renderHeaderIdentity();
    const createButton=document.querySelector('#registrationForm button[type="submit"]');
    if(createButton)createButton.classList.toggle('hidden',selected==='admin');
    const google=document.getElementById('googleLogin');if(google)google.classList.remove('hidden');
-   document.getElementById('regStatus').textContent=selected==='admin'?'Увійди у свій наявний адміністративний акаунт.':'Локальні дані попереднього користувача очищено. Створи власний акаунт або увійди, щоб завантажити лише свої дані.';
+   document.getElementById('regStatus').textContent=selected==='admin'?'Увійди у свій наявний адміністративний акаунт.':'Увійди у свій акаунт. Наявні локальні навчальні дані збережено.';
    document.getElementById('regEmail').value='';document.getElementById('regPassword').value='';
    document.getElementById('regName').value='';document.getElementById('regPhone').value='';
    document.getElementById('regNickname').value='';document.getElementById('regNickname').disabled=false;
