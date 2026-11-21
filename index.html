@@ -1051,7 +1051,7 @@ $('googleLogin').addEventListener('click',async()=>{
    // Firebase recommends popup sign-in when redirect helper storage is partitioned.
    // Start directly from the click gesture so mobile browsers do not block the popup.
    const credential=await auth.signInWithPopup(provider);
-   if(credential&&credential.user)setAuthStatus('Google підтвердив вхід. Завантажуємо профіль…');
+   if(credential&&credential.user)setAuthStatus('Вхід через Google підтверджено.');
   }catch(err){
    console.error('Google popup sign-in failed:',err);
    const messages={
@@ -1070,9 +1070,9 @@ $('googleLogin').addEventListener('click',async()=>{
    await window.practice52AuthPersistenceReady;
    const result=await auth.getRedirectResult();
    if(result&&result.user){
-    setAuthStatus('Google підтвердив вхід. Завантажуємо профіль…');
+    setAuthStatus('Вхід через Google підтверджено.');
    }else if(auth.currentUser){
-    setAuthStatus('Firebase уже має активну сесію: '+(auth.currentUser.email||auth.currentUser.uid)+'. Завантажуємо профіль…');
+    setAuthStatus('Сесію Google відновлено.');
    }else{
     // A null redirect result is normal when using popup sign-in or opening
     // the app without a pending redirect. Do not show a false auth error.
@@ -2055,7 +2055,7 @@ auth.onAuthStateChanged(async user=>{
    return;
   }
   applyPractice52TeacherLayout(false);
-  setAuthStatus('Завантажуємо твій профіль і прогрес…');
+  // Профіль уже показано з локального кешу; синхронізація Firestore відбувається у фоні.
   const ref=db.collection('users').doc(user.uid),snap=await ref.get();
   if(snap.exists){
    const data=snap.data()||{};
