@@ -320,6 +320,14 @@ body.p52-teacher-mode #skillCatalog{margin-top:18px}
    <div class="reg-field"><label for="regName">ПІБ</label><input id="regName" name="name" type="text" autocomplete="name" placeholder="Прізвище, ім’я та по батькові" minlength="5"></div>
    <div class="reg-field"><label for="regPhone">Номер телефону</label><input id="regPhone" name="phone" type="tel" autocomplete="tel" inputmode="tel" placeholder="+380..."></div>
    <div class="reg-field p52-academic-field p52-route-field-legacy"><label for="p52Degree">Освітній рівень</label><select id="p52Degree"><option value="">Оберіть рівень</option><option value="bachelor">Бакалаврат</option><option value="master">Магістратура</option></select></div>
+  <section id="p52TeacherInviteGate" class="hidden" style="margin-top:18px;padding:18px;border:2px solid var(--line);border-radius:18px;background:var(--surface)">
+   <h3 style="margin:0 0 8px">Підтвердження викладача</h3>
+   <p style="margin:0 0 12px">Адміністратор має надіслати тобі персональний одноразовий код. Уведи його нижче, щоб активувати роль викладача. Код діє 7 днів і використовується один раз.</p>
+   <label for="p52TeacherInviteCode">Унікальний код запрошення</label>
+   <input id="p52TeacherInviteCode" type="text" autocomplete="one-time-code" autocapitalize="characters" placeholder="P52-TEACH-XXXX-XXXX" style="width:100%;margin:8px 0 12px;text-transform:uppercase">
+   <button class="reg-btn" type="button" id="p52RedeemTeacherInvite">Підтвердити код</button>
+   <div class="reg-status" id="p52TeacherInviteStatus" aria-live="polite"></div>
+  </section>
    <div class="reg-field p52-academic-field p52-route-field-legacy"><label for="p52Year">Курс</label><select id="p52Year"><option value="">Оберіть рівень навчання</option></select></div>
    <div class="reg-field p52-academic-field p52-route-field-legacy"><label for="p52Semester">Семестр</label><select id="p52Semester"><option value="">Оберіть семестр</option><option value="1">1 семестр</option><option value="2">2 семестр</option></select></div>
    <div class="reg-field p52-academic-field"><label for="p52GroupCode">Навчальна група</label><select id="p52GroupCode" required><option value="">Завантаження списку груп…</option></select><small>Обери групу, яку створив адміністратор. Доступ відкриється після підтвердження.</small></div>
@@ -335,14 +343,6 @@ body.p52-teacher-mode #skillCatalog{margin-top:18px}
    <button class="reg-btn secondary hidden" id="logoutBtn" type="button">Вийти</button>
   </div>
   <div class="profile-tools"><button class="reg-btn" id="saveProfileBtn" type="button">Зберегти зміни</button><button class="reg-btn secondary" id="hideProfileBtn" type="button">Сховати профіль</button></div><label class="profile-visibility"><input id="profileVisible" type="checkbox" checked> Показувати мене в загальному рейтингу</label><div class="reg-status" id="regStatus" aria-live="polite">Підключення до Firebase…</div>
-  <section id="p52TeacherInviteGate" class="hidden" style="margin-top:18px;padding:18px;border:2px solid var(--line);border-radius:18px;background:var(--surface)">
-   <h3 style="margin:0 0 8px">Підтвердження викладача</h3>
-   <p style="margin:0 0 12px">Адміністратор має надіслати тобі персональний одноразовий код. Уведи його нижче, щоб активувати роль викладача. Код діє 7 днів і використовується один раз.</p>
-   <label for="p52TeacherInviteCode">Унікальний код запрошення</label>
-   <input id="p52TeacherInviteCode" type="text" autocomplete="one-time-code" autocapitalize="characters" placeholder="P52-TEACH-XXXX-XXXX" style="width:100%;margin:8px 0 12px;text-transform:uppercase">
-   <button class="reg-btn" type="button" id="p52RedeemTeacherInvite">Підтвердити код</button>
-   <div class="reg-status" id="p52TeacherInviteStatus" aria-live="polite"></div>
-  </section>
  </form>
 </section>
 <section id="p52StudentRoute" class="registration hidden" aria-labelledby="p52RouteTitle">
@@ -2934,14 +2934,21 @@ body.p52-auth-locked header{position:relative;z-index:1001}
    lockApp();backdrop.classList.remove('hidden');panel.classList.add('hidden');
    $('studentIdentity').setAttribute('aria-expanded','false');
  }
- function applyRoleSpecificFields(role){
+  function applyRoleSpecificFields(role){
+    const isStudent=role==='student';
+    document.querySelectorAll('.p52-academic-field').forEach(el=>{el.classList.toggle('hidden',!isStudent);el.style.setProperty('display',isStudent?'':'none','important');});
+    const group=$('p52GroupCode');if(group)group.required=isStudent;
+    const gate=$('p52TeacherInviteGate');
+    if(gate){const isTeacher=role==='teacher';gate.classList.toggle('hidden',!isTeacher);gate.style.setProperty('display',isTeacher?'block':'none','important');}
+  }
    const isStudent=role==='student';
    document.querySelectorAll('.p52-academic-field').forEach(el=>el.classList.toggle('hidden',!isStudent));
    const group=$('p52GroupCode');if(group)group.required=isStudent;
  }
  function showLoginGate(){
    lockApp();backdrop.classList.add('hidden');panel.classList.remove('hidden');
-   const role=localStorage.getItem(roleKey)||'student';
+    const savedRole=localStorage.getItem(roleKey)||'student';
+    const role=savedRole;
    applyRoleSpecificFields(role);
    $('regTitle').textContent=role==='teacher'?'Реєстрація / вхід викладача PRACTICE 52':role==='admin'?'Вхід адміністратора PRACTICE 52':'Реєстрація / вхід студента PRACTICE 52';
    const createButton=form.querySelector('button[type="submit"]');if(createButton)createButton.classList.toggle('hidden',role==='admin');
@@ -2953,7 +2960,8 @@ body.p52-auth-locked header{position:relative;z-index:1001}
    $('regStatus').style.color='var(--muted)';
  }
  function showProfileGate(user,profile){
-   const role=localStorage.getItem(roleKey)||'student';
+    const savedRole=localStorage.getItem(roleKey)||'student';
+    const role=savedRole;
    applyRoleSpecificFields(role);
    lockApp();backdrop.classList.add('hidden');panel.classList.remove('hidden');
    $('studentIdentity').setAttribute('aria-expanded','true');
