@@ -2950,7 +2950,11 @@ body.p52-auth-locked header{position:relative;z-index:1001}
    submit.textContent='Зберегти профіль і продовжити';submit.classList.remove('hidden');
    $('emailLogin').classList.add('hidden');$('googleLogin').classList.add('hidden');
    $('logoutBtn').classList.remove('hidden');$('saveProfileBtn').classList.add('hidden');$('hideProfileBtn').classList.add('hidden');
-   $('regStatus').textContent=role==='student'?'Для доступу до навчання заповни профіль і вкажи код своєї академічної групи. Курс, семестр і практика обираються вже в кабінеті.':'Заповни обов’язкові дані профілю. Навчальна група для цієї ролі не потрібна.';
+   $('regStatus').textContent=role==='student'?'Для доступу до навчання заповни профіль і вкажи код своєї академічної групи. Курс, семестр і практика обираються вже в кабінеті.':role==='teacher'?'Заповни профіль, а для активації кабінету викладача введи персональний одноразовий код, який створює адміністратор.':'Заповни обов’язкові дані профілю. Навчальна група для цієї ролі не потрібна.';
+   const teacherInviteGate=$('p52TeacherInviteGate');
+   if(teacherInviteGate)teacherInviteGate.classList.toggle('hidden',role!=='teacher');
+   const profileSubmit=form.querySelector('button[type="submit"]');
+   if(profileSubmit)profileSubmit.textContent=role==='teacher'?'Зберегти профіль':'Зберегти профіль і продовжити';
    $('regStatus').style.color='var(--muted)';
    if(profile.avatar)renderAvatar(profile.avatar);
    setTimeout(()=>{if(auth.currentUser&&auth.currentUser.uid===user.uid&&document.body.classList.contains('p52-auth-locked'))panel.classList.remove('hidden');},1800);
