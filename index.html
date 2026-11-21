@@ -1035,31 +1035,36 @@ $('emailLogin').addEventListener('click',async()=>{
 });
 $('googleLogin').addEventListener('click',async()=>{
  try{
-  setAuthStatus('Відкриваємо вхід через Google…');
+  setAuthStatus('Готуємо безпечний вхід через Google…');
+  await window.practice52AuthPersistenceReady;
   const provider=new firebase.auth.GoogleAuthProvider();
   provider.setCustomParameters({prompt:'select_account'});
   await auth.signInWithPopup(provider);
  }catch(err){
   console.error('Google sign-in failed:',err);
-  if(err.code==='auth/popup-blocked'||err.code==='auth/operation-not-supported-in-this-environment'){
-   try{setAuthStatus('Відкриваємо сторінку Google для входу…');const redirectProvider=new firebase.auth.GoogleAuthProvider();redirectProvider.setCustomParameters({prompt:'select_account'});await auth.signInWithRedirect(redirectProvider);return;}
-   catch(redirectError){console.error('Google redirect failed:',redirectError);err=redirectError;}
-  }
   const messages={
    'auth/unauthorized-domain':'Домен сайту не дозволений у Firebase. Додай practice52.onrender.com у Authentication → Settings → Authorized domains.',
    'auth/operation-not-allowed':'У Firebase не ввімкнено Google: Authentication → Sign-in method → Google → Enable.',
    'auth/popup-closed-by-user':'Вікно входу Google було закрито до завершення.',
    'auth/cancelled-popup-request':'Попередній запит входу скасовано. Спробуй ще раз.',
-   'auth/network-request-failed':'Помилка мережі під час входу Google. Перевір з’єднання та повтори.'
+   'auth/network-request-failed':'Помилка мережі під час входу Google. Перевір з’єднання та повтори.',
+   'auth/popup-blocked':'Браузер заблокував вікно Google. Відкрий Practice 52 безпосередньо в Safari або Chrome та повтори вхід.',
+   'auth/operation-not-supported-in-this-environment':'Цей вбудований браузер не підтримує вхід через Google. Відкрий Practice 52 у Safari або Chrome.',
+   'auth/web-storage-unsupported':'Браузер обмежив сховище, потрібне для входу. Відкрий Practice 52 у Safari або Chrome.'
   };
-  setAuthStatus(messages[err.code]||('Помилка Google ('+(err.code||'невідома')+'): '+(err.message||'Не вдалося увійти.')),true);
+  const fallback='Помилка Google ('+(err.code||'невідома')+'): '+(err.message||'Не вдалося увійти.');
+  setAuthStatus(messages[err.code]||fallback,true);
  }
 });
 auth.getRedirectResult().then(result=>{
  if(result&&result.user)setAuthStatus('Вхід через Google успішний. Завантажуємо профіль…');
 }).catch(err=>{
  console.error('Google redirect result failed:',err);
- setAuthStatus('Помилка повернення з Google ('+(err.code||'невідома')+'): '+(err.message||''),true);
+ if(err.code==='auth/missing-initial-state'){
+  setAuthStatus('Попередня спроба входу через Google була перервана браузером. Повернись на Practice 52 та повтори вхід у Safari або Chrome.',true);
+ }else{
+  setAuthStatus('Помилка повернення з Google ('+(err.code||'невідома')+'): '+(err.message||''),true);
+ }
 });
 $('logoutBtn').addEventListener('click',async()=>{try{await auth.signOut();}catch(err){setAuthStatus(err.message,true);}});
 
