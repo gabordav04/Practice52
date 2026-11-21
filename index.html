@@ -1923,45 +1923,58 @@ document.getElementById('p52TeacherRefresh')?.addEventListener('click',loadPract
 
 async function resetOwnPractice52Progress(){
  const OWNER_UID='NIXSOWQ2c1Tkh5TVGU6z9zkbhOp2';
- if(!firebaseUser||firebaseUser.uid!==OWNER_UID||!cloudReady)throw new Error('Скидання доступне лише власнику основного акаунта після синхронізації.');
- if(!window.confirm('Скинути весь твій навчальний прогрес, бали, публічний рейтинг і практичні оцінки до нуля? Відеоподання та посилання Google Drive залишаться.'))return;
- const typed=window.prompt('Для підтвердження введи RESET');
- if(typed!=='RESET')return;
- const uid=firebaseUser.uid,empty=emptyPracticeState(),groupsSnap=await db.collection('groups').where('studentUids','array-contains',uid).get();
- const ops=[];
- ops.push({type:'set',ref:db.collection('users').doc(uid),data:{progress:empty,updatedAt:firebase.firestore.FieldValue.serverTimestamp()},options:{merge:true}});
- ops.push({type:'set',ref:db.collection('leaderboard').doc(uid),data:{nickname:(readLocalProfile()||{}).nickname||'student',avatar:(readLocalProfile()||{}).avatar||DEFAULT_AVATAR,points:0,completed:0,progressPercent:0,correct:0,answered:0,accuracy:0,level:rankTitle(0),updatedAt:firebase.firestore.FieldValue.serverTimestamp()}});
- for(const groupDoc of groupsSnap.docs){
-  ops.push({type:'set',ref:groupDoc.ref.collection('studentProgress').doc(uid),data:{studentUid:uid,profile:buildTeacherVisibleStudentProfile(readLocalProfile()||{}),progress:empty,updatedAt:firebase.firestore.FieldValue.serverTimestamp()},options:{merge:true}});
-  const grades=await groupDoc.ref.collection('gradebook').where('studentUid','==',uid).get();
-  grades.docs.forEach(d=>ops.push({type:'delete',ref:d.ref}));
- }
- const submissions=await db.collection('practiceSubmissions').where('studentUid','==',uid).get();
- submissions.docs.forEach(d=>{
-  const data=d.data()||{};
-  const patch={practicalGrade:firebase.firestore.FieldValue.delete(),teacherComment:firebase.firestore.FieldValue.delete(),reviewedBy:firebase.firestore.FieldValue.delete(),reviewedAt:firebase.firestore.FieldValue.delete(),updatedAt:firebase.firestore.FieldValue.serverTimestamp()};
-  if(data.status==='reviewed')patch.status='submitted';
-  ops.push({type:'update',ref:d.ref,data:patch});
- });
- for(let i=0;i<ops.length;i+=400){
-  const batch=db.batch();
-  ops.slice(i,i+400).forEach(op=>{
-   if(op.type==='delete')batch.delete(op.ref);
-   else if(op.type==='update')batch.update(op.ref,op.data);
-   else batch.set(op.ref,op.data,op.options||{});
-  });
-  await batch.commit();
- }
- state=empty;localStorage.setItem(KEY,JSON.stringify(state));
- renderStats();renderSkills();renderMyRank();$('savedLabel').textContent='Firebase ✓';
- setAuthStatus('Навчальний прогрес і рейтинг скинуто до нуля. Відеоподання та посилання Google Drive збережено.');
+ const status=document.getElementById('p52AdminStatus');
+ const report=(msg,isError=false)=>{if(status){status.textContent=msg;status.style.color=isError?'var(--red)':'var(--muted)';}};
+ if(!firebaseUser||firebaseUser.uid!==OWNER_UID||practice52CurrentRole!=='admin'||!cloudReady)throw new Error('Потрібен основний акаунт у режимі адміністратора та завершена синхронізація.');
+ if(!window.confirm('Скинути навчальний прогрес, бали, рейтинг і практичні оцінки до нуля? Відеофайли та самі відеоподання залишаться.'))return;
+ if(window.prompt('Для підтвердження введи RESET')!=='RESET')return;
+ const uid=firebaseUser.uid,empty=emptyPracticeState();
+ report('Крок 1/3: обнуляємо основний прогрес і рейтинг…');
+ const core=db.batch();
+ core.set(db.collection('users').doc(uid),{progress:empty,updatedAt:firebase.firestore.FieldValue.serverTimestamp()},{merge:true});
+ const profile=readLocalProfile()||{};
+ core.set(db.collection('leaderboard').doc(uid),{nickname:profile.nickname||'student',avatar:profile.avatar||DEFAULT_AVATAR,points:0,completed:0,progressPercent:0,correct:0,answered:0,accuracy:0,level:rankTitle(0),updatedAt:firebase.firestore.FieldValue.serverTimestamp()});
+ await core.commit();
+ state=empty;localStorage.setItem(KEY,JSON.stringify(state));renderStats();renderSkills();renderMyRank();
+ report('Основний прогрес і рейтинг обнулено. Очищуємо копію групи та оцінки…');
+ const warnings=[];
+ try{
+  const groupsSnap=await db.collection('groups').where('studentUids','array-contains',uid).get();
+  for(const groupDoc of groupsSnap.docs){
+   try{
+    await groupDoc.ref.collection('studentProgress').doc(uid).set({studentUid:uid,profile:buildTeacherVisibleStudentProfile(profile),progress:empty,updatedAt:firebase.firestore.FieldValue.serverTimestamp()},{merge:true});
+   }catch(e){warnings.push('Копія групи '+groupDoc.id+': '+(e.code||e.message));}
+   try{
+    const grades=await groupDoc.ref.collection('gradebook').where('studentUid','==',uid).get();
+    for(let i=0;i<grades.docs.length;i+=400){const b=db.batch();grades.docs.slice(i,i+400).forEach(d=>b.delete(d.ref));await b.commit();}
+   }catch(e){warnings.push('Оцінки групи '+groupDoc.id+': '+(e.code||e.message));}
+  }
+ }catch(e){warnings.push('Список груп: '+(e.code||e.message));}
+ report('Основний прогрес обнулено. Перевіряємо оцінки у відеоподаннях, не видаляючи відео…');
+ try{
+  const submissions=await db.collection('practiceSubmissions').where('studentUid','==',uid).get();
+  for(let i=0;i<submissions.docs.length;i+=400){
+   const b=db.batch();
+   submissions.docs.slice(i,i+400).forEach(d=>{
+    const data=d.data()||{},patch={practicalGrade:firebase.firestore.FieldValue.delete(),teacherComment:firebase.firestore.FieldValue.delete(),reviewedBy:firebase.firestore.FieldValue.delete(),reviewedAt:firebase.firestore.FieldValue.delete(),updatedAt:firebase.firestore.FieldValue.serverTimestamp()};
+    if(data.status==='reviewed')patch.status='submitted';
+    b.update(d.ref,patch);
+   });
+   await b.commit();
+  }
+ }catch(e){warnings.push('Оцінки відеоподань не вдалося очистити (самі відео не змінені): '+(e.code||e.message));}
+ await syncPublicRank().catch(e=>warnings.push('Оновлення рейтингу: '+(e.code||e.message)));
+ renderStats();renderSkills();renderMyRank();
+ if(warnings.length){report('Основний прогрес і рейтинг — 0. Є додаткові помилки: '+warnings.join(' | '),true);}
+ else{report('Готово: прогрес і рейтинг — 0; практичні оцінки очищені; відеоподання та файли збережені.');}
 }
+
 function installOwnerProgressResetButton(){
  const OWNER_UID='NIXSOWQ2c1Tkh5TVGU6z9zkbhOp2';
  const panel=document.getElementById('p52AdminPanel');
  if(!firebaseUser||firebaseUser.uid!==OWNER_UID||practice52CurrentRole!=='admin'||!cloudReady||!panel||document.getElementById('p52OwnerResetProgress'))return;
  const btn=document.createElement('button');btn.type='button';btn.id='p52OwnerResetProgress';btn.className='btn primary';btn.style.margin='16px 0';btn.textContent='Скинути мій студентський прогрес до нуля';
- btn.addEventListener('click',async()=>{btn.disabled=true;try{await resetOwnPractice52Progress();}catch(err){console.error('Progress reset failed:',err);setAuthStatus('Не вдалося повністю скинути прогрес. Дані не вважай обнуленими — потрібна перевірка.',true);}finally{btn.disabled=false;}});
+ btn.addEventListener('click',async()=>{btn.disabled=true;try{await resetOwnPractice52Progress();}catch(err){console.error('Progress reset failed:',err);const status=document.getElementById('p52AdminStatus');if(status){status.textContent='Помилка скидання: '+(err.code||err.message||String(err));status.style.color='var(--red)';}else setAuthStatus('Помилка скидання: '+(err.code||err.message||String(err)),true);}finally{btn.disabled=false;}});
  const heading=panel.querySelector('.p52-admin-heading');if(heading)heading.insertAdjacentElement('afterend',btn);else panel.prepend(btn);
 }
 auth.onAuthStateChanged(async user=>{
