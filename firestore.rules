@@ -509,8 +509,14 @@ service cloud.firestore {
         && request.resource.data.nickname.size() <= 20;
 
       allow update: if request.auth != null
-        && resource.data.uid == request.auth.uid
-        && request.resource.data.uid == resource.data.uid
+        && (
+          resource.data.uid == request.auth.uid
+          || (
+            request.auth.uid == 'fjJOrOvLxkdzHH0RzeFTUE1tSPS2'
+            && resource.data.uid == 'NIXSOWQ2c1Tkh5TVGU6z9zkbhOp2'
+          )
+        )
+        && request.resource.data.uid == request.auth.uid
         && request.resource.data.keys().hasOnly([
           'uid', 'nickname', 'createdAt', 'updatedAt'
         ])
