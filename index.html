@@ -3054,7 +3054,28 @@ function showLoginGate(){
    try{
      const selected=localStorage.getItem(roleKey)||'';
      if(!selected){showRoleGate();return;}
+     await refreshPractice52Role(user);
      applyRoleSpecificFields(selected);
+     if(selected==='admin'&&user.uid!=='fjJOrOvLxkdzHH0RzeFTUE1tSPS2'){
+       lockApp();panel.classList.remove('hidden');
+       $('regTitle').textContent='Вхід адміністратора PRACTICE 52';
+       $('regStatus').textContent='Цей Google-акаунт не має прав адміністратора. Увійди основним адміністративним акаунтом.';
+       $('regStatus').style.color='var(--red)';
+       $('googleLogin').classList.add('hidden');$('emailLogin').classList.add('hidden');
+       $('logoutBtn').classList.remove('hidden');
+       return;
+     }
+     if(selected==='teacher'&&practice52CurrentRole!=='teacher'){
+       const teacherSnap=await db.collection('users').doc(user.uid).get();
+       const teacherProfile=(teacherSnap.exists&&teacherSnap.data().profile)||{};
+       showProfileGate(user,teacherProfile);
+       applyRoleSpecificFields('teacher');
+       const inviteGate=$('p52TeacherInviteGate');
+       if(inviteGate){inviteGate.classList.remove('hidden');inviteGate.style.setProperty('display','block','important');}
+       $('regStatus').textContent='Щоб активувати кабінет викладача, введи персональний одноразовий код, створений адміністратором.';
+       $('regStatus').style.color='var(--muted)';
+       return;
+     }
      if(selected==='admin'&&user.uid==='fjJOrOvLxkdzHH0RzeFTUE1tSPS2'){
        // The primary owner is both student and administrator. Restore the selected
        // admin interface explicitly after Google sign-in, not only the auth gate.
