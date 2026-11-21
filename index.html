@@ -2883,7 +2883,7 @@ renderStats();renderSkills();renderHeaderIdentity();
   document.getElementById('studentIdentity').setAttribute('aria-expanded','true');
   panel.scrollIntoView({behavior:'smooth',block:'start'});
  }
- document.querySelectorAll('[data-entry-role]').forEach(b=>b.addEventListener('click',()=>openRoleAuth(b.dataset.entryRole)));
+ document.querySelectorAll('[data-entry-role]').forEach(b=>b.addEventListener('click',()=>{selected=b.dataset.entryRole;updateRoleUI();}));
  document.getElementById('p52EntryBack').addEventListener('click',()=>{backdrop.classList.add('hidden');});
  document.getElementById('p52EntryConfirm').addEventListener('click',async()=>{
   if(!selected)return;
