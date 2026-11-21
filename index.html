@@ -770,13 +770,13 @@ async function syncPublicRank(){
  // Викладачі та адміністратор ніколи не беруть участі в студентському рейтингу.
  try{
   let accountRole=practice52CurrentRole;
-  if(firebaseUser.uid==='NIXSOWQ2c1Tkh5TVGU6z9zkbhOp2')accountRole='admin';
+  if(firebaseUser.uid==='GUJJCcS5QJY1LbpUlNWWTZZMDf32')accountRole='admin';
   else{
    const roleSnap=await db.collection('roles').doc(firebaseUser.uid).get();
    const roleData=roleSnap.exists?(roleSnap.data()||{}):{};
    if(roleData.role==='teacher'||roleData.role==='admin')accountRole=roleData.role;
   }
-  if(accountRole==='teacher'||(accountRole==='admin'&&firebaseUser.uid!=='NIXSOWQ2c1Tkh5TVGU6z9zkbhOp2')){
+  if(accountRole==='teacher'||(accountRole==='admin'&&firebaseUser.uid!=='GUJJCcS5QJY1LbpUlNWWTZZMDf32')){
    await rankRef.delete();
    return;
   }
@@ -1119,7 +1119,7 @@ function ensureAdminPanel(){
   const panel=document.getElementById('p52AdminPanel'),opening=panel.classList.contains('hidden');
   panel.classList.toggle('hidden',!opening);
   document.body.classList.toggle('p52-admin-mode',opening);
-  if(firebaseUser?.uid==='NIXSOWQ2c1Tkh5TVGU6z9zkbhOp2'){
+  if(firebaseUser?.uid==='GUJJCcS5QJY1LbpUlNWWTZZMDf32'){
    localStorage.setItem('practice52_entry_role_v1',opening?'admin':'student');
    practice52CurrentRole=opening?'admin':'student';
   }
@@ -1557,7 +1557,7 @@ async function refreshPractice52Role(user){
  const selectedMode=localStorage.getItem('practice52_entry_role_v1')||'student';
  if(!user)return;
  try{
-  const isPrimaryAdmin=user.uid==='NIXSOWQ2c1Tkh5TVGU6z9zkbhOp2';
+  const isPrimaryAdmin=user.uid==='GUJJCcS5QJY1LbpUlNWWTZZMDf32';
   if(isPrimaryAdmin){
    // Один Firebase-акаунт має два окремі інтерфейсні режими.
    // За замовчуванням це студент; адміністративний режим вмикається лише явним вибором.
@@ -1729,7 +1729,7 @@ function ensurePractice52GroupLeaderWorkspace(){
  return root;
 }
 async function loadPractice52StudentGroups(){
- if(!firebaseUser||practice52CurrentRole==='teacher'||(firebaseUser.uid==='NIXSOWQ2c1Tkh5TVGU6z9zkbhOp2'&&localStorage.getItem('practice52_entry_role_v1')==='admin'))return;
+ if(!firebaseUser||practice52CurrentRole==='teacher'||(firebaseUser.uid==='GUJJCcS5QJY1LbpUlNWWTZZMDf32'&&localStorage.getItem('practice52_entry_role_v1')==='admin'))return;
  const root=ensurePractice52GroupLeaderWorkspace();if(!root)return;
  root.classList.add('hidden');root.innerHTML='';
  try{
@@ -2055,7 +2055,7 @@ auth.onAuthStateChanged(async user=>{
   if(user.email)$('regEmail').value=user.email;$('regNickname').value=(readLocalProfile()||{}).nickname||'';$('regNickname').disabled=false;renderAvatar((readLocalProfile()||{}).avatar||DEFAULT_AVATAR);
 
   $('regPassword').value='';
-  if(practice52CurrentRole!=='teacher'&&practice52CurrentRole!=='admin'&&user.uid!=='NIXSOWQ2c1Tkh5TVGU6z9zkbhOp2'){
+  if(practice52CurrentRole!=='teacher'&&practice52CurrentRole!=='admin'&&user.uid!=='GUJJCcS5QJY1LbpUlNWWTZZMDf32'){
    const accessSnap=await db.collection('academicAccessRequests').doc(user.uid).get(),access=accessSnap.exists?(accessSnap.data()||{}):{};
    if(access.status!=='approved'&&(readLocalProfile()||{}).academicAccessStatus!=='approved'){
     cloudReady=false;document.body.classList.add('p52-auth-locked');$('accountPanel').classList.remove('hidden');
@@ -3011,7 +3011,7 @@ body.p52-auth-locked header{position:relative;z-index:1001}
      const selected=localStorage.getItem(roleKey)||'';
      if(!selected){showRoleGate();return;}
      applyRoleSpecificFields(selected);
-     if(selected==='admin'&&user.uid==='NIXSOWQ2c1Tkh5TVGU6z9zkbhOp2'){
+     if(selected==='admin'&&user.uid==='GUJJCcS5QJY1LbpUlNWWTZZMDf32'){
        // Verified primary administrator bypasses the student-only profile and academic-group gate.
        unlockApp();panel.classList.add('hidden');backdrop.classList.add('hidden');
        $('studentIdentity').setAttribute('aria-expanded','false');
