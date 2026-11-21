@@ -170,7 +170,8 @@ body.p52-admin-mode #skillCatalog,
 body.p52-admin-mode .section-head{display:none!important}
 body.p52-admin-mode .app{max-width:900px}
 /* Адміністративний режим показує лише адміністративну панель; студентський інтерфейс не змішується з нею. */
-body.p52-admin-mode .app>section:not(#p52AdminPanel){display:none!important}
+body.p52-admin-mode .app>section:not(#p52AdminPanel):not(#accountPanel){display:none!important}
+body.p52-admin-mode #accountPanel:not(.hidden){display:block!important;position:relative;z-index:20;margin:18px 0}
 body.p52-admin-mode #p52GroupLeaderWorkspace{display:none!important}
 .p52-admin-heading{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
 .p52-admin-heading h2{margin:4px 0 0}
@@ -284,7 +285,7 @@ body.p52-teacher-mode #skillCatalog{margin-top:18px}
 </head>
 <body>
 <div class="app">
-<div id="p52EntryBackdrop" class="p52-entry-backdrop hidden" role="dialog" aria-modal="true" aria-labelledby="p52EntryTitle"><div class="p52-entry-card"><div class="eyebrow">ЗМІНА КОРИСТУВАЧА</div><h2 id="p52EntryTitle">Хто користуватиметься PRACTICE 52?</h2><p>Обери одну з трьох ролей. Для доступу обов’язково потрібно створити акаунт або увійти. Гостьового режиму немає.</p><div class="p52-entry-choices"><button type="button" class="p52-entry-choice" data-entry-role="student">🎓 Я — студент</button><button type="button" class="p52-entry-choice" data-entry-role="teacher">👩‍🏫 Я — викладач</button><button type="button" class="p52-entry-choice" data-entry-role="admin">🛡️ Я — адміністратор</button></div><div class="p52-entry-actions hidden" id="p52EntryActions"><button type="button" class="btn primary" id="p52EntryConfirm">Підтвердити роль і перейти до входу</button><button type="button" class="btn" id="p52EntryBack">Скасувати</button></div><p class="note" id="p52EntryNote">Гостьовий режим вимкнено: кожен користувач входить у власний акаунт. Права викладача й адміністратора підтверджуються окремо.</p></div></div>
+<div id="p52EntryBackdrop" class="p52-entry-backdrop hidden" role="dialog" aria-modal="true" aria-labelledby="p52EntryTitle"><div class="p52-entry-card"><div class="eyebrow">ЗМІНА КОРИСТУВАЧА</div><h2 id="p52EntryTitle">Хто користуватиметься PRACTICE 52?</h2><p>Обери одну з трьох ролей. Для доступу обов’язково потрібно створити акаунт або увійти. Гостьового режиму немає.</p><div class="p52-entry-choices"><button type="button" class="p52-entry-choice" data-entry-role="student">🎓 Я — студент</button><button type="button" class="p52-entry-choice" data-entry-role="teacher">👩‍🏫 Я — викладач</button><button type="button" class="p52-entry-choice" data-entry-role="admin">🛡️ Я — адміністратор</button></div><div class="p52-entry-actions hidden" id="p52EntryActions"><button type="button" class="btn primary" id="p52EntryConfirm">Підтвердити роль і перейти до входу</button><button type="button" class="btn" id="p52EntryGoogle">Продовжити через Google</button><button type="button" class="btn" id="p52EntryBack">Скасувати</button></div><p class="note" id="p52EntryNote">Гостьовий режим вимкнено: кожен користувач входить у власний акаунт. Права викладача й адміністратора підтверджуються окремо.</p></div></div>
 
 <header>
  <div class="brand"><div class="logo">＋</div><div><h1>PRACTICE 52</h1><p>Навчальний тренажер практичних навичок</p></div></div>
@@ -1375,6 +1376,7 @@ async function redeemTeacherInvite(rawCode,user){
   tx.set(roleRef,{role:'teacher',inviteCode:code,assignedAt:firebase.firestore.FieldValue.serverTimestamp()});
  });
  await refreshPractice52Role(user);
+        renderHeaderIdentity();
 }
 
 document.getElementById('p52RedeemTeacherInvite')?.addEventListener('click',async()=>{
@@ -2842,6 +2844,16 @@ renderStats();renderSkills();renderHeaderIdentity();
  }
  function openEntry(){backdrop.classList.remove('hidden');selected=localStorage.getItem(ROLE_KEY)||'';updateRoleUI();}
  document.querySelectorAll('[data-entry-role]').forEach(b=>b.addEventListener('click',()=>{selected=b.dataset.entryRole;updateRoleUI();}));
+  document.getElementById('p52EntryGoogle').addEventListener('click',()=>{
+   if(!selected)return;
+   localStorage.setItem(ROLE_KEY,selected);localStorage.setItem(DONE_KEY,'1');
+   backdrop.classList.add('hidden');
+   const panel=document.getElementById('accountPanel');panel.classList.remove('hidden');
+   document.getElementById('studentIdentity').setAttribute('aria-expanded','true');
+   document.getElementById('regTitle').textContent=selected==='teacher'?'Вхід викладача PRACTICE 52':selected==='admin'?'Вхід адміністратора PRACTICE 52':'Вхід студента PRACTICE 52';
+   const createButton=document.querySelector('#registrationForm button[type="submit"]');if(createButton)createButton.classList.toggle('hidden',selected==='admin');
+   const google=document.getElementById('googleLogin');google.classList.remove('hidden');google.click();
+  });
  document.getElementById('p52EntryBack').addEventListener('click',()=>{backdrop.classList.add('hidden');});
  document.getElementById('p52EntryConfirm').addEventListener('click',async()=>{
   if(!selected)return;
