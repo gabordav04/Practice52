@@ -1979,6 +1979,8 @@ document.getElementById('p52TeacherRefresh')?.addEventListener('click',loadPract
 
 auth.onAuthStateChanged(async user=>{
  try{await window.practice52AuthPersistenceReady;}catch(err){console.error('Auth persistence initialization failed:',err);}
+ // Ignore work from an older Firebase session after a role switch/sign-out.
+ if(user!==auth.currentUser)return;
  if(window.practice52ProgressUnsubscribe){window.practice52ProgressUnsubscribe();window.practice52ProgressUnsubscribe=null;}
  if(leaderboardUnsubscribe){leaderboardUnsubscribe();leaderboardUnsubscribe=null;}
  firebaseUser=user;cloudReady=false;KEY=user?'practice52_v1:'+user.uid:'practice52_v1:guest';
@@ -1999,6 +2001,7 @@ auth.onAuthStateChanged(async user=>{
   renderHeaderIdentity();
  }
  await refreshPractice52Role(user);
+ if(user!==auth.currentUser)return;
 
  const selectedEntryRole=localStorage.getItem('practice52_entry_role_v1')||'';
  const isStudentEntry=selectedEntryRole==='student';
@@ -2011,6 +2014,7 @@ auth.onAuthStateChanged(async user=>{
  if(user&&isStudentEntry){
   try{await loadPractice52StudentGroups();}
   catch(groupError){console.error('Student group lookup failed:',groupError);}
+  if(user!==auth.currentUser)return;
  }
  if(isStudentEntry)p52InitAcademicFields(readLocalProfile()||{});
  const teacherGate=document.getElementById('p52TeacherInviteGate');
@@ -2049,6 +2053,7 @@ auth.onAuthStateChanged(async user=>{
     $('accountPanel').classList.add('hidden');
     renderHeaderIdentity();
     await loadPractice52TeacherDashboard();
+    if(user!==auth.currentUser)return;
     setAuthStatus('Вхід виконано як викладач. Особистий студентський прогрес не завантажується.');
     $('savedLabel').textContent='Викладач ✓';
    }catch(err){console.error('Teacher profile load failed:',err);setTeacherStatus('Не вдалося завантажити профіль викладача.',true);}
@@ -2057,6 +2062,7 @@ auth.onAuthStateChanged(async user=>{
   applyPractice52TeacherLayout(false);
   // Профіль уже показано з локального кешу; синхронізація Firestore відбувається у фоні.
   const ref=db.collection('users').doc(user.uid),snap=await ref.get();
+  if(user!==auth.currentUser)return;
   if(snap.exists){
    const data=snap.data()||{};
    if(data.profile){writeLocalProfile(data.profile);$('regName').value=data.profile.name||'';$('regPhone').value=data.profile.phone||'';$('regNickname').value=data.profile.nickname||'';$('regNickname').disabled=false;renderAvatar(data.profile.avatar||DEFAULT_AVATAR);$('profileVisible').checked=data.profile.publicProfile!==false;}
@@ -2084,6 +2090,7 @@ auth.onAuthStateChanged(async user=>{
   $('regPassword').value='';
   if(practice52CurrentRole!=='teacher'&&practice52CurrentRole!=='admin'&&user.uid!=='fjJOrOvLxkdzHH0RzeFTUE1tSPS2'){
    const accessSnap=await db.collection('academicAccessRequests').doc(user.uid).get(),access=accessSnap.exists?(accessSnap.data()||{}):{};
+   if(user!==auth.currentUser)return;
    if(access.status!=='approved'&&(readLocalProfile()||{}).academicAccessStatus!=='approved'){
     cloudReady=false;document.body.classList.add('p52-auth-locked');$('accountPanel').classList.remove('hidden');
     const rejected=access.status==='rejected';document.querySelectorAll('.p52-academic-field').forEach(el=>el.classList.toggle('hidden',!rejected));
@@ -2094,6 +2101,7 @@ auth.onAuthStateChanged(async user=>{
    }
    document.body.classList.remove('p52-auth-locked');
   }
+  if(user!==auth.currentUser)return;
   cloudReady=true;
   if(practice52CurrentRole!=='teacher'&&practice52CurrentRole!=='admin'){
    try{await publishStudentProgressForTeacher();}
