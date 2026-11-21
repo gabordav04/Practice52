@@ -311,7 +311,7 @@ body.p52-teacher-mode #skillCatalog{margin-top:18px}
 
 </section>
 <section class="registration hidden" id="accountPanel" aria-labelledby="regTitle">
- <h3 id="regTitle">Обліковий запис PRACTICE 52</h3>
+ <h3 id="regTitle">Обліковий запис студента PRACTICE 52</h3>
  <p>Створи акаунт або увійди, щоб синхронізувати профіль і навчальний прогрес між пристроями.</p>
  <div class="avatar-area"><div class="avatar-preview" id="avatarPreview">🦊</div><div class="avatar-tools"><b>Твій аватар</b><div class="avatar-options" id="avatarOptions"><button type="button" class="avatar-choice" data-avatar="🦊">🦊</button><button type="button" class="avatar-choice" data-avatar="🐼">🐼</button><button type="button" class="avatar-choice" data-avatar="🦁">🦁</button><button type="button" class="avatar-choice" data-avatar="🐺">🐺</button><button type="button" class="avatar-choice" data-avatar="🐉">🐉</button><button type="button" class="avatar-choice" data-avatar="🦸">🦸</button><button type="button" class="avatar-choice" data-avatar="🦹">🦹</button><button type="button" class="avatar-choice" data-avatar="🧙">🧙</button><button type="button" class="avatar-choice" data-avatar="🤖">🤖</button><button type="button" class="avatar-choice" data-avatar="👨‍⚕️">👨‍⚕️</button><button type="button" class="avatar-choice" data-avatar="⭐">⭐</button><button type="button" class="avatar-choice" data-avatar="🌌">🌌</button></div><label class="avatar-upload">＋ Завантажити своє фото<input id="avatarFile" type="file" accept="image/*"></label></div></div>
  <form id="registrationForm">
@@ -2969,7 +2969,7 @@ function showLoginGate(){
    applyRoleSpecificFields(role);
    lockApp();backdrop.classList.add('hidden');panel.classList.remove('hidden');
    $('studentIdentity').setAttribute('aria-expanded','true');
-   $('regTitle').textContent='Заповнення обов’язкового профілю PRACTICE 52';
+   $('regTitle').textContent=role==='teacher'?'Профіль викладача PRACTICE 52':role==='admin'?'Профіль адміністратора PRACTICE 52':'Профіль студента PRACTICE 52';
    $('regName').value=profile.name||'';$('regPhone').value=profile.phone||'';
    $('regNickname').value=profile.nickname||'';$('regEmail').value=user.email||'';if(role==='student')p52InitAcademicFields(profile);
    $('regEmail').readOnly=true;$('regPassword').required=false;
