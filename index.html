@@ -705,7 +705,12 @@ function renderHeaderIdentity(){
  const profile=readLocalProfile()||{},avatar=profile.avatar||DEFAULT_AVATAR;
  const avatarEl=$('headerAvatar'),nameEl=$('headerNickname');
  if(avatarEl){avatarEl.innerHTML='';if(typeof avatar==='string'&&avatar.startsWith('data:image/')){const img=document.createElement('img');img.src=avatar;img.alt='';avatarEl.appendChild(img);}else avatarEl.textContent=avatar;}
- if(nameEl)nameEl.textContent=profile.nickname|| (firebaseUser?'Студент':'Увійти');
+  if(nameEl){
+   const fallback=firebaseUser
+    ?(practice52CurrentRole==='admin'?'Адміністратор':practice52CurrentRole==='teacher'?'Викладач':(firebaseUser.displayName||firebaseUser.email||'Студент'))
+    :'Увійти';
+   nameEl.textContent=profile.nickname||fallback;
+  }
 }
 function renderAvatar(avatar){
  const preview=$('avatarPreview');if(!preview)return;
@@ -2060,7 +2065,7 @@ auth.onAuthStateChanged(async user=>{
    writeLocalProfile(profile);
    await ref.set({profile,progress:state,createdAt:firebase.firestore.FieldValue.serverTimestamp()},{merge:true});
   }
-  if(user.email)$('regEmail').value=user.email;$('regNickname').value=(readLocalProfile()||{}).nickname||'';$('regNickname').disabled=false;renderAvatar((readLocalProfile()||{}).avatar||DEFAULT_AVATAR);
+  if(user.email)$('regEmail').value=user.email;$('regNickname').value=(readLocalProfile()||{}).nickname||'';$('regNickname').disabled=false;renderAvatar((readLocalProfile()||{}).avatar||DEFAULT_AVATAR);renderHeaderIdentity();
 
   $('regPassword').value='';
   if(practice52CurrentRole!=='teacher'&&practice52CurrentRole!=='admin'&&user.uid!=='fjJOrOvLxkdzHH0RzeFTUE1tSPS2'){
