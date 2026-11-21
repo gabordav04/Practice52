@@ -2960,7 +2960,7 @@ function showLoginGate(){
    form.querySelector('button[type="submit"]').textContent='Створити акаунт';
    $('emailLogin').classList.remove('hidden');$('googleLogin').classList.remove('hidden');
    $('logoutBtn').classList.add('hidden');$('saveProfileBtn').classList.remove('hidden');$('hideProfileBtn').classList.remove('hidden');
-   $('regStatus').textContent='Увійди або створи акаунт. Нікнейм, ПІБ і телефон обов’язкові для всіх; студент також обирає свою групу.';
+   $('regStatus').textContent=role==='teacher'?'Увійди або створи акаунт викладача. Після входу потрібно заповнити профіль і ввести персональний код запрошення.':role==='admin'?'Увійди у свій наявний адміністративний акаунт. Реєстрація нового адміністратора недоступна.':'Увійди або створи студентський акаунт. Нікнейм, ПІБ, телефон і навчальна група обов’язкові.';
    $('regStatus').style.color='var(--muted)';
  }
  function showProfileGate(user,profile){
