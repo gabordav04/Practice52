@@ -3280,7 +3280,26 @@ function showLoginGate(){
         const accessStatus=await p52SubmitAcademicAccess(user,{...profile,...(accessData.groupCode?{groupCode:accessData.groupCode}:{}),...(accessData.groupId?{groupId:accessData.groupId}:{})});
         if(accessStatus==='approved')accessData={...accessData,status:'approved',groupCode:(readLocalProfile()||{}).groupCode||accessData.groupCode,groupId:(readLocalProfile()||{}).groupId||accessData.groupId};
         else if(!accessSnap.exists)accessData={status:'pending',groupCode:profile.groupCode,groupId:profile.groupId};
-       }catch(err){console.error('Academic access request recovery failed:',err);lockApp();panel.classList.remove('hidden');$('regTitle').textContent='Не вдалося надіслати заявку';$('regStatus').textContent='Не вдалося створити заявку на вступ до групи: '+(err.message||'перевір з’єднання та правила доступу.');$('regStatus').style.color='var(--red)';return;}
+       }catch(err){
+        console.error('Academic access request recovery failed:',err);
+        // A saved group can become archived while the student account remains valid.
+        // Do not block the student or keep retrying the stale group: ask them to select
+        // a currently active group and submit a fresh access request.
+        if(String(err.message||'').includes('Обрана група більше недоступна')||String(err.message||'').includes('Не знайшов активну групу')){
+         lockApp();panel.classList.remove('hidden');
+         $('regTitle').textContent='Обери нову навчальну групу';
+         $('regEmail').value=user.email||'';$('regEmail').readOnly=true;
+         $('regPassword').value='';$('regPassword').required=false;$('regPassword').closest('.reg-field').classList.add('hidden');
+         $('emailLogin').classList.add('hidden');$('googleLogin').classList.add('hidden');
+         document.querySelectorAll('.p52-academic-field').forEach(el=>{el.classList.remove('hidden');el.style.setProperty('display','','important');});
+         await p52InitAcademicFields({...profile,groupCode:'',groupId:''});
+         const submit=form.querySelector('button[type="submit"]');submit.classList.remove('hidden');submit.textContent='Подати заявку до нової групи';
+         $('saveProfileBtn').classList.add('hidden');$('hideProfileBtn').classList.add('hidden');$('logoutBtn').classList.remove('hidden');
+         $('regStatus').textContent='Твоя попередня група більше не доступна. Обери нову активну групу зі списку та надішли заявку. Профіль і попередній прогрес залишаються збереженими.';
+         $('regStatus').style.color='var(--muted)';return;
+        }
+        lockApp();panel.classList.remove('hidden');$('regTitle').textContent='Не вдалося надіслати заявку';$('regStatus').textContent='Не вдалося створити заявку на вступ до групи: '+(err.message||'перевір з’єднання та правила доступу.');$('regStatus').style.color='var(--red)';return;
+       }
        if(accessData.status!=='approved'){
          const rejected=accessData.status==='rejected';lockApp();panel.classList.remove('hidden');
          $('regTitle').textContent=rejected?'Оновлення заявки на вступ до групи':'🎉 Вітаємо у PRACTICE 52!';
