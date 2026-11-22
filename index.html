@@ -3126,7 +3126,7 @@ function showLoginGate(){
      // Власник, який уже увійшов і повторно обрав адміністративний режим,
      // зберігає поточну сесію та просто повертається до панелі.
      const isPrimaryAdmin=isPrimaryAdminAccount(auth.currentUser);
-     if(isPrimaryAdmin&&(selected==='admin'||selected==='student')){
+     if(isPrimaryAdmin&&selected==='admin'){
        // The owner account has both roles. Switch its interface locally while
        // preserving the verified Firebase session and exact owner UID.
        localStorage.setItem(roleKey,selected);
