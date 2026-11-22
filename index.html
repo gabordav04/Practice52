@@ -776,13 +776,13 @@ async function syncPublicRank(){
  // Викладачі та адміністратор ніколи не беруть участі в студентському рейтингу.
  try{
   let accountRole=practice52CurrentRole;
-  if(firebaseUser.uid==='fjJOrOvLxkdzHH0RzeFTUE1tSPS2')accountRole='admin';
+  if(isPrimaryAdminAccount(firebaseUser))accountRole='admin';
   else{
    const roleSnap=await db.collection('roles').doc(firebaseUser.uid).get();
    const roleData=roleSnap.exists?(roleSnap.data()||{}):{};
    if(roleData.role==='teacher'||roleData.role==='admin')accountRole=roleData.role;
   }
-  if(accountRole==='teacher'||(accountRole==='admin'&&firebaseUser.uid!=='fjJOrOvLxkdzHH0RzeFTUE1tSPS2')){
+  if(accountRole==='teacher'||(accountRole==='admin'&&!isPrimaryAdminAccount(firebaseUser))){
    await rankRef.delete();
    return;
   }
@@ -1101,7 +1101,7 @@ async function loadAdminPublicUsers(){
  // Адміністратор бачить усі профілі, збережені в users, навіть якщо
  // користувач вимкнув публічний показ у рейтингу. Викладач бачить лише
  // публічний каталог; його групи та прогрес читаються окремо.
- if(practice52CurrentRole==='admin'&&firebaseUser?.uid==='fjJOrOvLxkdzHH0RzeFTUE1tSPS2'){
+ if(practice52CurrentRole==='admin'&&isPrimaryAdminAccount(firebaseUser)){
   const [usersSnap,rankSnap]=await Promise.all([db.collection('users').get(),db.collection('leaderboard').get()]);
   const ranks=new Map();rankSnap.forEach(doc=>ranks.set(doc.id,doc.data()||{}));
   usersSnap.forEach(doc=>{
@@ -1150,7 +1150,7 @@ function ensureAdminPanel(){
   const panel=document.getElementById('p52AdminPanel'),opening=panel.classList.contains('hidden');
   panel.classList.toggle('hidden',!opening);
   document.body.classList.toggle('p52-admin-mode',opening);
-  if(firebaseUser?.uid==='fjJOrOvLxkdzHH0RzeFTUE1tSPS2'){
+  if(isPrimaryAdminAccount(firebaseUser)){
    localStorage.setItem('practice52_entry_role_v1',opening?'admin':'student');
    practice52CurrentRole=opening?'admin':'student';
   }
@@ -1580,6 +1580,11 @@ async function loadAdminDashboard(){
  try{await loadAdminPublicUsers();renderAdminUserSearch('','p52TeacherSearchResults',assignTeacher);await loadAdminRoles();await loadAdminTeacherOptions();await loadTeacherInvites();await loadP52UniversityCatalog();setAdminStatus('Дані завантажено.');}
  catch(err){console.error(err);setAdminStatus('Не вдалося завантажити відкриті профілі рейтингу.',true);}
 }
+// Власник визначається підтвердженою поштою; старий UID збережено для сумісності.
+function isPrimaryAdminAccount(user){
+ return !!user&&(isPrimaryAdminAccount(user)||
+  (String(user.email||'').trim().toLowerCase()==='gabordav04@gmail.com'&&user.emailVerified===true));
+}
 async function refreshPractice52Role(user){
  practice52CurrentRole=null;
  document.body.classList.remove('p52-admin-mode');
@@ -1588,7 +1593,7 @@ async function refreshPractice52Role(user){
  const selectedMode=localStorage.getItem('practice52_entry_role_v1')||'student';
  if(!user)return;
  try{
-  const isPrimaryAdmin=user.uid==='fjJOrOvLxkdzHH0RzeFTUE1tSPS2';
+  const isPrimaryAdmin=isPrimaryAdminAccount(user);
   if(isPrimaryAdmin){
    // Один Firebase-акаунт має два окремі інтерфейсні режими.
    // За замовчуванням це студент; адміністративний режим вмикається лише явним вибором.
@@ -1760,7 +1765,7 @@ function ensurePractice52GroupLeaderWorkspace(){
  return root;
 }
 async function loadPractice52StudentGroups(){
- if(!firebaseUser||practice52CurrentRole==='teacher'||(firebaseUser.uid==='fjJOrOvLxkdzHH0RzeFTUE1tSPS2'&&localStorage.getItem('practice52_entry_role_v1')==='admin'))return;
+ if(!firebaseUser||practice52CurrentRole==='teacher'||(isPrimaryAdminAccount(firebaseUser)&&localStorage.getItem('practice52_entry_role_v1')==='admin'))return;
  const root=ensurePractice52GroupLeaderWorkspace();if(!root)return;
  root.classList.add('hidden');root.innerHTML='';
  try{
@@ -2105,7 +2110,7 @@ auth.onAuthStateChanged(async user=>{
   if(user.email)$('regEmail').value=user.email;$('regNickname').value=(readLocalProfile()||{}).nickname||'';$('regNickname').disabled=false;renderAvatar((readLocalProfile()||{}).avatar||DEFAULT_AVATAR);renderHeaderIdentity();
 
   $('regPassword').value='';
-  if(practice52CurrentRole!=='teacher'&&practice52CurrentRole!=='admin'&&user.uid!=='fjJOrOvLxkdzHH0RzeFTUE1tSPS2'){
+  if(practice52CurrentRole!=='teacher'&&practice52CurrentRole!=='admin'&&!isPrimaryAdminAccount(user)){
    const accessSnap=await db.collection('academicAccessRequests').doc(user.uid).get(),access=accessSnap.exists?(accessSnap.data()||{}):{};
    if(user!==auth.currentUser)return;
    if(access.status!=='approved'&&(readLocalProfile()||{}).academicAccessStatus!=='approved'){
@@ -3039,7 +3044,7 @@ function showLoginGate(){
      // попередню сесію завершуємо, щоб форма входу не працювала поверх
      // уже авторизованого користувача. Виняток — власник, який повторно
      // обрав свою адміністративну роль: його сесію зберігаємо.
-     const isPrimaryAdmin=auth.currentUser&&auth.currentUser.uid==='fjJOrOvLxkdzHH0RzeFTUE1tSPS2';
+     const isPrimaryAdmin=isPrimaryAdminAccount(auth.currentUser);
      if(isPrimaryAdmin&&selected==='admin'){
        location.reload();
        return;
@@ -3068,7 +3073,7 @@ function showLoginGate(){
        return;
      }
      applyRoleSpecificFields(selected);
-     if(selected==='admin'&&user.uid!=='fjJOrOvLxkdzHH0RzeFTUE1tSPS2'){
+     if(selected==='admin'&&!isPrimaryAdminAccount(user)){
        lockApp();panel.classList.remove('hidden');
        $('regTitle').textContent='Вхід адміністратора PRACTICE 52';
        $('regStatus').textContent='Цей Google-акаунт не має прав адміністратора. Увійди основним адміністративним акаунтом.';
@@ -3088,12 +3093,27 @@ function showLoginGate(){
        $('regStatus').style.color='var(--muted)';
        return;
      }
-     if(selected==='admin'&&user.uid==='fjJOrOvLxkdzHH0RzeFTUE1tSPS2'){
+     if(selected==='admin'&&isPrimaryAdminAccount(user)){
        // The primary owner is both student and administrator. Restore the selected
        // admin interface explicitly after Google sign-in, not only the auth gate.
        await refreshPractice52Role(user);
         renderHeaderIdentity();
-        const adminProfileSnap=await db.collection('users').doc(user.uid).get();
+        let adminProfileSnap=await db.collection('users').doc(user.uid).get();
+        // Якщо UID Google змінився, читаємо старий профіль власника та копіюємо
+        // його до нового власного документа, не видаляючи історичний запис.
+        if(!adminProfileSnap.exists&&user.uid!=='fjJOrOvLxkdzHH0RzeFTUE1tSPS2'){
+          const legacySnap=await db.collection('users').doc('fjJOrOvLxkdzHH0RzeFTUE1tSPS2').get();
+          if(legacySnap.exists){
+            const legacyData=legacySnap.data()||{};
+            await db.collection('users').doc(user.uid).set({
+              profile:legacyData.profile||{},
+              ...(legacyData.progress?{progress:legacyData.progress}:{}),
+              migratedFrom:'legacy-primary-admin',
+              updatedAt:firebase.firestore.FieldValue.serverTimestamp()
+            },{merge:true});
+            adminProfileSnap=await db.collection('users').doc(user.uid).get();
+          }
+        }
         const adminProfile=(adminProfileSnap.exists&&adminProfileSnap.data().profile)||readLocalProfile()||{};
         if(adminProfileSnap.exists&&adminProfileSnap.data().profile)writeLocalProfile(adminProfile,user);
         $('regName').value=adminProfile.name||user.displayName||'';
@@ -3121,7 +3141,7 @@ function showLoginGate(){
      }
      const snap=await db.collection('users').doc(user.uid).get();
      const profile=(snap.exists&&snap.data().profile)||{};
-     const needsAcademicProfile=selected==='student'&&user.uid!=='fjJOrOvLxkdzHH0RzeFTUE1tSPS2'&&!profile.groupCode;if(!profile.name||!profile.phone||!profile.nickname||!user.email||needsAcademicProfile){showProfileGate(user,profile);applyRoleSpecificFields(selected);if(selected==='student')await p52InitAcademicFields(profile);else applyRoleSpecificFields(selected);return;}
+     const needsAcademicProfile=selected==='student'&&!isPrimaryAdminAccount(user)&&!profile.groupCode;if(!profile.name||!profile.phone||!profile.nickname||!user.email||needsAcademicProfile){showProfileGate(user,profile);applyRoleSpecificFields(selected);if(selected==='student')await p52InitAcademicFields(profile);else applyRoleSpecificFields(selected);return;}
      $('regEmail').readOnly=false;$('regPassword').required=true;$('regPassword').closest('.reg-field').classList.remove('hidden');
      form.querySelector('button[type="submit"]').textContent='Створити акаунт';
      $('emailLogin').classList.remove('hidden');$('googleLogin').classList.add('hidden');
