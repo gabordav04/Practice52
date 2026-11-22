@@ -1218,8 +1218,13 @@ function ensureAdminPanel(){
   panel.classList.toggle('hidden',!opening);
   document.body.classList.toggle('p52-admin-mode',opening);
   if(isPrimaryAdminAccount(firebaseUser)){
-   localStorage.setItem('practice52_entry_role_v1',opening?'admin':'student');
-   practice52CurrentRole=opening?'admin':'student';
+   const nextMode=opening?'admin':'student';
+   localStorage.setItem('practice52_entry_role_v1',nextMode);
+   practice52CurrentRole=nextMode;
+   // Rebuild the full student interface from the same authenticated owner session.
+   // Do not sign out or reopen Google account selection: that could restore the
+   // previously used teacher account on devices with multiple Google sessions.
+   if(!opening){location.reload();return;}
   }
   toggle.setAttribute('aria-expanded',String(opening));
   toggle.textContent=opening?'⚙ Повернутися до навчання':'⚙ Адміністрування';
@@ -3119,13 +3124,16 @@ function showLoginGate(){
      // Власник, який уже увійшов і повторно обрав адміністративний режим,
      // зберігає поточну сесію та просто повертається до панелі.
      const isPrimaryAdmin=isPrimaryAdminAccount(auth.currentUser);
-     if(isPrimaryAdmin&&selected==='admin'){
+     if(isPrimaryAdmin&&(selected==='admin'||selected==='student')){
+       // The owner account has both roles. Switch its interface locally while
+       // preserving the verified Firebase session and exact owner UID.
        localStorage.setItem(roleKey,selected);
        localStorage.setItem('practice52_entry_done_v1','1');
        location.reload();
        return;
      }
-     // Спочатку завершуємо попередню сесію, потім відкриваємо єдину форму входу.
+     // Only a real account change (for example, opening the separate teacher account)
+     // should sign out before showing Google sign-in.
      if(auth.currentUser) await auth.signOut();
      localStorage.setItem(roleKey,selected);
      localStorage.setItem('practice52_entry_done_v1','1');
