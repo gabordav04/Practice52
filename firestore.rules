@@ -53,7 +53,12 @@ service cloud.firestore {
     // Студент без заявки — чинний учасник старої системи; нові заявки мають бути підтверджені.
     function hasApprovedAcademicAccess(uid) {
       let requestPath = /databases/$(database)/documents/academicAccessRequests/$(uid);
-      return !exists(requestPath) || get(requestPath).data.status == 'approved';
+      // The platform owner also uses this UID as a student. For this one
+      // account, actual group membership is authoritative even if an old
+      // pending/rejected request document remains.
+      return uid == 'fjJOrOvLxkdzHH0RzeFTUE1tSPS2'
+        || !exists(requestPath)
+        || get(requestPath).data.status == 'approved';
     }
 
     // Ролі користувачів
@@ -118,7 +123,8 @@ service cloud.firestore {
       function isEligibleStudent(uid) {
         return uid is string
           && (
-            !exists(/databases/$(database)/documents/roles/$(uid))
+            uid == 'fjJOrOvLxkdzHH0RzeFTUE1tSPS2'
+            || !exists(/databases/$(database)/documents/roles/$(uid))
             || get(/databases/$(database)/documents/roles/$(uid)).data.role == 'student'
           );
       }
@@ -316,7 +322,8 @@ service cloud.firestore {
           return request.auth != null
             && request.auth.uid == studentUid
             && (
-              !exists(/databases/$(database)/documents/roles/$(request.auth.uid))
+              request.auth.uid == 'fjJOrOvLxkdzHH0RzeFTUE1tSPS2'
+              || !exists(/databases/$(database)/documents/roles/$(request.auth.uid))
               || get(/databases/$(database)/documents/roles/$(request.auth.uid)).data.role == 'student'
             );
         }
@@ -479,7 +486,7 @@ service cloud.firestore {
     // Безпечний перелік створених груп для вибору студентом: лише назва та код, без складу групи.
     match /availableAcademicGroups/{groupId} {
       allow get: if request.auth != null;
-      allow list: if resource.data.status == 'active';
+      allow list: if isPlatformAdmin() || resource.data.status == 'active';
       allow create, update, delete: if isPlatformAdmin();
     }
     match /academicAccessRequests/{studentUid} {
