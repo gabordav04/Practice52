@@ -3244,5 +3244,40 @@ body.p52-route-unavailable .app>:not(header):not(#accountPanel):not(#p52StudentR
 #p52RoleSwitcher{display:flex!important;align-items:center;justify-content:center;min-height:44px;padding:10px 16px;border:1px solid #b8d4e2;border-radius:14px;background:#edf6fa;color:#245f80;font-weight:750;font-size:14px;white-space:nowrap;cursor:pointer;position:relative;z-index:5}
 @media(max-width:760px){.header-right{display:flex!important;flex-direction:column!important;align-items:stretch!important;gap:9px!important}#p52RoleSwitcher{width:100%;box-sizing:border-box;order:2}.student-identity{order:1}}
 </style>
+
+<script id="p52-owner-admin-shortcut">
+(function(){
+ 'use strict';
+ const button=document.getElementById('p52RoleSwitcher');
+ if(!button)return;
+ const adminButton=document.createElement('button');
+ adminButton.type='button';
+ adminButton.id='p52OwnerAdminShortcut';
+ adminButton.className='btn';
+ adminButton.textContent='🛡️ Увійти як адміністратор';
+ adminButton.style.cssText='display:none;background:#eaf3fb;color:#1d6688;border:1px solid #b8d4e2;font-weight:750';
+ button.insertAdjacentElement('afterend',adminButton);
+ function sync(){
+  const user=window.firebase&&firebase.auth&&firebase.auth().currentUser;
+  const allowed=!!user&&user.uid==='fjJOrOvLxkdzHH0RzeFTUE1tSPS2';
+  adminButton.style.display=allowed?'inline-flex':'none';
+  adminButton.disabled=!allowed;
+ }
+ adminButton.addEventListener('click',()=>{
+  const user=window.firebase&&firebase.auth&&firebase.auth().currentUser;
+  if(!user||user.uid!=='fjJOrOvLxkdzHH0RzeFTUE1tSPS2'){
+   adminButton.textContent='Немає прав адміністратора';return;
+  }
+  localStorage.setItem('practice52_entry_role_v1','admin');
+  localStorage.setItem('practice52_entry_done_v1','1');
+  location.reload();
+ });
+ if(window.firebase&&firebase.auth){
+  firebase.auth().onAuthStateChanged(sync);
+  sync();
+ }
+})();
+</script>
+
 </body>
 </html>
