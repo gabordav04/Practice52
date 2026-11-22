@@ -1661,6 +1661,8 @@ async function loadAdminDashboard(){
 function isPrimaryAdminAccount(user){
  if(!user)return false;
  const primaryAdminUids=[
+  // Current owner UID and legacy owner UID retained for account continuity.
+  'NIXSOWQ2c1Tkh5TVGU6z9zkbhOp2',
   'fjJOrOvLxkdzHH0RzeFTUE1tSPS2'
  ];
  const email=String(user.email||'').trim().toLowerCase();
