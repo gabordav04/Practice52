@@ -954,6 +954,56 @@ async function claimUniqueNickname(value,user,previousValue=''){
   if(previousSnap&&previousSnap.exists&&(previousSnap.data()||{}).uid===user.uid)tx.delete(previousRef);
  });
 }
+let p52TestTeacherRecoveryPromise=null;
+async function recoverTestTeacherProfile(user){
+ const email=String(user?.email||'').trim().toLowerCase();
+ if(email!=='mio.wind.massage@gmail.com')return null;
+ if(window.p52TestTeacherRecoveryPromise)return window.p52TestTeacherRecoveryPromise;
+ const task=(async()=>{
+  const nicknameRef=db.collection('nicknames').doc('test_teacher');
+  const nicknameSnap=await nicknameRef.get();
+  if(!nicknameSnap.exists)return null;
+  const nicknameData=nicknameSnap.data()||{},oldUid=String(nicknameData.uid||'');
+  if(!oldUid||oldUid===user.uid)return null;
+  let oldProfile={};
+  try{
+   const oldUserSnap=await db.collection('users').doc(oldUid).get();
+   if(oldUserSnap.exists){
+    const oldData=oldUserSnap.data()||{},candidate=oldData.profile||{};
+    if(normalizeNickname(candidate.nickname)==='test_teacher')oldProfile=candidate;
+   }
+  }catch(err){
+   console.warn('Legacy test-teacher profile could not be read; preserving the old record:',err);
+  }
+  const currentRef=db.collection('users').doc(user.uid);
+  const currentSnap=await currentRef.get();
+  const currentProfile=currentSnap.exists?((currentSnap.data()||{}).profile||{}):{};
+  const mergedProfile={...oldProfile,...currentProfile};
+  ['name','phone','nickname','avatar'].forEach(key=>{
+   if(!currentProfile[key]&&oldProfile[key])mergedProfile[key]=oldProfile[key];
+  });
+  mergedProfile.nickname='test_teacher';
+  mergedProfile.email=user.email||mergedProfile.email||'mio.wind.massage@gmail.com';
+  if(Object.keys(oldProfile).length){
+   await currentRef.set({
+    profile:mergedProfile,
+    migratedFromUid:oldUid,
+    updatedAt:firebase.firestore.FieldValue.serverTimestamp()
+   },{merge:true});
+   writeLocalProfile(mergedProfile,user);
+  }
+  // The nickname index is the single authoritative binding; old user documents are retained.
+  await nicknameRef.set({
+   uid:user.uid,
+   nickname:'test_teacher',
+   updatedAt:firebase.firestore.FieldValue.serverTimestamp()
+  },{merge:true});
+  return {uid:user.uid,previousUid:oldUid,profileMigrated:Object.keys(oldProfile).length>0};
+ })();
+ window.p52TestTeacherRecoveryPromise=task;
+ try{return await task;}finally{window.p52TestTeacherRecoveryPromise=null;}
+}
+
 function validateProfile(){
  const name=$('regName').value.trim().replace(/\\s+/g,' ');
  const phone=$('regPhone').value.trim(),digits=phone.replace(/\\D/g,'');
@@ -1397,12 +1447,17 @@ async function redeemTeacherInvite(rawCode,user){
   const inviteSnap=await tx.get(inviteRef),roleSnap=await tx.get(roleRef);
   if(!inviteSnap.exists)throw new Error('Код запрошення не знайдено.');
   const invite=inviteSnap.data()||{};
-  if(invite.used)throw new Error('Цей код уже використаний.');
+  if(invite.used){
+   const existingRole=roleSnap.exists?(roleSnap.data()||{}):{};
+   if(invite.usedBy===user.uid&&existingRole.role==='teacher'&&existingRole.active!==false)return;
+   throw new Error(invite.usedBy===user.uid?'Код уже використано цим акаунтом, але роль не підтверджена. Потрібне відновлення доступу адміністратором.':'Цей код уже використаний іншим акаунтом.');
+  }
   if(!invite.expiresAt||invite.expiresAt.toDate()<=new Date())throw new Error('Термін дії коду завершився. Попроси адміністратора створити новий.');
   if(roleSnap.exists&&(roleSnap.data()||{}).role==='admin')throw new Error('Обліковий запис адміністратора не потребує коду викладача.');
   tx.update(inviteRef,{used:true,usedBy:user.uid,usedAt:firebase.firestore.FieldValue.serverTimestamp()});
-  tx.set(roleRef,{role:'teacher',inviteCode:code,assignedAt:firebase.firestore.FieldValue.serverTimestamp()});
+  tx.set(roleRef,{role:'teacher',active:true,inviteCode:code,assignedAt:firebase.firestore.FieldValue.serverTimestamp()},{merge:true});
  });
+ localStorage.setItem('practice52_entry_role_v1','teacher');
  await refreshPractice52Role(user);
 }
 
@@ -2039,6 +2094,9 @@ auth.onAuthStateChanged(async user=>{
   renderHeaderIdentity();
  }
  await refreshPractice52Role(user);
+ if(user && String(user.email||'').trim().toLowerCase()==='mio.wind.massage@gmail.com'){
+  try{await recoverTestTeacherProfile(user);}catch(recoveryError){console.error('Test-teacher profile recovery failed:',recoveryError);}
+ }
  if(user!==auth.currentUser)return;
 
  const selectedEntryRole=localStorage.getItem('practice52_entry_role_v1')||'';
@@ -3089,12 +3147,35 @@ function showLoginGate(){
      let selected=localStorage.getItem(roleKey)||'';
      if(!selected){showRoleGate();return;}
      await refreshPractice52Role(user);
+     if(String(user.email||'').trim().toLowerCase()==='mio.wind.massage@gmail.com')await recoverTestTeacherProfile(user);
      if(practice52CurrentRole==='teacher'&&selected!=='teacher'){
        localStorage.setItem(roleKey,'teacher');
        location.reload();
        return;
      }
      applyRoleSpecificFields(selected);
+     if(selected==='teacher'&&practice52CurrentRole==='teacher'){
+       applyPractice52TeacherLayout(true);
+       const teacherSnap=await db.collection('users').doc(user.uid).get();
+       const teacherProfile=(teacherSnap.exists&&teacherSnap.data().profile)||readLocalProfile()||{};
+       writeLocalProfile(teacherProfile,user);
+       $('regName').value=teacherProfile.name||'';
+       $('regPhone').value=teacherProfile.phone||'';
+       $('regNickname').value=teacherProfile.nickname||'';
+       $('regEmail').value=user.email||'';
+       $('regEmail').readOnly=true;
+       $('regPassword').value='';$('regPassword').required=false;$('regPassword').closest('.reg-field').classList.add('hidden');
+       $('googleLogin').classList.add('hidden');$('emailLogin').classList.add('hidden');
+       $('logoutBtn').classList.remove('hidden');
+       $('saveProfileBtn').classList.remove('hidden');$('hideProfileBtn').classList.remove('hidden');
+       $('p52TeacherInviteGate')?.classList.add('hidden');
+       renderHeaderIdentity();
+       unlockApp();backdrop.classList.add('hidden');panel.classList.add('hidden');
+       await loadPractice52TeacherDashboard();
+       setAuthStatus('Вхід виконано як викладач. Кабінет викладача активний.');
+       $('savedLabel').textContent='Викладач ✓';
+       return;
+     }
      if(selected==='admin'&&!isPrimaryAdminAccount(user)){
        lockApp();panel.classList.remove('hidden');
        $('regTitle').textContent='Вхід адміністратора PRACTICE 52';
