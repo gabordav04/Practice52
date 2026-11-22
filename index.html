@@ -892,17 +892,32 @@ function buildTeacherVisibleStudentProfile(profile){
 }
 async function publishStudentProgressForTeacher(){
  if(!firebaseUser||!cloudReady||practice52CurrentRole==='teacher')return;
- // Прогрес дублюється окремо всередині кожної групи: правила Firestore
- // можуть перевірити teacherUid батьківської групи без глобального доступу.
- const groupsSnap=await db.collection('groups').where('studentUids','array-contains',firebaseUser.uid).get();
+ // Не чекаємо першої навчальної дії: щойно підтверджений учасник групи
+ // одразу отримує нульовий запис, видимий у журналі викладача.
+ const uid=firebaseUser.uid,userRef=db.collection('users').doc(uid);
+ const groupsSnap=await db.collection('groups').where('studentUids','array-contains',uid).get();
  if(groupsSnap.empty)return;
- const profile=buildTeacherVisibleStudentProfile(readLocalProfile()||{});
- const payload={
-  studentUid:firebaseUser.uid,profile,progress:state,
-  updatedAt:firebase.firestore.FieldValue.serverTimestamp()
+ const userSnap=await userRef.get(),userData=userSnap.exists?(userSnap.data()||{}):{};
+ const profile={...(userData.profile||{}),...(readLocalProfile()||{})};
+ const baseProgress=userData.progress&&typeof userData.progress==='object'?userData.progress:state;
+ const progress={
+  ...emptyPracticeState(),...(baseProgress||{}),
+  done:Array.isArray(baseProgress?.done)?baseProgress.done:[],
+  needsReview:Array.isArray(baseProgress?.needsReview)?baseProgress.needsReview:[],
+  mistakes:Array.isArray(baseProgress?.mistakes)?baseProgress.mistakes:[],
+  ratings:baseProgress?.ratings&&typeof baseProgress.ratings==='object'?baseProgress.ratings:{},
+  skillStatusUpdatedAt:baseProgress?.skillStatusUpdatedAt&&typeof baseProgress.skillStatusUpdatedAt==='object'?baseProgress.skillStatusUpdatedAt:{},
+  lessonTestsCompleted:baseProgress?.lessonTestsCompleted&&typeof baseProgress.lessonTestsCompleted==='object'?baseProgress.lessonTestsCompleted:{},
+  learningProgress:baseProgress?.learningProgress&&typeof baseProgress.learningProgress==='object'?baseProgress.learningProgress:{}
  };
+ // Якщо профіль уже є, але progress ще не створений, записуємо чесний нульовий стан.
+ if(!userData.progress||typeof userData.progress!=='object'){
+  await userRef.set({profile,progress,updatedAt:firebase.firestore.FieldValue.serverTimestamp()},{merge:true});
+ }
+ const visibleProfile=buildTeacherVisibleStudentProfile(profile);
+ const payload={studentUid:uid,profile:visibleProfile,progress,updatedAt:firebase.firestore.FieldValue.serverTimestamp()};
  await Promise.all(groupsSnap.docs.map(groupDoc=>
-  groupDoc.ref.collection('studentProgress').doc(firebaseUser.uid).set(payload,{merge:true})
+  groupDoc.ref.collection('studentProgress').doc(uid).set(payload,{merge:true})
  ));
 }
 function queueCloudSave(){
