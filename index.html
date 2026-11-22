@@ -946,10 +946,8 @@ async function claimUniqueNickname(value,user,previousValue=''){
   const snap=await tx.get(ref);
   const previousSnap=previousRef?await tx.get(previousRef):null;
   const ownerUid=snap.exists?(snap.data()||{}).uid:null;
-  // Reclaim only the primary owner's known legacy UID after the Auth reset.
-  const isOwnLegacyClaim=ownerUid==='NIXSOWQ2c1Tkh5TVGU6z9zkbhOp2';
   const isTestTeacherRecovery=key==='test_teacher'&&String(user.email||'').toLowerCase()==='mio.wind.massage@gmail.com';
-  if(snap.exists&&ownerUid!==user.uid&&!isOwnLegacyClaim&&!isTestTeacherRecovery)throw new Error('Цей нікнейм уже зайнятий іншим користувачем. Обери інший.');
+  if(snap.exists&&ownerUid!==user.uid&&!isTestTeacherRecovery)throw new Error('Цей нікнейм уже зайнятий іншим користувачем. Обери інший.');
   tx.set(ref,{uid:user.uid,nickname,updatedAt:firebase.firestore.FieldValue.serverTimestamp(),createdAt:snap.exists?((snap.data()||{}).createdAt||firebase.firestore.FieldValue.serverTimestamp()):firebase.firestore.FieldValue.serverTimestamp()},{merge:true});
   if(previousSnap&&previousSnap.exists&&(previousSnap.data()||{}).uid===user.uid)tx.delete(previousRef);
  });
@@ -1698,17 +1696,10 @@ async function loadAdminDashboard(){
  try{await loadAdminPublicUsers();renderAdminUserSearch('','p52TeacherSearchResults',assignTeacher);await loadAdminRoles();await loadAdminTeacherOptions();await loadTeacherInvites();await loadP52UniversityCatalog();setAdminStatus('Дані завантажено.');}
  catch(err){console.error(err);setAdminStatus('Не вдалося завантажити відкриті профілі рейтингу.',true);}
 }
-// Власник визначається підтвердженою поштою; старий UID збережено для сумісності.
+// Єдиний власник платформи визначається за підтвердженим UID Google-акаунта.
 function isPrimaryAdminAccount(user){
  if(!user)return false;
- const primaryAdminUids=[
-  // Current owner UID and legacy owner UID retained for account continuity.
-  'NIXSOWQ2c1Tkh5TVGU6z9zkbhOp2',
-  'fjJOrOvLxkdzHH0RzeFTUE1tSPS2'
- ];
- const email=String(user.email||'').trim().toLowerCase();
- return primaryAdminUids.includes(String(user.uid||''))||
-  (email==='gabordav04@gmail.com'&&user.emailVerified===true);
+ return String(user.uid||'')==='fjJOrOvLxkdzHH0RzeFTUE1tSPS2';
 }
 async function refreshPractice52Role(user){
  practice52CurrentRole=null;
@@ -3139,10 +3130,8 @@ function showLoginGate(){
    await db.runTransaction(async tx=>{
      const snap=await tx.get(ref);
      const ownerUid=snap.exists?(snap.data()||{}).uid:null;
-     // Reclaim only the primary owner's known legacy UID after the Auth reset.
-     const isOwnLegacyClaim=ownerUid==='NIXSOWQ2c1Tkh5TVGU6z9zkbhOp2';
      const isTestTeacherRecovery=key==='test_teacher'&&String(user.email||'').toLowerCase()==='mio.wind.massage@gmail.com';
-     if(snap.exists&&ownerUid!==user.uid&&!isOwnLegacyClaim&&!isTestTeacherRecovery)throw new Error('Цей нікнейм уже зайнятий іншим користувачем. Обери інший.');
+     if(snap.exists&&ownerUid!==user.uid&&!isTestTeacherRecovery)throw new Error('Цей нікнейм уже зайнятий іншим користувачем. Обери інший.');
      tx.set(ref,{uid:user.uid,nickname:p.nickname,updatedAt:firebase.firestore.FieldValue.serverTimestamp(),createdAt:snap.exists?(snap.data()||{}).createdAt||firebase.firestore.FieldValue.serverTimestamp():firebase.firestore.FieldValue.serverTimestamp()},{merge:true});
    });
    const old=readLocalProfile()||{};
