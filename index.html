@@ -1253,22 +1253,25 @@ const P52_GROUP_CODE_RE=/^[0-9]{5}fr$/;
 async function p52InitAcademicFields(profile={}){
  const group=document.getElementById('p52GroupCode');if(!group)return;
  group.disabled=true;group.innerHTML='<option value="">Завантажуємо доступні групи…</option>';
+ const withTimeout=(promise,ms)=>Promise.race([promise,new Promise((_,reject)=>setTimeout(()=>reject(new Error('timeout')),ms))]);
+ let groups=[];
  try{
-  const snap=await db.collection('availableAcademicGroups').where('status','==','active').get();
-  const groups=snap.docs.map(doc=>({id:doc.id,data:doc.data()||{}}))
-   .filter(x=>x.data.groupCode&&x.data.groupName)
-   .sort((a,b)=>String(a.data.groupCode).localeCompare(String(b.data.groupCode),'uk'));
-  group.innerHTML='<option value="">Оберіть свою академічну групу</option>';
-  groups.forEach(item=>{const code=String(item.data.groupCode||'').trim(),name=String(item.data.groupName||'').trim();const label=name&&name.toLowerCase()!==code.toLowerCase()?code+' · '+name:code;const option=new Option(label,item.id);option.dataset.groupCode=code;group.appendChild(option);});
-  const selected=groups.find(x=>x.data.groupCode===profile.groupCode||x.id===profile.groupId);
-  if(selected)group.value=selected.id;
-  group.disabled=groups.length===0;
-  if(!groups.length)group.innerHTML='<option value="">Наразі немає створених груп</option>';
- }catch(err){
-  console.error('Academic group directory unavailable:',err);
-  group.innerHTML='<option value="">Не вдалося завантажити групи</option>';group.disabled=true;
-  const status=document.getElementById('regStatus');if(status){status.textContent='Не вдалося завантажити список груп. Перевір правила Firestore та спробуй ще раз.';status.style.color='var(--red)';}
+  const snap=await withTimeout(db.collection('availableAcademicGroups').where('status','==','active').get(),10000);
+  groups=snap.docs.map(doc=>({id:doc.id,data:doc.data()||{}})).filter(x=>x.data.groupCode&&x.data.groupName);
+ }catch(err){console.warn('Public academic group directory unavailable:',err);}
+ if(isPrimaryAdminAccount(firebaseUser)&&groups.length===0){
+  try{
+   const snap=await withTimeout(db.collection('groups').where('status','==','active').get(),10000);
+   groups=snap.docs.map(doc=>{const data=doc.data()||{};const code=String(data.groupCode||data.name||'').trim();return{id:doc.id,data:{...data,groupCode:code,groupName:String(data.name||code)}};}).filter(x=>P52_GROUP_CODE_RE.test(x.data.groupCode));
+  }catch(err){console.error('Authoritative group fallback failed:',err);}
  }
+ groups.sort((a,b)=>String(a.data.groupCode).localeCompare(String(b.data.groupCode),'uk'));
+ group.innerHTML='<option value="">Оберіть свою академічну групу</option>';
+ groups.forEach(item=>{const code=String(item.data.groupCode||'').trim(),name=String(item.data.groupName||'').trim();const label=name&&name.toLowerCase()!==code.toLowerCase()?code+' · '+name:code;const option=new Option(label,item.id);option.dataset.groupCode=code;group.appendChild(option);});
+ const selected=groups.find(x=>x.data.groupCode===profile.groupCode||x.id===profile.groupId);
+ if(selected)group.value=selected.id;
+ group.disabled=groups.length===0;
+ if(!groups.length){group.innerHTML='<option value="">Наразі немає доступних активних груп</option>';const status=document.getElementById('regStatus');if(status){status.textContent='Не вдалося отримати активні групи. Перевір, чи існують вони в розділі «Навчальні групи» та чи мають статус «active».';status.style.color='var(--red)';}}
 }
 function p52ReadAcademicFields(){
  const group=document.getElementById('p52GroupCode'),option=group?.selectedOptions?.[0];
@@ -1347,12 +1350,25 @@ async function p52SubmitAcademicAccess(user,profile){
  if(activeMemberships.length>1&&!existingMembership)throw new Error('Твій акаунт уже є учасником кількох активних груп. Звернися до адміністратора, щоб визначити основну групу.');
  if(!P52_GROUP_CODE_RE.test(groupCode))throw new Error('Не знайшов підтвердженого членства в групі. Обери свою академічну групу зі списку.');
  if(!groupId){
-  const matches=await db.collection('availableAcademicGroups').where('groupCode','==',groupCode).where('status','==','active').limit(2).get();
-  if(matches.size!==1)throw new Error(matches.empty?'Не знайшов активну групу '+groupCode+'. Попроси адміністратора перевірити каталог груп.':'Знайшов кілька груп із кодом '+groupCode+'. Потрібна перевірка адміністратором.');
-  groupId=matches.docs[0].id;
+  if(isPrimaryAdminAccount(user)){
+   const matches=await db.collection('groups').where('groupCode','==',groupCode).where('status','==','active').limit(2).get();
+   if(matches.size!==1)throw new Error(matches.empty?'Не знайшов активну групу '+groupCode+'. Перевір розділ «Навчальні групи».':'Знайшов кілька груп із кодом '+groupCode+'. Потрібна перевірка адміністратором.');
+   groupId=matches.docs[0].id;
+  }else{
+   const matches=await db.collection('availableAcademicGroups').where('groupCode','==',groupCode).where('status','==','active').limit(2).get();
+   if(matches.size!==1)throw new Error(matches.empty?'Не знайшов активну групу '+groupCode+'. Попроси адміністратора перевірити каталог груп.':'Знайшов кілька груп із кодом '+groupCode+'. Потрібна перевірка адміністратором.');
+   groupId=matches.docs[0].id;
+  }
  }
- const directory=await db.collection('availableAcademicGroups').doc(groupId).get();
- if(!directory.exists||(directory.data()||{}).status!=='active'||(directory.data()||{}).groupCode!==groupCode)throw new Error('Обрана група більше недоступна. Онови список і вибери іншу.');
+ if(isPrimaryAdminAccount(user)){
+  const groupSnap=await db.collection('groups').doc(groupId).get();
+  const actual=groupSnap.exists?(groupSnap.data()||{}):{};
+  const actualCode=String(actual.groupCode||actual.name||'').trim();
+  if(!groupSnap.exists||actual.status==='archived'||actualCode!==groupCode)throw new Error('Обрана група більше недоступна або її код не збігається. Онови список і вибери іншу.');
+ }else{
+  const directory=await db.collection('availableAcademicGroups').doc(groupId).get();
+  if(!directory.exists||(directory.data()||{}).status!=='active'||(directory.data()||{}).groupCode!==groupCode)throw new Error('Обрана група більше недоступна. Онови список і вибери іншу.');
+ }
  const data={studentUid:user.uid,studentEmail:user.email||'',studentName:profile.name||'',nickname:profile.nickname||'',groupCode,groupId,status:'pending',createdAt:previous.exists?(previousData.createdAt||firebase.firestore.FieldValue.serverTimestamp()):firebase.firestore.FieldValue.serverTimestamp(),updatedAt:firebase.firestore.FieldValue.serverTimestamp()};
  await requestRef.set(data,{merge:true});
  const pendingProfile={...profile,groupCode,groupId,academicAccessStatus:'pending'};
