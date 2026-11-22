@@ -16,7 +16,7 @@
 ```firestore
 function isP52Admin() {
   return request.auth != null
-    && request.auth.uid == 'NIXSOWQ2c1Tkh5TVGU6z9zkbhOp2';
+    && request.auth.uid == 'fjJOrOvLxkdzHH0RzeFTUE1tSPS2';
 }
 
 function isAssignedGroupTeacher() {
