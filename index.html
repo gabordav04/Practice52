@@ -1582,8 +1582,10 @@ async function loadAdminDashboard(){
 }
 // Власник визначається підтвердженою поштою; старий UID збережено для сумісності.
 function isPrimaryAdminAccount(user){
- return !!user&&(isPrimaryAdminAccount(user)||
-  (String(user.email||'').trim().toLowerCase()==='gabordav04@gmail.com'&&user.emailVerified===true));
+ return !!user&&(
+  user.uid==='fjJOrOvLxkdzHH0RzeFTUE1tSPS2'
+  || (String(user.email||'').trim().toLowerCase()==='gabordav04@gmail.com'&&user.emailVerified===true)
+ );
 }
 async function refreshPractice52Role(user){
  practice52CurrentRole=null;
