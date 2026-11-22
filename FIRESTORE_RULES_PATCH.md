@@ -42,7 +42,6 @@ Do not replace the existing rules. Keep the final recursive deny rule unchanged.
       function isStudentAccount() {
         return request.auth != null
           && request.auth.uid == studentUid
-          && request.auth.uid != 'NIXSOWQ2c1Tkh5TVGU6z9zkbhOp2'
           && (
             !exists(/databases/$(database)/documents/roles/$(request.auth.uid))
             || get(/databases/$(database)/documents/roles/$(request.auth.uid)).data.role == 'student'
