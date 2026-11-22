@@ -698,6 +698,15 @@ const auth=firebase.auth(), db=firebase.firestore();
 window.practice52AuthPersistenceReady = auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL).catch(err=>{console.error('Could not enable persistent Firebase session:',err);throw err;});
 let firebaseUser=null, cloudReady=false, cloudSaveTimer=null;
 function setAuthStatus(message,isError=false){$('regStatus').textContent=message;$('regStatus').style.color=isError?'var(--red)':'var(--green)';}
+// Enable Google sign-in only after Firebase persistence is ready, so the popup opens directly from the user's tap.
+const googleLoginButton=$('googleLogin');
+if(googleLoginButton){
+ googleLoginButton.disabled=true;
+ window.practice52AuthPersistenceReady.then(()=>{googleLoginButton.disabled=false;}).catch(err=>{
+  console.error('Firebase persistence is unavailable:',err);
+  setAuthStatus('Не вдалося підготувати захищену сесію. Перезавантаж сторінку та спробуй ще раз.',true);
+ });
+}
 function profileStorageKey(user=firebaseUser){return user&&user.uid?PROFILE_KEY+':'+user.uid:PROFILE_KEY+':guest';}
 function readLocalProfile(){try{return JSON.parse(localStorage.getItem(profileStorageKey())||'null')}catch(e){return null}}
 function writeLocalProfile(profile,user=firebaseUser){localStorage.setItem(profileStorageKey(user),JSON.stringify(profile));}
@@ -1043,56 +1052,46 @@ $('emailLogin').addEventListener('click',async()=>{
   setAuthStatus(messages[err.code]||err.message||'Не вдалося увійти.',true);
  }
 });
-$('googleLogin').addEventListener('click',async()=>{
+$('googleLogin').addEventListener('click',()=>{
+  // Open the Google popup synchronously in the tap handler. This avoids the
+  // cross-site sessionStorage dependency of signInWithRedirect on iOS Safari.
   try{
-   setAuthStatus('Готуємо безпечний вхід через Google…');
-   await window.practice52AuthPersistenceReady;
+   setAuthStatus('Відкриваємо безпечний вхід через Google…');
    const provider=new firebase.auth.GoogleAuthProvider();
    provider.setCustomParameters({prompt:'select_account'});
-   // iOS Safari and embedded iOS browsers are more reliable with a full-page
-   // OAuth redirect than with popup windows. The existing getRedirectResult()
-   // handler completes this same Firebase account session after Google returns.
-   const isIOS=/iPad|iPhone|iPod/i.test(navigator.userAgent)
-     ||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);
-   if(isIOS){
-    setAuthStatus('Зберігаємо сесію та переходимо до Google…');
-    await auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL);
-    await auth.signInWithRedirect(provider);
-    return;
-   }
-   const credential=await auth.signInWithPopup(provider);
-   if(credential&&credential.user)setAuthStatus('Вхід через Google підтверджено.');
+   const signInTask=auth.signInWithPopup(provider);
+   signInTask.then(credential=>{
+    if(credential&&credential.user)setAuthStatus('Вхід через Google підтверджено.');
+   }).catch(err=>{
+    console.error('Google sign-in failed:',err);
+    const messages={
+     'auth/unauthorized-domain':'Домен сайту не дозволений у Firebase. Перевір Authentication → Settings → Authorized domains.',
+     'auth/operation-not-allowed':'У Firebase не ввімкнено Google: Authentication → Sign-in method → Google → Enable.',
+     'auth/popup-blocked':'Safari заблокував вікно Google. Дозволь спливні вікна для Practice 52 та повтори вхід.',
+     'auth/popup-closed-by-user':'Вікно Google закрито до завершення входу.',
+     'auth/cancelled-popup-request':'Попередній запит входу скасовано. Спробуй ще раз.',
+     'auth/network-request-failed':'Помилка мережі під час входу Google. Перевір з’єднання та повтори.',
+     'auth/operation-not-supported-in-this-environment':'Цей браузер не підтримує вхід через спливне вікно. Відкрий Practice 52 безпосередньо в Safari.',
+     'auth/web-storage-unsupported':'Браузер обмежив сховище, потрібне для входу. Відкрий Practice 52 безпосередньо в Safari.'
+    };
+    setAuthStatus(messages[err.code]||('Помилка Google ('+(err.code||'невідома')+'): '+(err.message||'Не вдалося увійти.')),true);
+   });
   }catch(err){
-   console.error('Google sign-in failed:',err);
-   const messages={
-    'auth/unauthorized-domain':'Домен сайту не дозволений у Firebase. Додай practice52.onrender.com у Authentication → Settings → Authorized domains.',
-    'auth/operation-not-allowed':'У Firebase не ввімкнено Google: Authentication → Sign-in method → Google → Enable.',
-    'auth/popup-blocked':'Браузер заблокував вікно Google. Відкрий Practice 52 безпосередньо в Safari або Chrome та повтори вхід.',
-    'auth/popup-closed-by-user':'Вікно Google закрито до завершення входу.',
-    'auth/cancelled-popup-request':'Попередній запит входу скасовано. Спробуй ще раз.',
-    'auth/network-request-failed':'Помилка мережі під час входу Google. Перевір з’єднання та повтори.',
-    'auth/operation-not-supported-in-this-environment':'Цей браузер не підтримує такий спосіб входу. Відкрий Practice 52 безпосередньо в Safari або Chrome.',
-    'auth/web-storage-unsupported':'Браузер обмежив сховище, потрібне для входу. Відкрий Practice 52 безпосередньо в Safari або Chrome.'
-   };
-   setAuthStatus(messages[err.code]||('Помилка Google ('+(err.code||'невідома')+'): '+(err.message||'Не вдалося увійти.')),true);
+   console.error('Google sign-in initialization failed:',err);
+   setAuthStatus('Не вдалося запустити вхід через Google: '+(err.message||'невідома помилка'),true);
   }
  });
  (async()=>{
   try{
    await window.practice52AuthPersistenceReady;
+   // Retain compatibility with any redirect sign-in started by the previous
+   // deployed version; new sign-ins use the popup flow.
    const result=await auth.getRedirectResult();
-   if(result&&result.user){
-    setAuthStatus('Вхід через Google підтверджено.');
-   }else if(auth.currentUser){
-    setAuthStatus('Сесію Google відновлено.');
-   }else{
-    // A null redirect result is normal when using popup sign-in or opening
-    // the app without a pending redirect. Do not show a false auth error.
-    console.info('No pending Google redirect result; waiting for auth state.');
-   }
+   if(result&&result.user)setAuthStatus('Вхід через Google підтверджено.');
+   else if(auth.currentUser)setAuthStatus('Сесію Google відновлено.');
   }catch(err){
    console.error('Google redirect result failed:',err);
-   setAuthStatus('Помилка повернення з Google ('+(err.code||'невідома')+'): '+(err.message||''),true);
+   setAuthStatus('Помилка завершення попереднього входу Google ('+(err.code||'невідома')+'): '+(err.message||''),true);
   }
  })();
 $('logoutBtn').addEventListener('click',async()=>{try{await auth.signOut();}catch(err){setAuthStatus(err.message,true);}});
