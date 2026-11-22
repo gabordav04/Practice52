@@ -1596,7 +1596,6 @@ async function loadAdminDashboard(){
 function isPrimaryAdminAccount(user){
  if(!user)return false;
  const primaryAdminUids=[
-  'GUJJCcS5QJY1LbpUlNWWTZZMDf32',
   'fjJOrOvLxkdzHH0RzeFTUE1tSPS2'
  ];
  const email=String(user.email||'').trim().toLowerCase();
@@ -2044,6 +2043,9 @@ auth.onAuthStateChanged(async user=>{
  if(user!==auth.currentUser)return;
 
  const selectedEntryRole=localStorage.getItem('practice52_entry_role_v1')||'';
+ // The owner admin route is handled by the dedicated account/role controller below.
+ // Do not let the general student sync listener continue and overwrite its UI state.
+ if(selectedEntryRole==='admin'&&isPrimaryAdminAccount(user))return;
  const isStudentEntry=selectedEntryRole==='student';
  applyPractice52TeacherLayout(practice52CurrentRole==='teacher');
  document.querySelectorAll('.p52-academic-field').forEach(el=>el.classList.toggle('hidden',!isStudentEntry));
@@ -3132,8 +3134,17 @@ function showLoginGate(){
             adminProfileSnap=await db.collection('users').doc(user.uid).get();
           }
         }
-        const adminProfile=(adminProfileSnap.exists&&adminProfileSnap.data().profile)||readLocalProfile()||{};
-        if(adminProfileSnap.exists&&adminProfileSnap.data().profile)writeLocalProfile(adminProfile,user);
+        const storedAdminProfile=(adminProfileSnap.exists&&adminProfileSnap.data().profile)||{};
+        const adminProfile={...(readLocalProfile()||{}),...storedAdminProfile};
+        if(!adminProfile.name)adminProfile.name=user.displayName||'';
+        if(!adminProfile.email)adminProfile.email=user.email||'';
+        if(!adminProfile.avatar)adminProfile.avatar=DEFAULT_AVATAR;
+        // Ensure the owner's own Firestore profile exists; merge preserves progress and other fields.
+        writeLocalProfile(adminProfile,user);
+        await db.collection('users').doc(user.uid).set({
+          profile:adminProfile,
+          updatedAt:firebase.firestore.FieldValue.serverTimestamp()
+        },{merge:true});
         $('regName').value=adminProfile.name||user.displayName||'';
         $('regPhone').value=adminProfile.phone||'';
         $('regNickname').value=adminProfile.nickname||'';
@@ -3147,8 +3158,8 @@ function showLoginGate(){
         $('logoutBtn').classList.remove('hidden');$('saveProfileBtn').classList.remove('hidden');$('hideProfileBtn').classList.remove('hidden');
         $('regStatus').textContent='Адміністративний акаунт активний. Тут можна переглядати й редагувати свій профіль.';
         $('regStatus').style.color='var(--green');
-       unlockApp();panel.classList.add('hidden');backdrop.classList.add('hidden');
-       $('studentIdentity').setAttribute('aria-expanded','false');
+       unlockApp();panel.classList.remove('hidden');backdrop.classList.add('hidden');
+       $('studentIdentity').setAttribute('aria-expanded','true');
        document.body.classList.add('p52-admin-mode');
        const adminPanel=document.getElementById('p52AdminPanel');
        if(adminPanel)adminPanel.classList.remove('hidden');
