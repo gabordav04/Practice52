@@ -3035,19 +3035,21 @@ function showLoginGate(){
    try{
      localStorage.setItem(roleKey,selected);localStorage.setItem('practice52_entry_done_v1','1');
      applyRoleSpecificFields(selected);
-     // Перемикання ролі не повинно спершу розлогінювати власника:
-     // для основного адміністратора зберігаємо Firebase-сесію і повторно
-     // запускаємо штатний role gate з вибраною роллю.
-     if(auth.currentUser){
-       if(selected==='admin'&&auth.currentUser.uid==='fjJOrOvLxkdzHH0RzeFTUE1tSPS2'){
-         location.reload();
-         return;
-       }
-       if(selected==='admin'){
-         await auth.signOut();
-       }
+     // Єдиний маршрут для email/password і Google: після вибору ролі
+     // попередню сесію завершуємо, щоб форма входу не працювала поверх
+     // уже авторизованого користувача. Виняток — власник, який повторно
+     // обрав свою адміністративну роль: його сесію зберігаємо.
+     const isPrimaryAdmin=auth.currentUser&&auth.currentUser.uid==='fjJOrOvLxkdzHH0RzeFTUE1tSPS2';
+     if(isPrimaryAdmin&&selected==='admin'){
+       location.reload();
+       return;
      }
+     if(auth.currentUser) await auth.signOut();
      showLoginGate();
+     $('emailLogin').classList.remove('hidden');
+     $('googleLogin').classList.remove('hidden');
+     const createButton=form.querySelector('button[type="submit"]');
+     if(createButton)createButton.classList.toggle('hidden',selected==='admin');
      panel.scrollIntoView({behavior:'smooth',block:'start'});
    }catch(err){console.error('Role confirmation failed:',err);$('regStatus').textContent=err.message||'Не вдалося підготувати вхід.';$('regStatus').style.color='var(--red)';}
    finally{btn.disabled=false;}
