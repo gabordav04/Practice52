@@ -785,8 +785,12 @@ async function syncPublicRank(){
  // Викладачі та адміністратор ніколи не беруть участі в студентському рейтингу.
  try{
   let accountRole=practice52CurrentRole;
-  if(isPrimaryAdminAccount(firebaseUser))accountRole='admin';
-  else{
+  if(isPrimaryAdminAccount(firebaseUser)){
+   // The platform owner has two explicit modes. Do not force the owner
+   // into the admin-only ranking exclusion while using the student interface.
+   const selectedMode=localStorage.getItem('practice52_entry_role_v1')||'student';
+   accountRole=selectedMode==='admin'?'admin':'student';
+  }else{
    const roleSnap=await db.collection('roles').doc(firebaseUser.uid).get();
    const roleData=roleSnap.exists?(roleSnap.data()||{}):{};
    if(roleData.role==='teacher'||roleData.role==='admin')accountRole=roleData.role;
