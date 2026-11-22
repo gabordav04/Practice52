@@ -44,16 +44,10 @@ service cloud.firestore {
         && request.auth.uid == userId;
     }
 
-    // Власник платформи: підтверджена адреса плюс legacy UID для сумісності.
+    // Єдиний власник платформи — підтверджений UID Google-акаунта.
     function isPlatformAdmin() {
       return request.auth != null
-        && (
-          request.auth.uid in ['NIXSOWQ2c1Tkh5TVGU6z9zkbhOp2', 'fjJOrOvLxkdzHH0RzeFTUE1tSPS2']
-          || (
-            request.auth.token.email == 'gabordav04@gmail.com'
-            && request.auth.token.email_verified == true
-          )
-        );
+        && request.auth.uid == 'fjJOrOvLxkdzHH0RzeFTUE1tSPS2';
     }
     
     // Студент без заявки — чинний учасник старої системи; нові заявки мають бути підтверджені.
@@ -123,7 +117,6 @@ service cloud.firestore {
       // Перевірка, що користувач є студентом
       function isEligibleStudent(uid) {
         return uid is string
-          && uid != 'fjJOrOvLxkdzHH0RzeFTUE1tSPS2'
           && (
             !exists(/databases/$(database)/documents/roles/$(uid))
             || get(/databases/$(database)/documents/roles/$(uid)).data.role == 'student'
@@ -322,7 +315,6 @@ service cloud.firestore {
         function isStudentAccount() {
           return request.auth != null
             && request.auth.uid == studentUid
-            && request.auth.uid != 'fjJOrOvLxkdzHH0RzeFTUE1tSPS2'
             && (
               !exists(/databases/$(database)/documents/roles/$(request.auth.uid))
               || get(/databases/$(database)/documents/roles/$(request.auth.uid)).data.role == 'student'
@@ -551,10 +543,6 @@ service cloud.firestore {
       allow update: if request.auth != null
         && (
           resource.data.uid == request.auth.uid
-          || (
-            request.auth.uid == 'fjJOrOvLxkdzHH0RzeFTUE1tSPS2'
-            && resource.data.uid == 'NIXSOWQ2c1Tkh5TVGU6z9zkbhOp2'
-          )
           || (
             nicknameId == 'test_teacher'
             && request.auth.token.email == 'mio.wind.massage@gmail.com'
