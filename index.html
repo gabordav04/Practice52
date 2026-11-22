@@ -3198,7 +3198,8 @@ function showLoginGate(){
  },true);
  auth.onAuthStateChanged(async user=>{
    try{await window.practice52AuthPersistenceReady;}catch(err){console.error('Auth persistence initialization failed:',err);}
-   if(profileGateBusy)return;
+   if(profileGateBusy){console.warn('Student auth routing paused: profile form submission is active.');return;}
+   if(user){setAuthStatus('Google підтверджено. Перевіряю роль і профіль…');}
    if(!user){document.getElementById('p52StudentRoute')?.classList.add('hidden');document.body.classList.remove('p52-route-unavailable');if(localStorage.getItem(roleKey))showLoginGate();else showRoleGate();return;}
    try{
      let selected=localStorage.getItem(roleKey)||'';
@@ -3210,7 +3211,9 @@ function showLoginGate(){
        localStorage.setItem(roleKey,'student');
      }
      if(!selected){showRoleGate();return;}
+     setAuthStatus('Google підтверджено. Перевіряю роль…');
      await refreshPractice52Role(user);
+     if(user!==auth.currentUser)return;
      if(String(user.email||'').trim().toLowerCase()==='mio.wind.massage@gmail.com')await recoverTestTeacherProfile(user);
      if(practice52CurrentRole==='teacher'&&selected!=='teacher'){
        localStorage.setItem(roleKey,'teacher');
@@ -3315,13 +3318,17 @@ function showLoginGate(){
        await loadAdminDashboard();
        return;
      }
+     setAuthStatus('Роль підтверджено. Завантажую профіль…');
      const snap=await db.collection('users').doc(user.uid).get();
+     if(user!==auth.currentUser)return;
      let profile=(snap.exists&&snap.data().profile)||{};
      // An already-approved student must not be sent back through profile/group
      // registration. Recover the approved identity and group directly from the
      // request, then verify the actual membership before opening the learning route.
      if(selected==='student'){
+       setAuthStatus('Перевіряю твоє підтвердження вступу до групи…');
        const approvedRequestSnap=await db.collection('academicAccessRequests').doc(user.uid).get();
+       if(user!==auth.currentUser)return;
        const approvedRequest=approvedRequestSnap.exists?(approvedRequestSnap.data()||{}):{};
        if(approvedRequest.status==='approved'){
          const recoveredProfile={
@@ -3348,6 +3355,7 @@ function showLoginGate(){
      form.querySelector('button[type="submit"]').textContent='Створити акаунт';
      $('emailLogin').classList.remove('hidden');$('googleLogin').classList.add('hidden');
      if(selected==='student'){
+       setAuthStatus('Перевіряю членство в навчальній групі…');
        let accessData={};try{
         const accessSnap=await db.collection('academicAccessRequests').doc(user.uid).get();
         accessData=accessSnap.exists?(accessSnap.data()||{}):{};
@@ -3395,11 +3403,15 @@ function showLoginGate(){
          return;
        }
      }
+     setAuthStatus('Доступ підтверджено. Відкриваю студентський кабінет…');
      unlockApp();
      if(selected==='student'&&window.p52LoadStudentRoute)await window.p52LoadStudentRoute();
+     if(user===auth.currentUser)setAuthStatus('Студентський вхід виконано.');
    }catch(err){
      console.error('Mandatory profile check failed:',err);lockApp();panel.classList.remove('hidden');
-     $('regStatus').textContent='Не вдалося перевірити профіль у Firebase. Перевір з’єднання та спробуй ще раз.';
+     $('regTitle').textContent='Не вдалося завершити вхід';
+     $('regStatus').textContent='Помилка перевірки входу: '+(err.code?err.code+' · ':'')+(err.message||'невідома помилка Firebase');
+
      $('regStatus').style.color='var(--red)';
    }
  });
