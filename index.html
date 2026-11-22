@@ -3275,8 +3275,34 @@ function showLoginGate(){
        return;
      }
      const snap=await db.collection('users').doc(user.uid).get();
-     const profile=(snap.exists&&snap.data().profile)||{};
-     const needsAcademicProfile=selected==='student'&&!isPrimaryAdminAccount(user)&&!profile.groupCode;if(!profile.name||!profile.phone||!profile.nickname||!user.email||needsAcademicProfile){showProfileGate(user,profile);applyRoleSpecificFields(selected);if(selected==='student')await p52InitAcademicFields(profile);else applyRoleSpecificFields(selected);return;}
+     let profile=(snap.exists&&snap.data().profile)||{};
+     // An already-approved student must not be sent back through profile/group
+     // registration. Recover the approved identity and group directly from the
+     // request, then verify the actual membership before opening the learning route.
+     if(selected==='student'){
+       const approvedRequestSnap=await db.collection('academicAccessRequests').doc(user.uid).get();
+       const approvedRequest=approvedRequestSnap.exists?(approvedRequestSnap.data()||{}):{};
+       if(approvedRequest.status==='approved'){
+         const recoveredProfile={
+           ...profile,
+           name:profile.name||approvedRequest.studentName||'',
+           nickname:profile.nickname||approvedRequest.nickname||'',
+           email:profile.email||approvedRequest.studentEmail||user.email||'',
+           groupCode:profile.groupCode||approvedRequest.groupCode||'',
+           groupId:profile.groupId||approvedRequest.groupId||'',
+           academicAccessStatus:'approved'
+         };
+         const recoveredStatus=await p52SubmitAcademicAccess(user,recoveredProfile);
+         if(recoveredStatus==='approved')profile={...(readLocalProfile()||recoveredProfile),...recoveredProfile};
+       }
+     }
+     const hasApprovedStudentAccess=selected==='student'&&profile.academicAccessStatus==='approved';
+     const needsAcademicProfile=selected==='student'&&!isPrimaryAdminAccount(user)&&!profile.groupCode;
+     if((!profile.name||!profile.phone||!profile.nickname||!user.email||needsAcademicProfile)&&!hasApprovedStudentAccess){
+       showProfileGate(user,profile);applyRoleSpecificFields(selected);
+       if(selected==='student')await p52InitAcademicFields(profile);else applyRoleSpecificFields(selected);
+       return;
+     }
      $('regEmail').readOnly=false;$('regPassword').required=true;$('regPassword').closest('.reg-field').classList.remove('hidden');
      form.querySelector('button[type="submit"]').textContent='Створити акаунт';
      $('emailLogin').classList.remove('hidden');$('googleLogin').classList.add('hidden');
