@@ -970,10 +970,16 @@ async function recoverTestTeacherProfile(user){
    const oldUserSnap=await db.collection('users').doc(oldUid).get();
    if(oldUserSnap.exists){
     const oldData=oldUserSnap.data()||{},candidate=oldData.profile||{};
-    if(normalizeNickname(candidate.nickname)==='test_teacher')oldProfile=candidate;
+    if(normalizeNickname(candidate.nickname)!=='test_teacher'){
+     console.warn('Legacy UID does not contain the expected test_teacher profile; keeping the existing nickname binding.');
+     return null;
+    }
+    oldProfile=candidate;
    }
   }catch(err){
-   console.warn('Legacy test-teacher profile could not be read; preserving the old record:',err);
+   // Do not move the nickname index unless the old profile can be safely inspected.
+   console.warn('Legacy test-teacher profile could not be read; keeping the old nickname binding until Firestore Rules are published:',err);
+   return null;
   }
   const currentRef=db.collection('users').doc(user.uid);
   const currentSnap=await currentRef.get();
