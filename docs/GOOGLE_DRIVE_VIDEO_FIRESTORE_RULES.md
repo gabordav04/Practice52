@@ -1,6 +1,6 @@
 # Google Drive video submissions — Firestore Rules patch
 
-This is a **proposed additive patch**, not a replacement for the live Firestore Rules. It is designed against the rules structure supplied during the Practice 52 review: platform administrator UID `NIXSOWQ2c1Tkh5TVGU6z9zkbhOp2`, group field `teacherUid`, group member field `studentUids`, and a final catch-all deny.
+This is a **proposed additive patch**, not a replacement for the live Firestore Rules. It is designed against the rules structure supplied during the Practice 52 review: platform administrator UID `fjJOrOvLxkdzHH0RzeFTUE1tSPS2`, group field `teacherUid`, group member field `studentUids`, and a final catch-all deny.
 
 Before using it, export the current complete Rules from Firebase Console, keep a backup, insert this block inside the existing `match /databases/{database}/documents` scope and before the final catch-all deny, then test in Rules Playground or the Emulator. Do not publish this snippet by itself.
 
@@ -8,7 +8,7 @@ Before using it, export the current complete Rules from Firebase Console, keep a
 match /practiceSubmissions/{submissionId} {
   function isPlatformAdminForSubmission() {
     return request.auth != null
-      && request.auth.uid == 'NIXSOWQ2c1Tkh5TVGU6z9zkbhOp2';
+      && request.auth.uid == 'fjJOrOvLxkdzHH0RzeFTUE1tSPS2';
   }
 
   function groupPath(groupId) {
