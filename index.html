@@ -3159,6 +3159,13 @@ function showLoginGate(){
    if(!user){document.getElementById('p52StudentRoute')?.classList.add('hidden');document.body.classList.remove('p52-route-unavailable');if(localStorage.getItem(roleKey))showLoginGate();else showRoleGate();return;}
    try{
      let selected=localStorage.getItem(roleKey)||'';
+     // The primary owner account is both admin and student, never the separate
+     // teacher account. A stale "teacher" choice from the previous Google session
+     // must not route the owner into the teacher profile/invite gate.
+     if(isPrimaryAdminAccount(user)&&selected==='teacher'){
+       selected='student';
+       localStorage.setItem(roleKey,'student');
+     }
      if(!selected){showRoleGate();return;}
      await refreshPractice52Role(user);
      if(String(user.email||'').trim().toLowerCase()==='mio.wind.massage@gmail.com')await recoverTestTeacherProfile(user);
