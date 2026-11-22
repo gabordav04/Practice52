@@ -3030,23 +3030,20 @@ function showLoginGate(){
    try{
      localStorage.setItem(roleKey,selected);localStorage.setItem('practice52_entry_done_v1','1');
      applyRoleSpecificFields(selected);
-     if(auth.currentUser){await auth.signOut();showLoginGate();}
-     else{
-       backdrop.classList.add('hidden');panel.classList.remove('hidden');
-       $('regTitle').textContent=selected==='teacher'?'Реєстрація / вхід викладача PRACTICE 52':selected==='admin'?'Вхід адміністратора PRACTICE 52':'Реєстрація / вхід студента PRACTICE 52';
-       $('regEmail').readOnly=false;$('regPassword').required=true;$('regPassword').closest('.reg-field').classList.remove('hidden');
-       form.querySelector('button[type="submit"]').textContent='Створити акаунт';
-       form.querySelector('button[type="submit"]').classList.toggle('hidden',selected==='admin');
-       $('emailLogin').classList.remove('hidden');$('googleLogin').classList.remove('hidden');
-       $('saveProfileBtn').classList.remove('hidden');$('hideProfileBtn').classList.remove('hidden');
-       $('logoutBtn').classList.add('hidden');
-       $('regName').value='';$('regPhone').value='';$('regNickname').value='';
-       $('regEmail').value='';$('regPassword').value='';
-       $('regStatus').textContent=selected==='admin'?'Увійди у свій наявний адміністративний акаунт gabordav04@gmail.com.':selected==='teacher'?'Увійди або створи окремий акаунт викладача.':'Увійди або створи студентський акаунт.';
-       $('regStatus').style.color='var(--muted)';
-       $('studentIdentity').setAttribute('aria-expanded','true');
-       panel.scrollIntoView({behavior:'smooth',block:'start'});
+     // Перемикання ролі не повинно спершу розлогінювати власника:
+     // для основного адміністратора зберігаємо Firebase-сесію і повторно
+     // запускаємо штатний role gate з вибраною роллю.
+     if(auth.currentUser){
+       if(selected==='admin'&&auth.currentUser.uid==='fjJOrOvLxkdzHH0RzeFTUE1tSPS2'){
+         location.reload();
+         return;
+       }
+       if(selected==='admin'){
+         await auth.signOut();
+       }
      }
+     showLoginGate();
+     panel.scrollIntoView({behavior:'smooth',block:'start'});
    }catch(err){console.error('Role confirmation failed:',err);$('regStatus').textContent=err.message||'Не вдалося підготувати вхід.';$('regStatus').style.color='var(--red)';}
    finally{btn.disabled=false;}
  },true);
