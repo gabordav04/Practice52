@@ -1594,10 +1594,14 @@ async function loadAdminDashboard(){
 }
 // Власник визначається підтвердженою поштою; старий UID збережено для сумісності.
 function isPrimaryAdminAccount(user){
- return !!user&&(
-  user.uid==='fjJOrOvLxkdzHH0RzeFTUE1tSPS2'
-  || (String(user.email||'').trim().toLowerCase()==='gabordav04@gmail.com'&&user.emailVerified===true)
- );
+ if(!user)return false;
+ const primaryAdminUids=[
+  'GUJJCcS5QJY1LbpUlNWWTZZMDf32',
+  'fjJOrOvLxkdzHH0RzeFTUE1tSPS2'
+ ];
+ const email=String(user.email||'').trim().toLowerCase();
+ return primaryAdminUids.includes(String(user.uid||''))||
+  (email==='gabordav04@gmail.com'&&user.emailVerified===true);
 }
 async function refreshPractice52Role(user){
  practice52CurrentRole=null;
