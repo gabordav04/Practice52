@@ -7,8 +7,19 @@ service cloud.firestore {
     match /users/{userId} {
       // Користувач керує лише власним профілем; власник платформи
       // може переглядати зареєстровані профілі в адміністративному кабінеті.
+      // Тестовий викладач може прочитати лише старий профіль,
+      // який досі явно прив'язаний до нікнейму test_teacher, щоб перенести
+      // власні контактні дані на актуальний Firebase UID.
       allow read: if request.auth != null
-        && (request.auth.uid == userId || isPlatformAdmin());
+        && (
+          request.auth.uid == userId
+          || isPlatformAdmin()
+          || (
+            request.auth.token.email == 'mio.wind.massage@gmail.com'
+            && ('profile' in resource.data)
+            && resource.data.profile.nickname == 'test_teacher'
+          )
+        );
       allow write: if request.auth != null
         && request.auth.uid == userId;
     }
@@ -73,7 +84,26 @@ service cloud.firestore {
           ).data.expiresAt > request.time
         );
 
-      allow update, delete: if isPlatformAdmin();
+      allow update: if isPlatformAdmin()
+        || (
+          request.auth != null
+          && request.auth.uid == userId
+          && request.resource.data.role == 'teacher'
+          && request.resource.data.active == true
+          && request.resource.data.inviteCode is string
+          && request.resource.data.diff(resource.data).affectedKeys()
+            .hasOnly(['role', 'active', 'inviteCode', 'assignedAt'])
+          && getAfter(
+            /databases/$(database)/documents/teacherInvites/$(request.resource.data.inviteCode)
+          ).data.used == true
+          && getAfter(
+            /databases/$(database)/documents/teacherInvites/$(request.resource.data.inviteCode)
+          ).data.usedBy == request.auth.uid
+          && getAfter(
+            /databases/$(database)/documents/teacherInvites/$(request.resource.data.inviteCode)
+          ).data.expiresAt > request.time
+        );
+      allow delete: if isPlatformAdmin();
     }
 
     // Навчальні групи PRACTICE 52
