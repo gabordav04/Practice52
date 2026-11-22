@@ -2867,7 +2867,12 @@ renderStats();renderSkills();renderHeaderIdentity();
    }catch(err){console.warn('PRACTICE 52 ambient audio unavailable:',err);stopAudio();setUI(false);button.title='Не вдалося ввімкнути звук';}
   }else{stopAudio();localStorage.setItem(KEY,'0');setUI(false);}
  });
- try{if(localStorage.getItem(KEY)==='1')button.title='Натconst ROLE_KEY='practice52_entry_role_v1',DONE_KEY='practice52_entry_done_v1';
+ try{if(localStorage.getItem(KEY)==='1')button.title='Натисни, щоб увімкнути фонову музику';}catch(e){}
+})();</script>
+
+<script>
+(function(){
+ const ROLE_KEY='practice52_entry_role_v1',DONE_KEY='practice52_entry_done_v1';
  const backdrop=document.getElementById('p52EntryBackdrop'),actions=document.getElementById('p52EntryActions');
  let selected=localStorage.getItem(ROLE_KEY)||'';
  function updateRoleUI(){
@@ -2890,7 +2895,7 @@ renderStats();renderSkills();renderHeaderIdentity();
  document.getElementById('studentIdentity').addEventListener('contextmenu',e=>{e.preventDefault();openEntry();});
  window.practice52OpenEntry=openEntry;
  const roleButton=document.getElementById('p52RoleSwitcher');if(roleButton)roleButton.addEventListener('click',openEntry);
-})();tById('p52RoleSwitcher');if(roleButton)roleButton.addEventListener('click',openEntry);</script>
+})();</script>
 
 <script>
 /* Надійне відкриття профілю на мобільних пристроях */
