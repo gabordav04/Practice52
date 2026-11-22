@@ -48,7 +48,7 @@ service cloud.firestore {
     function isPlatformAdmin() {
       return request.auth != null
         && (
-          request.auth.uid == 'fjJOrOvLxkdzHH0RzeFTUE1tSPS2'
+          request.auth.uid in ['NIXSOWQ2c1Tkh5TVGU6z9zkbhOp2', 'fjJOrOvLxkdzHH0RzeFTUE1tSPS2']
           || (
             request.auth.token.email == 'gabordav04@gmail.com'
             && request.auth.token.email_verified == true
