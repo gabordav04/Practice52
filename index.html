@@ -719,7 +719,7 @@ function writeLocalProfile(profile,user=firebaseUser){localStorage.setItem(profi
  function p52ExtractUserProfile(userData={}){
   const data=userData&&typeof userData==='object'?userData:{};
   const flat={};
-  ['name','nickname','phone','email','avatar','publicProfile','groupCode','groupId','academicAccessStatus','degree','year','courseId','semester','practiceId','practiceTitle','learningRouteUpdatedAt'].forEach(key=>{
+  ['name','nickname','phone','email','avatar','publicProfile','groupCode','groupId','academicAccessStatus','degree','year','courseId','semester','practiceId','practiceTitle','programId','learningRouteUpdatedAt'].forEach(key=>{
    if(Object.prototype.hasOwnProperty.call(data,key))flat[key]=data[key];
   });
   const nested=data.profile&&typeof data.profile==='object'?data.profile:{};
@@ -1429,17 +1429,90 @@ async function p52SubmitAcademicAccess(user,profile){
  return 'pending';
 }
 
-// Restore the primary owner's verified student group from authoritative membership.
+// Rebuild a student's learning route from the verified group and published catalog.
+ // Group membership is checked by UID; route metadata is never inferred from a name/email.
+ async function p52HydrateStudentLearningProfile(user,profile={}){
+  if(!user||user!==auth.currentUser)return profile;
+  const userRef=db.collection('users').doc(user.uid);
+  const userSnap=await userRef.get();
+  if(user!==auth.currentUser)return profile;
+  const cloudProfile=userSnap.exists?p52ExtractUserProfile(userSnap.data()||{}):{};
+  const hydrated={...cloudProfile};
+  Object.entries(profile||{}).forEach(([key,value])=>{
+   if(value!==undefined&&value!==null&&!(typeof value==='string'&&!value.trim()))hydrated[key]=value;
+  });
+  if(!isPrimaryAdminAccount(user)&&hydrated.academicAccessStatus!=='approved')return hydrated;
+
+  const membershipSnap=await db.collection('groups').where('studentUids','array-contains',user.uid).get();
+  if(user!==auth.currentUser)return hydrated;
+  const active=membershipSnap.docs.filter(doc=>{
+   const data=doc.data()||{};
+   return data.status!=='archived'&&Array.isArray(data.studentUids)&&data.studentUids.includes(user.uid);
+  });
+  let member=null;
+  const preferredGroupId=String(hydrated.groupId||'').trim();
+  const preferredGroupCode=String(hydrated.groupCode||'').trim();
+  if(preferredGroupId)member=active.find(doc=>doc.id===preferredGroupId)||null;
+  if(!member&&preferredGroupCode)member=active.find(doc=>{
+   const data=doc.data()||{};
+   return String(data.groupCode||data.name||'').trim()===preferredGroupCode;
+  })||null;
+  if(!member&&active.length===1)member=active[0];
+  if(!member){
+   console.warn('Student learning profile hydration skipped: no unique active verified group.',{uid:user.uid,activeGroups:active.length});
+   return hydrated;
+  }
+
+  const group=member.data()||{};
+  const practiceId=String(group.practiceId||hydrated.practiceId||'').trim();
+  const semester=Number(group.semester||hydrated.semester)||0;
+  let practiceData={};
+  if(practiceId){
+   try{
+    const practiceSnap=await db.collection('practices').doc(practiceId).get();
+    if(practiceSnap.exists)practiceData=practiceSnap.data()||{};
+   }catch(err){console.warn('Student practice catalog lookup unavailable:',err);}
+  }
+  const fallbackPractice=practiceId===P52_INITIAL_PRACTICE.id?P52_INITIAL_PRACTICE:{};
+  const courseId=String(group.courseId||practiceData.courseId||hydrated.courseId||fallbackPractice.courseId||'').trim();
+  let courseData={};
+  if(courseId){
+   try{
+    const courseSnap=await db.collection('courses').doc(courseId).get();
+    if(courseSnap.exists)courseData=courseSnap.data()||{};
+   }catch(err){console.warn('Student course catalog lookup unavailable:',err);}
+  }
+  const courseMeta=P52_COURSES.find(item=>item.id===courseId)||{};
+  const degree=String(group.degree||courseData.educationLevel||hydrated.degree||(courseMeta.level||'')).trim();
+  const year=Number(group.year||courseData.yearNumber||hydrated.year||courseMeta.year)||0;
+  const groupCode=String(group.groupCode||group.name||hydrated.groupCode||member.id).trim();
+  const next={
+   ...hydrated,
+   name:hydrated.name||user.displayName||'',
+   email:hydrated.email||user.email||'',
+   avatar:hydrated.avatar||DEFAULT_AVATAR,
+   publicProfile:hydrated.publicProfile===undefined?true:hydrated.publicProfile,
+   groupId:member.id,
+   groupCode,
+   academicAccessStatus:'approved',
+   ...(group.programId||practiceData.programId?{programId:group.programId||practiceData.programId}:{}),
+   ...(practiceId?{practiceId}:{}),
+   ...(group.practiceTitle||practiceData.title||hydrated.practiceTitle?{practiceTitle:group.practiceTitle||practiceData.title||hydrated.practiceTitle}:{}),
+   ...(semester?{semester}:{}),
+   ...(courseId?{courseId}:{}),
+   ...(degree?{degree}:{}),
+   ...(year?{year}:{})
+  };
+  writeLocalProfile(next,user);
+  await userRef.set({profile:next,academicAccessStatus:'approved',updatedAt:firebase.firestore.FieldValue.serverTimestamp()},{merge:true});
+  return next;
+ }
+
+ // Keep the existing owner-specific entry point, but use the same verified
+ // student-profile hydrator as every other approved student.
  async function p52HydratePrimaryStudentMembership(user,profile={}){
   if(!user||!isPrimaryAdminAccount(user))return profile;
-  const memberships=await db.collection('groups').where('studentUids','array-contains',user.uid).get();
-  const active=memberships.docs.filter(doc=>(doc.data()||{}).status!=='archived');
-  if(active.length!==1)return profile;
-  const member=active[0],data=member.data()||{};
-  const hydrated={...profile,name:profile.name||user.displayName||'',email:profile.email||user.email||'',avatar:profile.avatar||DEFAULT_AVATAR,publicProfile:profile.publicProfile===undefined?true:profile.publicProfile,groupId:member.id,groupCode:String(data.groupCode||data.name||profile.groupCode||'').trim(),academicAccessStatus:'approved'};
-  writeLocalProfile(hydrated,user);
-  await db.collection('users').doc(user.uid).set({profile:hydrated,academicAccessStatus:'approved',updatedAt:firebase.firestore.FieldValue.serverTimestamp()},{merge:true});
-  return hydrated;
+  return p52HydrateStudentLearningProfile(user,profile);
  }
  function p52RenderProfileGroup(profile={}){
   const panel=document.getElementById('p52ProfileGroupInfo');
@@ -3651,7 +3724,11 @@ function showLoginGate(){
    const localProfile=currentProfile();
    let cloudProfile={};
    try{if(typeof firebaseUser!=='undefined'&&firebaseUser?.uid){const userSnap=await db.collection('users').doc(firebaseUser.uid).get();if(userSnap.exists)cloudProfile=p52ExtractUserProfile(userSnap.data()||{});}}catch(profileErr){console.warn('Could not load cloud learning route profile:',profileErr);}
-   const profile={...localProfile,...cloudProfile};
+   let profile={...localProfile,...cloudProfile};
+   const activeUser=(typeof firebaseUser!=='undefined'&&firebaseUser)||auth.currentUser;
+   if(typeof p52HydrateStudentLearningProfile==='function'&&activeUser?.uid){
+    profile=await p52HydrateStudentLearningProfile(activeUser,profile);
+   }
    const snap=await db.collection('practices').where('status','==','active').get();
    practiceDocs=snap.docs.map(d=>({id:d.id,data:d.data()||{}}));
    degree.value=profile.degree||'';fillCourses(profile.courseId||'');
