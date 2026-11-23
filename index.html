@@ -3008,7 +3008,7 @@ renderStats();renderSkills();renderHeaderIdentity();
   return '<div class="p52-progress"><b>Маршрут навички</b><div class="p52-progress-grid">'+labels.map(([k,n])=>'<span class="'+(p[k]?'is-done':'')+'">'+(p[k]?'✓':'○')+' '+n+'</span>').join('')+'</div><small>'+(allPartsDone(i)?'Усі етапи завершено — навичку вивчено.':'Для статусу «Вивчено» обов’язково заверши всі три режими та склади комплексний екзамен.')+'</small></div>';
  };
  const css=document.createElement('style');
- css.textContent='.p52-progress{margin:18px 0;padding:15px;border:1px solid #d7e5ec;border-radius:14px;background:#f7fafc}.p52-progress-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin:10px 0}.p52-progress-grid span{padding:9px 10px;border-radius:9px;background:#edf2f5;color:#617789;font-size:13px}.p52-progress-grid span.is-done{background:#e8f6ee;color:#19744d;font-weight:700}.p52-progress small{color:#718394}.p52-exam-btn{margin-top:10px}.p52-exam-task{max-width:760px;margin:0 auto;text-align:left}.p52-exam-step{display:flex;align-items:center;gap:10px;padding:11px;margin:8px 0;border:1px solid #dce7ee;border-radius:10px;background:#fff}.p52-exam-step span{flex:1}.p52-exam-step button{padding:7px 11px;border-radius:8px;background:#edf3f6}.p52-exam-clock{display:inline-block;margin:8px 0;padding:8px 12px;border-radius:20px;background:#fff0c2;color:#775300;font-weight:700}.p52-exam-actions{display:flex;gap:9px;flex-wrap:wrap;margin-top:16px}@media(max-width:520px){.p52-progress-grid{grid-template-columns:1fr}.p52-exam-step{gap:6px}.p52-exam-step button{padding:7px}}';
+ css.textContent='.p52-progress{margin:18px 0;padding:15px;border:1px solid #d7e5ec;border-radius:14px;background:#f7fafc}.p52-progress-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin:10px 0}.p52-progress-grid span{padding:9px 10px;border-radius:9px;background:#edf2f5;color:#617789;font-size:13px}.p52-progress-grid span.is-done{background:#e8f6ee;color:#19744d;font-weight:700}.p52-progress small{color:#718394}.p52-skill-mode-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:9px;margin-top:12px}.p52-skill-mode{display:flex;flex-direction:column;align-items:flex-start;gap:7px;text-align:left;padding:12px;border:1px solid #d7e5ec;border-radius:12px;background:#fff;color:#20384a;cursor:pointer}.p52-skill-mode small{color:#718394;line-height:1.35}.p52-skill-mode span{font-size:12px;color:#28765a;font-weight:700}.p52-skill-mode.is-done{border-color:#9bcdb3;background:#f0faf4}.p52-exam-btn{margin-top:10px}.p52-exam-task{max-width:760px;margin:0 auto;text-align:left}.p52-exam-step{display:flex;align-items:center;gap:10px;padding:11px;margin:8px 0;border:1px solid #dce7ee;border-radius:10px;background:#fff}.p52-exam-step span{flex:1}.p52-exam-step button{padding:7px 11px;border-radius:8px;background:#edf3f6}.p52-exam-clock{display:inline-block;margin:8px 0;padding:8px 12px;border-radius:20px;background:#fff0c2;color:#775300;font-weight:700}.p52-exam-actions{display:flex;gap:9px;flex-wrap:wrap;margin-top:16px}@media(max-width:700px){.p52-skill-mode-grid{grid-template-columns:1fr}}@media(max-width:520px){.p52-progress-grid{grid-template-columns:1fr}.p52-exam-step{gap:6px}.p52-exam-step button{padding:7px}}';
  document.head.appendChild(css);
  function addCardProgress(){
   if(currentMode!=='cards'||!Array.isArray(items)||!items.length)return;
@@ -3018,8 +3018,20 @@ renderStats();renderSkills();renderHeaderIdentity();
   if(card.querySelector('.p52-progress'))return;
   const oldMark=card.querySelector('#mark');if(oldMark)oldMark.style.display='none';
   const oldReturn=card.querySelector('#returnToStudy');if(oldReturn)oldReturn.style.display='none';
-  const block=document.createElement('div');block.innerHTML=statusHtml(i);
-  const exam=document.createElement('button');exam.type='button';exam.className='btn primary p52-exam-btn';exam.textContent='🎓 Комплексний екзамен';exam.onclick=()=>start('skillExam',[i]);
+  const oldTest=card.querySelector('#lessonQuiz');if(oldTest)oldTest.style.display='none';
+  const block=document.createElement('div');block.className='p52-skill-learning-hub';block.innerHTML=statusHtml(i);
+  const modes=document.createElement('div');modes.className='p52-skill-mode-grid';
+  const p=progressFor(i);
+  const modeButtons=[
+   {key:'tests',label:'① Тести',hint:'Перевір теоретичні знання',run:()=>{const button=card.querySelector('#lessonQuiz');if(button)button.click();}},
+   {key:'sequence',label:'② Послідовність',hint:'Віднови алгоритм виконання',run:()=>start('sequence',[i])},
+   {key:'clinical',label:'③ Клінічні ситуації',hint:'Застосуй знання до пацієнта',run:()=>start('challenge',[i])}
+  ];
+  modeButtons.forEach(mode=>{
+   const button=document.createElement('button');button.type='button';button.className='p52-skill-mode'+(p[mode.key]?' is-done':'');button.innerHTML='<b>'+(p[mode.key]?'✓ ':'')+mode.label+'</b><small>'+mode.hint+'</small><span>'+(p[mode.key]?'Завершено':'Почати режим')+'</span>';button.onclick=mode.run;modes.appendChild(button);
+  });
+  block.appendChild(modes);
+  const exam=document.createElement('button');exam.type='button';exam.className='btn primary p52-exam-btn';exam.textContent=p.exam?'✓ Екзамен складено · пройти повторно':'🎓 Комплексний екзамен';exam.onclick=()=>start('skillExam',[i]);
   block.appendChild(exam);
   const actions=card.querySelector('.actions');
   if(actions)actions.insertAdjacentElement('afterend',block);else card.appendChild(block);
