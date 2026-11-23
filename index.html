@@ -866,7 +866,7 @@ function renderLeaderboardSnapshot(rows){
   const row=document.createElement('button');row.type='button';
   row.className='rank-row rank-row-button'+(firebaseUser&&item.id===firebaseUser.uid?' rank-me':'');
   row.setAttribute('aria-label','Відкрити навчальний профіль '+nickname);
-  row.addEventListener('click',()=>openPublicRankProfile({id:item.id,data:d,place:index+1}));
+  if(!item.pending)row.addEventListener('click',()=>openPublicRankProfile({id:item.id,data:d,place:index+1}));else row.disabled=true;
   const placeEl=document.createElement('span');placeEl.className='rank-place';placeEl.textContent='#'+(index+1);
   const nameEl=document.createElement('span');nameEl.className='rank-name';
   const avatar=typeof d.avatar==='string'?d.avatar:'⭐';
@@ -905,8 +905,7 @@ async function loadLeaderboard(){
   const memberUids=Array.from(new Set((Array.isArray(group.data.studentUids)?group.data.studentUids:[]).filter(Boolean)));
   const snapshots=await Promise.all(memberUids.map(uid=>db.collection('leaderboard').doc(uid).get()));
   if(user!==auth.currentUser)return;
-  currentStudentLeaderboardRows=snapshots.map((snap,index)=>({id:memberUids[index],data:snap.exists?(snap.data()||{}):null}))
-   .filter(item=>item.data&&typeof item.data.nickname==='string'&&item.data.nickname.trim())
+  currentStudentLeaderboardRows=snapshots.map((snap,index)=>({id:memberUids[index],data:snap.exists?(snap.data()||{}):{nickname:'Студент групи · рейтинг ще не активовано',avatar:'👤',points:0,completed:0,progressPercent:0},pending:!snap.exists}))
    .sort((a,b)=>(Number(b.data.points)||0)-(Number(a.data.points)||0)||String(a.data.nickname).localeCompare(String(b.data.nickname),'uk'));
   renderLeaderboardSnapshot(currentStudentLeaderboardRows);
  }catch(err){status.textContent='Не вдалося завантажити рейтинг твоєї групи. Перевір доступ до групи та рейтингів.';console.warn('Group leaderboard unavailable:',err);}
@@ -931,8 +930,7 @@ function watchLeaderboard(){
     const latest=new Map();
     const render=()=>{
      if(stopped)return;
-     currentStudentLeaderboardRows=Array.from(latest.entries()).map(([id,value])=>({id,data:value}))
-      .filter(item=>item.data&&typeof item.data.nickname==='string'&&item.data.nickname.trim())
+     currentStudentLeaderboardRows=memberUids.map((id,index)=>({id,data:latest.get(id)||{nickname:'Студент групи · рейтинг ще не активовано',avatar:'👤',points:0,completed:0,progressPercent:0},pending:!latest.has(id)}))
       .sort((a,b)=>(Number(b.data.points)||0)-(Number(a.data.points)||0)||String(a.data.nickname).localeCompare(String(b.data.nickname),'uk'));
      renderLeaderboardSnapshot(currentStudentLeaderboardRows);
     };
