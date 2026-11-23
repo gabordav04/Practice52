@@ -710,6 +710,17 @@ if(googleLoginButton){
 function profileStorageKey(user=firebaseUser){return user&&user.uid?PROFILE_KEY+':'+user.uid:PROFILE_KEY+':guest';}
 function readLocalProfile(){try{return JSON.parse(localStorage.getItem(profileStorageKey())||'null')}catch(e){return null}}
 function writeLocalProfile(profile,user=firebaseUser){localStorage.setItem(profileStorageKey(user),JSON.stringify(profile));}
+ // Support both the current nested profile schema and legacy flat user documents.
+ function p52ExtractUserProfile(userData={}){
+  const data=userData&&typeof userData==='object'?userData:{};
+  const flat={};
+  ['name','nickname','phone','email','avatar','publicProfile','groupCode','groupId','academicAccessStatus','degree','year','courseId','semester','practiceId','practiceTitle','learningRouteUpdatedAt'].forEach(key=>{
+   if(Object.prototype.hasOwnProperty.call(data,key))flat[key]=data[key];
+  });
+  const nested=data.profile&&typeof data.profile==='object'?data.profile:{};
+  return {...flat,...nested};
+ }
+
 const DEFAULT_AVATAR='🦊';
 function renderHeaderIdentity(){
  const profile=readLocalProfile()||{},avatar=profile.avatar||DEFAULT_AVATAR;
@@ -807,7 +818,7 @@ async function syncPublicRank(){
  }
  // Incomplete cloud profile fields must not suppress an otherwise eligible student.
  const userSnap=await db.collection('users').doc(uid).get();
- const cloudProfile=userSnap.exists?((userSnap.data()||{}).profile||{}):{};
+ const cloudProfile=userSnap.exists?p52ExtractUserProfile(userSnap.data()||{}):{};
  const localProfile=readLocalProfile()||{};
  const profile={...localProfile,...cloudProfile};
  ['nickname','name','phone','avatar'].forEach(key=>{if(!profile[key]&&localProfile[key])profile[key]=localProfile[key];});
@@ -1981,7 +1992,7 @@ async function loadPractice52StudentGroups(){
   catch(profileError){console.warn('Student group roster names unavailable:',profileError);}
   const profiles=new Map();
   if(profileSnap)profileSnap.forEach(d=>{const p=d.data()||{};profiles.set(d.id,{nickname:p.nickname||p.name||'Учасник',avatar:p.avatar||'👤'});});
-  const studentProfile={...(readLocalProfile()||{}),...(userSnap.exists?(userSnap.data().profile||{}):{})};
+  const studentProfile={...(readLocalProfile()||{}),...(userSnap.exists?p52ExtractUserProfile(userSnap.data()||{}):{})};
   root.classList.remove('hidden');
   root.innerHTML='<div class="eyebrow">ТВОЄ НАВЧАННЯ</div><h2>Моя група</h2><p class="teacher-lead">Твоя навчальна група, викладач та одногрупники.</p>';
   if(!groups.length){
@@ -2342,7 +2353,7 @@ auth.onAuthStateChanged(async user=>{
   if(snap.exists){
    const data=snap.data()||{};
    // A progress-only user document must not leave the profile form blank.
-   const localProfile=readLocalProfile()||{},cloudProfile=data.profile&&typeof data.profile==='object'?data.profile:{};
+   const localProfile=readLocalProfile()||{},cloudProfile=p52ExtractUserProfile(data);
    let profile={...localProfile,...cloudProfile};
    if(isPrimaryAdminAccount(user)){
     try{profile=await p52HydratePrimaryStudentMembership(user,profile);}
@@ -3416,7 +3427,7 @@ function showLoginGate(){
             adminProfileSnap=await db.collection('users').doc(user.uid).get();
           }
         }
-        const storedAdminProfile=(adminProfileSnap.exists&&adminProfileSnap.data().profile)||{};
+        const storedAdminProfile=adminProfileSnap.exists?p52ExtractUserProfile(adminProfileSnap.data()||{}):{};
         const adminProfile={...(readLocalProfile()||{}),...storedAdminProfile};
         if(!adminProfile.name)adminProfile.name=user.displayName||'';
         if(!adminProfile.email)adminProfile.email=user.email||'';
@@ -3454,7 +3465,7 @@ function showLoginGate(){
      setAuthStatus('Роль підтверджено. Завантажую профіль…');
      const snap=await db.collection('users').doc(user.uid).get();
      if(user!==auth.currentUser)return;
-     let profile=(snap.exists&&snap.data().profile)||{};
+     let profile=snap.exists?p52ExtractUserProfile(snap.data()||{}):{};
      // An already-approved student must not be sent back through profile/group
      // registration. Recover the approved identity and group directly from the
      // request, then verify the actual membership before opening the learning route.
@@ -3602,7 +3613,7 @@ function showLoginGate(){
   try{
    const localProfile=currentProfile();
    let cloudProfile={};
-   try{if(typeof firebaseUser!=='undefined'&&firebaseUser?.uid){const userSnap=await db.collection('users').doc(firebaseUser.uid).get();if(userSnap.exists)cloudProfile=(userSnap.data()||{}).profile||{};}}catch(profileErr){console.warn('Could not load cloud learning route profile:',profileErr);}
+   try{if(typeof firebaseUser!=='undefined'&&firebaseUser?.uid){const userSnap=await db.collection('users').doc(firebaseUser.uid).get();if(userSnap.exists)cloudProfile=p52ExtractUserProfile(userSnap.data()||{});}}catch(profileErr){console.warn('Could not load cloud learning route profile:',profileErr);}
    const profile={...localProfile,...cloudProfile};
    const snap=await db.collection('practices').where('status','==','active').get();
    practiceDocs=snap.docs.map(d=>({id:d.id,data:d.data()||{}}));
