@@ -803,7 +803,7 @@ async function syncPublicRank(){
  // Cloud profile is authoritative; local cache may be older or incomplete.
  const userSnap=await db.collection('users').doc(uid).get();
  const cloudProfile=userSnap.exists?((userSnap.data()||{}).profile||{}):{};
- const profile={...cloudProfile,...(readLocalProfile()||{})};
+ const profile={...(readLocalProfile()||{}),...cloudProfile};
  if(!profile.nickname||normalizeNickname(profile.nickname)==='student'){
   console.warn('Public rank not published: a valid nickname is required.');
   return;
