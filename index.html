@@ -680,7 +680,7 @@ const lessons = {0:{title:"Життєві показники: АТ, ЧСС, ЧД
 const $=id=>document.getElementById(id);
 const PROFILE_KEY='practice52_profile_v1';
 let KEY='practice52_v1:guest';
-function emptyPracticeState(){return {done:[],needsReview:[],skillStatusUpdatedAt:{},lessonTestsCompleted:{},points:0,correct:0,answered:0,mistakes:[],ratings:{}};}
+function emptyPracticeState(){return {done:[],needsReview:[],skillStatusUpdatedAt:{},lessonTestsCompleted:{},learningProgress:{},points:0,correct:0,answered:0,mistakes:[],ratings:{}};}
 let state=emptyPracticeState();
 try{state={...state,...JSON.parse(localStorage.getItem(KEY)||'{}')}}catch(e){}
 if(!Array.isArray(state.mistakes))state.mistakes=[];if(!Array.isArray(state.done))state.done=[];if(!Array.isArray(state.needsReview))state.needsReview=[];if(!state.ratings||typeof state.ratings!=='object')state.ratings={};if(!state.skillStatusUpdatedAt||typeof state.skillStatusUpdatedAt!=='object')state.skillStatusUpdatedAt={};if(!state.lessonTestsCompleted||typeof state.lessonTestsCompleted!=='object')state.lessonTestsCompleted={};
@@ -2384,6 +2384,7 @@ auth.onAuthStateChanged(async user=>{
    $('profileVisible').checked=ownerProfile.publicProfile!==false;
    renderAvatar(ownerProfile.avatar||DEFAULT_AVATAR);renderHeaderIdentity();
    cloudReady=true;
+   try{await publishStudentProgressForTeacher();}catch(progressPublishError){console.warn('Owner student progress mirror sync failed:',progressPublishError);}
    try{await syncPublicRank();}catch(rankError){console.warn('Owner student ranking sync failed:',rankError);}
    await loadLeaderboard();watchLeaderboard();
    setAuthStatus('Вхід виконано як адміністратор і студент. Профіль синхронізовано.');
@@ -2499,7 +2500,7 @@ auth.onAuthStateChanged(async user=>{
   }
   if(user!==auth.currentUser)return;
   cloudReady=true;
-  if(practice52CurrentRole!=='teacher'&&practice52CurrentRole!=='admin'){
+  if(practice52CurrentRole!=='teacher'){
    try{await publishStudentProgressForTeacher();}
    catch(progressPublishError){console.warn('Teacher-visible progress mirror is not available yet:',progressPublishError);}
   }
@@ -2964,7 +2965,8 @@ renderStats();renderSkills();renderHeaderIdentity();
  let mixedExam=null, examTimer=null, examSeconds=0;
  const progressFor=i=>{
   const key=String(i);
-  if(!state.learningProgress[key])state.learningProgress[key]={tests:false,sequence:false,clinical:false,exam:false,testsStarted:false,sequenceStarted:false,clinicalStarted:false,examStarted:false,updatedAt:0};
+  if(!state.learningProgress||typeof state.learningProgress!=='object'||Array.isArray(state.learningProgress))state.learningProgress={};
+  if(!state.learningProgress[key]||typeof state.learningProgress[key]!=='object'||Array.isArray(state.learningProgress[key]))state.learningProgress[key]={tests:false,sequence:false,clinical:false,exam:false,testsStarted:false,sequenceStarted:false,clinicalStarted:false,examStarted:false,updatedAt:0};
   return state.learningProgress[key];
  };
  const allPartsDone=i=>{const p=progressFor(i);return p.tests===true&&p.sequence===true&&p.clinical===true&&p.exam===true;};
