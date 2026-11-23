@@ -2581,7 +2581,7 @@ function renderStats(){
 function renderSkills(){
  const q=$('search').value.trim().toLowerCase(),rawNumber=$('searchNumber').value.trim(),number=rawNumber===''?null:Number(rawNumber),f=$('filter').value;$('skills').innerHTML='';
  skills.forEach((s,i)=>{
-  const done=state.done.includes(i),review=state.needsReview.includes(i),lp=state.learningProgress?.[String(i)]||{},inProgress=!done&&!review&&(lp.tests===true||lp.sequence===true||lp.clinical===true);
+  const done=state.done.includes(i),review=state.needsReview.includes(i),lp=state.learningProgress?.[String(i)]||{},inProgress=!done&&!review&&(['tests','sequence','clinical','exam'].some(k=>lp[k]===true||lp[k+'Started']===true));
   if((q&&!s.toLowerCase().includes(q))||(number!==null&&(!Number.isInteger(number)||number!==i+1))||(f==='done'&&!done)||(f==='review'&&!review)||(f==='todo'&&(done||review)))return;
   const b=document.createElement('button');b.className='skill'+(done?' done':review?' needs-review':inProgress?' in-progress':'');
   const status=done?'✓ Вивчено':review?'↻ Потребує повторення':inProgress?'◷ У процесі навчання':'Вчити';
@@ -2964,7 +2964,7 @@ renderStats();renderSkills();renderHeaderIdentity();
  let mixedExam=null, examTimer=null, examSeconds=0;
  const progressFor=i=>{
   const key=String(i);
-  if(!state.learningProgress[key])state.learningProgress[key]={tests:false,sequence:false,clinical:false,exam:false,updatedAt:0};
+  if(!state.learningProgress[key])state.learningProgress[key]={tests:false,sequence:false,clinical:false,exam:false,testsStarted:false,sequenceStarted:false,clinicalStarted:false,examStarted:false,updatedAt:0};
   return state.learningProgress[key];
  };
  const allPartsDone=i=>{const p=progressFor(i);return p.tests===true&&p.sequence===true&&p.clinical===true&&p.exam===true;};
@@ -2989,31 +2989,39 @@ renderStats();renderSkills();renderHeaderIdentity();
   if(!was&&state.done.includes(i)&&typeof showCompletionCelebration==='function')showCompletionCelebration(i);
  };
  const setPart=(i,part,value=true)=>{
-  const p=progressFor(i);p[part]=!!value;p.updatedAt=Date.now();
+  const p=progressFor(i);p[part]=!!value;if(value&&Object.prototype.hasOwnProperty.call(p,part+'Started'))p[part+'Started']=true;p.updatedAt=Date.now();
   if(part==='tests'&&value)state.lessonTestsCompleted[String(i)]={completed:true,total:(lessons[i]?.questions||[]).length,completedAt:Date.now()};
   updateSkillCompletion(i);
  };
+ const isSkillInProgress=i=>{const p=progressFor(i);return ['tests','sequence','clinical','exam'].some(k=>p[k]===true||p[k+'Started']===true);};
  const statusHtml=i=>{
-  const p=progressFor(i);
-  const labels=[['tests','Тести'],['sequence','Послідовність'],['clinical','Клінічні ситуації'],['exam','Екзамен']];
-  return '<div class="p52-progress"><b>Маршрут навички</b><div class="p52-progress-grid">'+labels.map(([k,n])=>'<span class="'+(p[k]?'is-done':'')+'">'+(p[k]?'✓':'○')+' '+n+'</span>').join('')+'</div><small>'+(allPartsDone(i)?'Усі етапи завершено — навичку вивчено.':'Для статусу «Вивчено» обов’язково заверши всі три режими та склади комплексний екзамен.')+'</small></div>';
+  const p=progressFor(i),done=allPartsDone(i),started=isSkillInProgress(i);
+  const labels=[['tests','Тестування'],['sequence','Послідовність'],['clinical','Клінічні ситуації'],['exam','Комплексний екзамен']];
+  const stage=k=>p[k]?'✓ Завершено':p[k+'Started']?'◷ У процесі':'○ Не розпочато';
+  return '<div class="p52-progress-status"><b>Статус навички</b><strong class="'+(done?'is-done':started?'is-progress':'is-todo')+'">'+(done?'✓ Вивчено':started?'◷ У процесі навчання':'Вчити')+'</strong></div><div class="p52-progress-grid">'+labels.map(([k,n])=>'<span class="'+(p[k]?'is-done':p[k+'Started']?'is-progress':'')+'"><b>'+n+'</b><small>'+stage(k)+'</small></span>').join('')+'</div><small class="p52-progress-hint">'+(done?'Усі три навчальні режими та комплексний екзамен успішно завершено.': 'Для позначки «Вивчено» потрібно завершити тестування, послідовність, клінічні ситуації та скласти комплексний екзамен.')+'</small><div class="p52-progress-actions"><button type="button" class="btn" data-p52-stage="tests">Тестування</button><button type="button" class="btn" data-p52-stage="sequence">Послідовність</button><button type="button" class="btn" data-p52-stage="clinical">Клінічні ситуації</button><button type="button" class="btn primary" data-p52-stage="exam" '+(p.tests&&p.sequence&&p.clinical?'':'disabled')+'>🎓 Екзамен</button></div>';
  };
  const css=document.createElement('style');
- css.textContent='.p52-progress{margin:18px 0;padding:15px;border:1px solid #d7e5ec;border-radius:14px;background:#f7fafc}.p52-progress-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin:10px 0}.p52-progress-grid span{padding:9px 10px;border-radius:9px;background:#edf2f5;color:#617789;font-size:13px}.p52-progress-grid span.is-done{background:#e8f6ee;color:#19744d;font-weight:700}.p52-progress small{color:#718394}.p52-exam-btn{margin-top:10px}.p52-exam-task{max-width:760px;margin:0 auto;text-align:left}.p52-exam-step{display:flex;align-items:center;gap:10px;padding:11px;margin:8px 0;border:1px solid #dce7ee;border-radius:10px;background:#fff}.p52-exam-step span{flex:1}.p52-exam-step button{padding:7px 11px;border-radius:8px;background:#edf3f6}.p52-exam-clock{display:inline-block;margin:8px 0;padding:8px 12px;border-radius:20px;background:#fff0c2;color:#775300;font-weight:700}.p52-exam-actions{display:flex;gap:9px;flex-wrap:wrap;margin-top:16px}@media(max-width:520px){.p52-progress-grid{grid-template-columns:1fr}.p52-exam-step{gap:6px}.p52-exam-step button{padding:7px}}';
+ css.textContent='.p52-progress{margin:18px 0;padding:15px;border:1px solid #d7e5ec;border-radius:14px;background:#f7fafc}.p52-progress-status{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}.p52-progress-status strong{padding:6px 10px;border-radius:9px;background:#edf2f5}.p52-progress-status strong.is-progress{background:#fff3d8;color:#8a5a00}.p52-progress-status strong.is-done{background:#e8f6ee;color:#19744d}.p52-progress-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin:10px 0}.p52-progress-grid span{display:flex;flex-direction:column;gap:4px;padding:9px 10px;border-radius:9px;background:#edf2f5;color:#617789;font-size:13px}.p52-progress-grid span.is-progress{background:#fff3d8;color:#8a5a00}.p52-progress-grid span.is-done{background:#e8f6ee;color:#19744d;font-weight:700}.p52-progress-grid small,.p52-progress-hint{color:#718394}.p52-progress-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}.p52-progress-actions button:disabled{opacity:.45;cursor:not-allowed}.p52-exam-task{max-width:760px;margin:0 auto;text-align:left}.p52-exam-step{display:flex;align-items:center;gap:10px;padding:11px;margin:8px 0;border:1px solid #dce7ee;border-radius:10px;background:#fff}.p52-exam-step span{flex:1}.p52-exam-step button{padding:7px 11px;border-radius:8px;background:#edf3f6}.p52-exam-clock{display:inline-block;margin:8px 0;padding:8px 12px;border-radius:20px;background:#fff0c2;color:#775300;font-weight:700}.p52-exam-actions{display:flex;gap:9px;flex-wrap:wrap;margin-top:16px}@media(max-width:520px){.p52-progress-grid{grid-template-columns:1fr}.p52-exam-step{gap:6px}.p52-exam-step button{padding:7px}}';
  document.head.appendChild(css);
  function addCardProgress(){
   if(currentMode!=='cards'||!Array.isArray(items)||!items.length)return;
   const i=items[idx]??items[0],content=$('studyContent');
   if(!content||!content.querySelector('.study-card'))return;
   const card=content.querySelector('.study-card');
-  if(card.querySelector('.p52-progress'))return;
+  let block=card.querySelector('.p52-progress');
+  const p=progressFor(i),signature=JSON.stringify(p);
+  if(block&&block.dataset.signature===signature)return;
   const oldMark=card.querySelector('#mark');if(oldMark)oldMark.style.display='none';
   const oldReturn=card.querySelector('#returnToStudy');if(oldReturn)oldReturn.style.display='none';
-  const block=document.createElement('div');block.innerHTML=statusHtml(i);
-  const exam=document.createElement('button');exam.type='button';exam.className='btn primary p52-exam-btn';exam.textContent='🎓 Комплексний екзамен';exam.onclick=()=>start('skillExam',[i]);
-  block.appendChild(exam);
-  const actions=card.querySelector('.actions');
-  if(actions)actions.insertAdjacentElement('afterend',block);else card.appendChild(block);
+  if(!block){block=document.createElement('section');block.className='p52-progress';const heading=card.querySelector('h2');if(heading)heading.insertAdjacentElement('afterend',block);else card.prepend(block);}
+  block.dataset.signature=signature;block.innerHTML=statusHtml(i);
+  block.querySelectorAll('[data-p52-stage]').forEach(button=>button.onclick=()=>{
+   const stage=button.dataset.p52Stage;
+   if(stage==='exam'){if(p.tests&&p.sequence&&p.clinical)start('skillExam',[i]);return;}
+   const current=progressFor(i);current[stage+'Started']=true;current.updatedAt=Date.now();save();
+   if(stage==='tests'){$('lessonQuiz')?.click();}
+   else start(stage==='sequence'?'sequence':'challenge',[i]);
+  });
  }
  function addPostTestExam(){
   // Єдина кнопка комплексного екзамену розміщена в блоці маршруту флеш-картки.
@@ -3098,6 +3106,8 @@ renderStats();renderSkills();renderHeaderIdentity();
   $('p52TaskExit').onclick=()=>{clearInterval(examTimer);examTimer=null;const si=mixedExam.skillIndex;mixedExam=null;if(si!==null)start('cards',[si]);else returnToModes();};
  }
  function startMixedExam(skillIndex){
+  if(skillIndex!==null){const p=progressFor(skillIndex);if(!(p.tests&&p.sequence&&p.clinical)){const missing=[['tests','Тестування'],['sequence','Послідовність'],['clinical','Клінічні ситуації']].filter(([k])=>!p[k]).map(([,n])=>n);$('studyContent').innerHTML='<div class="study-card"><h2>Екзамен поки недоступний</h2><p>Спочатку заверши всі три навчальні режими цієї навички: '+missing.join(', ')+'.</p><button class="btn" id="p52ExamBack">До флеш-картки</button></div>';$('p52ExamBack').onclick=()=>start('cards',[skillIndex]);return;}}
+  if(skillIndex!==null){const p=progressFor(skillIndex);p.examStarted=true;p.updatedAt=Date.now();save();}
   const eligible=skills.map((_,i)=>i).filter(i=>lessons[i]&&Array.isArray(lessons[i].questions)&&lessons[i].questions.length&&Array.isArray(lessons[i].steps)&&lessons[i].steps.length>1);
   const skillsToTest=skillIndex===null?shuffle(eligible).slice(0,5):[skillIndex];
   mixedExam={skillIndex,tasks:makeExamTasks(skillsToTest,skillIndex!==null),index:0};
@@ -3113,6 +3123,7 @@ renderStats();renderSkills();renderHeaderIdentity();
   renderMixedExam();
  }
  start=function(mode,custom=null){
+  if((mode==='sequence'||mode==='challenge')&&Array.isArray(custom)&&custom.length===1){const p=progressFor(custom[0]);p[mode==='sequence'?'sequenceStarted':'clinicalStarted']=true;p.updatedAt=Date.now();save();}
   if(mode==='exam'||mode==='skillExam'){
    stopExamTimer();currentMode='mixedExam';idx=0;items=custom||[];sessionQuestions=[];
    $('studyPanel').classList.remove('hidden');$('backToModes').style.display='none';
@@ -3130,6 +3141,7 @@ renderStats();renderSkills();renderHeaderIdentity();
  };
  document.addEventListener('click',e=>{
   const target=e.target;
+  if(target&&target.id==='lessonQuiz'&&Array.isArray(items)&&items.length===1){const p=progressFor(items[0]);p.testsStarted=true;p.updatedAt=Date.now();save();}
   if(target&&target.id==='checkSequence'){
    const skillIndex=Array.isArray(items)&&items.length===1?items[0]:null;
    if(skillIndex!==null)setTimeout(()=>{
