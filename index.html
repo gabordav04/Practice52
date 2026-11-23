@@ -803,6 +803,12 @@ function publicRankDisplayName(profile,user){
 async function syncPublicRank(){
  if(!firebaseUser||!cloudReady)return;
  const uid=firebaseUser.uid,rankRef=db.collection('leaderboard').doc(uid);
+ // Until additional student accounts are explicitly approved, only the primary
+ // student/admin account may publish a public ranking entry.
+ if(uid!=='fjJOrOvLxkdzHH0RzeFTUE1tSPS2'){
+  try{await rankRef.delete();}catch(cleanupError){console.warn('Non-primary leaderboard cleanup failed:',cleanupError);}
+  return;
+ }
  // Викладачі та сторонні адміністратори не беруть участі; власник бере участь у студентському режимі.
  try{
   let accountRole=practice52CurrentRole;
@@ -879,11 +885,15 @@ function renderLeaderboardSnapshot(snap){
  const status=$('leaderboardStatus'),list=$('leaderboardList');if(!status||!list)return;
  list.innerHTML='';
  const docs=(snap&&Array.isArray(snap.docs)?snap.docs:[]);
- // Only records explicitly refreshed by an authenticated student are eligible.
- // Legacy placeholders and stale/test identities remain stored but are not displayed.
+ // The launch allowlist currently contains exactly one student identity:
+ // the primary account, which has both admin and student modes.
+ // The separate teacher account is intentionally excluded from the student leaderboard.
  const eligible=docs.filter(doc=>{
   const data=doc.data()||{};
-  return data.accountStatus==='active'&&data.role==='student'&&data.uid===doc.id;
+  return doc.id==='fjJOrOvLxkdzHH0RzeFTUE1tSPS2'
+   &&data.uid===doc.id
+   &&data.accountStatus==='active'
+   &&data.role==='student';
  });
  if(!eligible.length){status.textContent='Поки що немає підтверджених студентів у рейтингу. Увійди як студент, щоб оновити свій запис.';return;}
  const display=eligible.slice(0,10);
