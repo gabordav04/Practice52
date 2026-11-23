@@ -915,13 +915,13 @@ function renderLeaderboardSnapshot(snap){
 async function loadLeaderboard(){
  const status=$('leaderboardStatus');if(!status)return;
  try{
-  const snap=await db.collection('leaderboard').orderBy('points','desc').limit(10).get();
+  const snap=await db.collection('leaderboard').orderBy('points','desc').limit(100).get();
   renderLeaderboardSnapshot(snap);
  }catch(err){status.textContent='Рейтинг недоступний: перевір правила доступу Firestore для leaderboard.';console.warn('Leaderboard unavailable:',err);}
 }
 function watchLeaderboard(){
  if(leaderboardUnsubscribe)leaderboardUnsubscribe();
- leaderboardUnsubscribe=db.collection('leaderboard').orderBy('points','desc').limit(10).onSnapshot(renderLeaderboardSnapshot,err=>{
+ leaderboardUnsubscribe=db.collection('leaderboard').orderBy('points','desc').limit(100).onSnapshot(renderLeaderboardSnapshot,err=>{
   $('leaderboardStatus').textContent='Не вдалося оновити рейтинг у реальному часі. Перевір правила доступу Firestore.';
   console.warn('Leaderboard listener failed:',err);
  });
