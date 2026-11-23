@@ -1082,34 +1082,11 @@ async function saveAccountProfile(user){
  }
 }
 
-async function refreshAccountProfileForm(user){
- if(!user||user!==auth.currentUser)return;
- try{
-  const snap=await db.collection('users').doc(user.uid).get();
-  if(user!==auth.currentUser||!snap.exists)return;
-  const cloudProfile=(snap.data()||{}).profile;
-  if(!cloudProfile||typeof cloudProfile!=='object')return;
-  const mergedProfile={...(readLocalProfile()||{}),...cloudProfile};
-  writeLocalProfile(mergedProfile,user);
-  if(mergedProfile.name)$('regName').value=mergedProfile.name;
-  if(mergedProfile.phone)$('regPhone').value=mergedProfile.phone;
-  if(mergedProfile.nickname){$('regNickname').value=mergedProfile.nickname;$('regNickname').disabled=false;}
-  $('regEmail').value=user.email||mergedProfile.email||'';
-  $('profileVisible').checked=mergedProfile.publicProfile!==false;
-  renderAvatar(mergedProfile.avatar||DEFAULT_AVATAR);
-  renderHeaderIdentity();
- }catch(err){
-  console.error('Account profile refresh failed:',err);
-  setAuthStatus('Не вдалося оновити відображення профілю на цьому пристрої. Збережені дані не змінено.',true);
- }
-}
 $('studentIdentity').addEventListener('click',()=>{
  const panel=$('accountPanel'),opening=panel.classList.contains('hidden');
  panel.classList.toggle('hidden',!opening);$('studentIdentity').setAttribute('aria-expanded',String(opening));
- if(opening){
-  panel.scrollIntoView({behavior:'smooth',block:'start'});
-  refreshAccountProfileForm(auth.currentUser||firebaseUser);
- }
+ 
+ if(opening)panel.scrollIntoView({behavior:'smooth',block:'start'});
 });
 $('registrationForm').addEventListener('submit',async e=>{
  e.preventDefault();
