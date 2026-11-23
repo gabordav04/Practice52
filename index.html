@@ -2234,9 +2234,39 @@ auth.onAuthStateChanged(async user=>{
  if(user!==auth.currentUser)return;
 
  const selectedEntryRole=localStorage.getItem('practice52_entry_role_v1')||'';
- // The owner admin route is handled by the dedicated account/role controller below.
- // Do not let the general student sync listener continue and overwrite its UI state.
- if(selectedEntryRole==='admin'&&isPrimaryAdminAccount(user))return;
+ // The owner uses one Firebase identity for both administrator and student.
+ // Keep the admin interface isolated, but still hydrate the shared profile and
+ // publish the owner's student ranking record from the same authenticated UID.
+ if(selectedEntryRole==='admin'&&isPrimaryAdminAccount(user)){
+  try{
+   const ownerRef=db.collection('users').doc(user.uid),ownerSnap=await ownerRef.get();
+   if(user!==auth.currentUser)return;
+   const ownerData=ownerSnap.exists?(ownerSnap.data()||{}):{};
+   const localProfile=readLocalProfile()||{},cloudProfile=ownerData.profile&&typeof ownerData.profile==='object'?ownerData.profile:{};
+   const ownerProfile={...localProfile,...cloudProfile};
+   if(!ownerProfile.name)ownerProfile.name=user.displayName||'';
+   if(!ownerProfile.email)ownerProfile.email=user.email||'';
+   if(!ownerProfile.avatar)ownerProfile.avatar=DEFAULT_AVATAR;
+   if(ownerProfile.publicProfile===undefined)ownerProfile.publicProfile=true;
+   writeLocalProfile(ownerProfile,user);
+   if(!ownerData.profile||Object.keys(ownerProfile).some(key=>ownerProfile[key]!==cloudProfile[key])){
+    await ownerRef.set({profile:ownerProfile,updatedAt:firebase.firestore.FieldValue.serverTimestamp()},{merge:true});
+   }
+   $('regName').value=ownerProfile.name||'';$('regPhone').value=ownerProfile.phone||'';
+   $('regNickname').value=ownerProfile.nickname||'';$('regNickname').disabled=false;
+   if(user.email)$('regEmail').value=user.email;
+   $('profileVisible').checked=ownerProfile.publicProfile!==false;
+   renderAvatar(ownerProfile.avatar||DEFAULT_AVATAR);renderHeaderIdentity();
+   cloudReady=true;
+   try{await syncPublicRank();}catch(rankError){console.warn('Owner student ranking sync failed:',rankError);}
+   await loadLeaderboard();watchLeaderboard();
+   setAuthStatus('Вхід виконано як адміністратор і студент. Профіль синхронізовано.');
+  }catch(ownerSyncError){
+   console.error('Owner profile synchronization failed:',ownerSyncError);
+   setAuthStatus('Google-вхід виконано, але профіль не вдалося синхронізувати з Firestore. Перевір доступ до документа users/'+user.uid+'.',true);
+  }
+  return;
+ }
  const isStudentEntry=selectedEntryRole==='student';
  applyPractice52TeacherLayout(practice52CurrentRole==='teacher');
  document.querySelectorAll('.p52-academic-field').forEach(el=>el.classList.toggle('hidden',!isStudentEntry));
