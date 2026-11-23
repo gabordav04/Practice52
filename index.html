@@ -854,97 +854,54 @@ function openPublicRankProfile(profile){
  const close=modal.querySelector('.public-profile-close');if(close)close.focus();
 }
 document.addEventListener('keydown',e=>{if(e.key==='Escape')closePublicRankProfile();});
-let currentStudentLeaderboardRows=[];
-function renderLeaderboardSnapshot(rows){
+function renderLeaderboardSnapshot(snap){
  const status=$('leaderboardStatus'),list=$('leaderboardList');if(!status||!list)return;
  list.innerHTML='';
- const docs=Array.isArray(rows)?rows:[];
- if(!docs.length){status.textContent='У твоїй призначеній групі поки немає студентів із відкритим профілем рейтингу.';return;}
- status.textContent='Рейтинг твоєї навчальної групи · усі учасники';
- docs.forEach((item,index)=>{
-  const d=item.data||{},nickname=typeof d.nickname==='string'&&d.nickname.trim()?d.nickname.trim():'Учасник';
-  const row=document.createElement('button');row.type='button';
-  row.className='rank-row rank-row-button'+(firebaseUser&&item.id===firebaseUser.uid?' rank-me':'');
+ const docs=(snap&&Array.isArray(snap.docs)?snap.docs:[]);
+ if(!docs.length){status.textContent='Поки що немає учасників у рейтингу. Увійдіть і дозвольте показ профілю, щоб з’явитися тут.';return;}
+ const top=docs.slice(0,10),ownIndex=firebaseUser?docs.findIndex(d=>d.id===firebaseUser.uid):-1;
+ const display=top.slice();
+ // Keep the signed-in student's own row visible even when they have 0 points
+ // and are outside the top ten. The displayed place remains their real rank.
+ if(ownIndex>=10)display.push(docs[ownIndex]);
+ status.textContent=ownIndex>=10?'Топ-10 рейтингу та твій особистий результат нижче':'Натисни на учасника, щоб переглянути його навчальний профіль';
+ const seenNicknames=new Set();
+ display.forEach(doc=>{
+  const d=doc.data()||{};
+  const nickname=typeof d.nickname==='string'&&d.nickname.trim()?d.nickname.trim():'Учасник';
+  const nicknameKey=nickname.toLocaleLowerCase('uk-UA');
+  if(seenNicknames.has(nicknameKey))return;
+  seenNicknames.add(nicknameKey);
+  const row=document.createElement('button');
+  row.type='button';row.className='rank-row rank-row-button'+(firebaseUser&&doc.id===firebaseUser.uid?' rank-me':'');
   row.setAttribute('aria-label','Відкрити навчальний профіль '+nickname);
-  if(!item.pending)row.addEventListener('click',()=>openPublicRankProfile({id:item.id,data:d,place:index+1}));else row.disabled=true;
-  const placeEl=document.createElement('span');placeEl.className='rank-place';placeEl.textContent='#'+(index+1);
+  const placeNumber=docs.findIndex(item=>item.id===doc.id)+1;
+  row.addEventListener('click',()=>openPublicRankProfile({id:doc.id,data:d,place:placeNumber}));
+  const placeEl=document.createElement('span');placeEl.className='rank-place';placeEl.textContent='#'+placeNumber;
   const nameEl=document.createElement('span');nameEl.className='rank-name';
   const avatar=typeof d.avatar==='string'?d.avatar:'⭐';
-  if(avatar.startsWith('data:image/')){const img=document.createElement('img');img.className='rank-avatar';img.src=avatar;img.alt='';img.loading='lazy';img.onerror=()=>img.replaceWith(document.createTextNode('⭐'));nameEl.appendChild(img);}
-  else nameEl.appendChild(document.createTextNode(avatar||'⭐'));
+  if(avatar.startsWith('data:image/')){
+   const img=document.createElement('img');img.className='rank-avatar';img.src=avatar;img.alt='';img.loading='lazy';img.onerror=()=>{img.replaceWith(document.createTextNode('⭐'));};nameEl.appendChild(img);
+  }else{nameEl.appendChild(document.createTextNode(avatar||'⭐'));}
   nameEl.appendChild(document.createTextNode(' '+nickname));
-  const pointsEl=document.createElement('span');pointsEl.className='rank-points';pointsEl.textContent=Math.max(0,Number(d.points)||0)+' балів';
+  const pointsEl=document.createElement('span');pointsEl.className='rank-points';pointsEl.textContent=(Number(d.points)||0)+' балів';
   row.append(placeEl,nameEl,pointsEl);list.appendChild(row);
  });
-}
-async function getCurrentStudentAssignedGroup(user){
- if(!user||user!==auth.currentUser)return null;
- const [requestSnap,groupsSnap]=await Promise.all([
-  db.collection('academicAccessRequests').doc(user.uid).get(),
-  db.collection('groups').where('studentUids','array-contains',user.uid).get()
- ]);
- if(user!==auth.currentUser)return null;
- const request=requestSnap.exists?(requestSnap.data()||{}):null;
- const candidates=groupsSnap.docs.map(doc=>({id:doc.id,data:doc.data()||{}})).filter(g=>g.data.status==='active');
- if(request){
-  if(request.status!=='approved'||!request.groupId)return null;
-  return candidates.find(g=>g.id===String(request.groupId))||null;
- }
- return candidates.length===1?candidates[0]:null;
+ if(!list.children.length)status.textContent='Поки що немає учасників у рейтингу.';
 }
 async function loadLeaderboard(){
  const status=$('leaderboardStatus');if(!status)return;
  try{
-  const user=firebaseUser||auth.currentUser;
-  if(!user||user!==auth.currentUser||practice52CurrentRole==='teacher'||(isPrimaryAdminAccount(user)&&localStorage.getItem('practice52_entry_role_v1')==='admin')){
-   currentStudentLeaderboardRows=[];renderLeaderboardSnapshot([]);return;
-  }
-  const group=await getCurrentStudentAssignedGroup(user);
-  if(user!==auth.currentUser)return;
-  if(!group){currentStudentLeaderboardRows=[];renderLeaderboardSnapshot([]);return;}
-  const memberUids=Array.from(new Set((Array.isArray(group.data.studentUids)?group.data.studentUids:[]).filter(Boolean)));
-  const snapshots=await Promise.all(memberUids.map(uid=>db.collection('leaderboard').doc(uid).get()));
-  if(user!==auth.currentUser)return;
-  currentStudentLeaderboardRows=snapshots.map((snap,index)=>({id:memberUids[index],data:snap.exists?(snap.data()||{}):{nickname:'Студент групи · рейтинг ще не активовано',avatar:'👤',points:0,completed:0,progressPercent:0},pending:!snap.exists}))
-   .sort((a,b)=>(Number(b.data.points)||0)-(Number(a.data.points)||0)||String(a.data.nickname).localeCompare(String(b.data.nickname),'uk'));
-  renderLeaderboardSnapshot(currentStudentLeaderboardRows);
- }catch(err){status.textContent='Не вдалося завантажити рейтинг твоєї групи. Перевір доступ до групи та рейтингів.';console.warn('Group leaderboard unavailable:',err);}
+  const snap=await db.collection('leaderboard').orderBy('points','desc').get();
+  renderLeaderboardSnapshot(snap);
+ }catch(err){status.textContent='Рейтинг недоступний: перевір правила доступу Firestore для leaderboard.';console.warn('Leaderboard unavailable:',err);}
 }
 function watchLeaderboard(){
- if(leaderboardUnsubscribe){leaderboardUnsubscribe();leaderboardUnsubscribe=null;}
- let stopped=false,unsubs=[];
- leaderboardUnsubscribe=()=>{stopped=true;unsubs.forEach(fn=>{try{fn();}catch(e){}});unsubs=[];};
- (async()=>{
-  try{
-   const user=firebaseUser||auth.currentUser;
-   if(!user||user!==auth.currentUser||practice52CurrentRole==='teacher'||(isPrimaryAdminAccount(user)&&localStorage.getItem('practice52_entry_role_v1')==='admin')){renderLeaderboardSnapshot([]);return;}
-   const group=await getCurrentStudentAssignedGroup(user);
-   if(stopped||user!==auth.currentUser)return;
-   if(!group){renderLeaderboardSnapshot([]);return;}
-   const groupRef=db.collection('groups').doc(group.id);
-   unsubs.push(groupRef.onSnapshot(groupSnap=>{
-    if(stopped||!groupSnap.exists)return;
-    const data=groupSnap.data()||{};
-    const memberUids=Array.from(new Set((Array.isArray(data.studentUids)?data.studentUids:[]).filter(Boolean)));
-    unsubs.splice(1).forEach(fn=>{try{fn();}catch(e){}});
-    const latest=new Map();
-    const render=()=>{
-     if(stopped)return;
-     currentStudentLeaderboardRows=memberUids.map((id,index)=>({id,data:latest.get(id)||{nickname:'Студент групи · рейтинг ще не активовано',avatar:'👤',points:0,completed:0,progressPercent:0},pending:!latest.has(id)}))
-      .sort((a,b)=>(Number(b.data.points)||0)-(Number(a.data.points)||0)||String(a.data.nickname).localeCompare(String(b.data.nickname),'uk'));
-     renderLeaderboardSnapshot(currentStudentLeaderboardRows);
-    };
-    memberUids.forEach(uid=>{
-     const off=db.collection('leaderboard').doc(uid).onSnapshot(snap=>{
-      if(snap.exists)latest.set(uid,snap.data()||{});else latest.delete(uid);
-      render();
-     },err=>console.warn('Group member rank listener failed:',uid,err));
-     unsubs.push(off);
-    });
-    if(!memberUids.length)render();
-   },err=>{if(!stopped){const el=$('leaderboardStatus');if(el)el.textContent='Не вдалося оновити склад групи для рейтингу.';console.warn(err);}});
-  }catch(err){if(!stopped){const el=$('leaderboardStatus');if(el)el.textContent='Не вдалося підключити рейтинг групи.';console.warn(err);}}
- })();
+ if(leaderboardUnsubscribe)leaderboardUnsubscribe();
+ leaderboardUnsubscribe=db.collection('leaderboard').orderBy('points','desc').onSnapshot(renderLeaderboardSnapshot,err=>{
+  $('leaderboardStatus').textContent='Не вдалося оновити рейтинг у реальному часі. Перевір правила доступу Firestore.';
+  console.warn('Leaderboard listener failed:',err);
+ });
 }
 function buildTeacherVisibleStudentProfile(profile){
  const p=profile||{};
