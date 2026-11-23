@@ -2045,7 +2045,14 @@ function ensurePractice52GroupLeaderWorkspace(){
   tab=document.createElement('button');tab.type='button';tab.id='p52MyGroupTab';
   tab.className='reg-btn secondary';tab.textContent='👥 Моя група';
   tab.style.cssText='display:none;width:100%;max-width:900px;margin:12px auto;';
-  tab.addEventListener('click',()=>{const panel=document.getElementById('p52GroupLeaderWorkspace');if(panel){panel.classList.remove('hidden');panel.scrollIntoView({behavior:'smooth',block:'start'});}});
+  tab.setAttribute('aria-expanded','false');
+  tab.addEventListener('click',()=>{
+   const panel=document.getElementById('p52GroupLeaderWorkspace');if(!panel)return;
+   const opening=panel.classList.contains('hidden');
+   panel.classList.toggle('hidden',!opening);
+   tab.setAttribute('aria-expanded',opening?'true':'false');
+   if(opening)panel.scrollIntoView({behavior:'smooth',block:'start'});
+  });
   header.insertAdjacentElement('afterend',tab);
  }
  if(!root){
@@ -2095,7 +2102,6 @@ async function loadPractice52StudentGroups(){
   const profiles=new Map();
   if(profileSnap)profileSnap.forEach(d=>{const p=d.data()||{};profiles.set(d.id,{nickname:p.nickname||p.name||'Учасник',avatar:p.avatar||'👤'});});
   const studentProfile={...(readLocalProfile()||{}),...(userSnap.exists?p52ExtractUserProfile(userSnap.data()||{}):{})};
-  root.classList.remove('hidden');
   root.innerHTML='<div class="eyebrow">ТВОЄ НАВЧАННЯ</div><h2>Моя група</h2><p class="teacher-lead">Твоя навчальна група, викладач та одногрупники.</p>';
   if(!groups.length){
    const empty=document.createElement('p');empty.className='p52-teacher-muted';
@@ -2150,7 +2156,7 @@ async function loadPractice52StudentGroups(){
   });
  }catch(err){
   console.error('Student group workspace unavailable:',err);
-  root.classList.remove('hidden');root.innerHTML='<div class="eyebrow">ТВОЄ НАВЧАННЯ</div><h2>Моя група</h2>';
+  root.innerHTML='<div class="eyebrow">ТВОЄ НАВЧАННЯ</div><h2>Моя група</h2>';
   const message=document.createElement('p');message.className='p52-teacher-muted';message.textContent='Не вдалося завантажити групу: '+(err.message||'помилка доступу до Firestore')+'. Перевір з’єднання та спробуй оновити сторінку.';
   root.appendChild(message);
  }
