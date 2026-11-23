@@ -781,33 +781,45 @@ function rankTitle(points){return points>=1000?'Експерт':points>=500?'М�
 function renderMyRank(){const el=$('myRank');if(el)el.textContent='Твій рівень: '+rankTitle(state.points)+' · '+state.points+' балів';}
 async function syncPublicRank(){
  if(!firebaseUser||!cloudReady)return;
- const rankRef=db.collection('leaderboard').doc(firebaseUser.uid);
- // Викладачі та адміністратор ніколи не беруть участі в студентському рейтингу.
+ const uid=firebaseUser.uid,rankRef=db.collection('leaderboard').doc(uid);
+ // Викладачі та сторонні адміністратори не беруть участі; власник бере участь у студентському режимі.
  try{
   let accountRole=practice52CurrentRole;
   if(isPrimaryAdminAccount(firebaseUser)){
-   // The platform owner has two explicit modes. Do not force the owner
-   // into the admin-only ranking exclusion while using the student interface.
    const selectedMode=localStorage.getItem('practice52_entry_role_v1')||'student';
    accountRole=selectedMode==='admin'?'admin':'student';
   }else{
-   const roleSnap=await db.collection('roles').doc(firebaseUser.uid).get();
+   const roleSnap=await db.collection('roles').doc(uid).get();
    const roleData=roleSnap.exists?(roleSnap.data()||{}):{};
    if(roleData.role==='teacher'||roleData.role==='admin')accountRole=roleData.role;
   }
   if(accountRole==='teacher'||(accountRole==='admin'&&!isPrimaryAdminAccount(firebaseUser))){
-   await rankRef.delete();
-   return;
+   await rankRef.delete();return;
   }
  }catch(roleError){
   console.warn('Role verification failed; public ranking is disabled for safety:',roleError);
-  try{await rankRef.delete();}catch(deleteError){console.warn('Could not remove public rank entry:',deleteError);}
   return;
  }
- const profile=readLocalProfile()||{};
- if(!profile.nickname||normalizeNickname(profile.nickname)==='student'){await rankRef.delete();return;}
- if(!$('profileVisible').checked){await rankRef.delete();return;}
- const completed=Array.isArray(state.done)?state.done.length:0;await rankRef.set({nickname:profile.nickname||'student',avatar:profile.avatar||DEFAULT_AVATAR,points:Number(state.points)||0,completed,progressPercent:Math.round(completed/52*100),correct:Number(state.correct)||0,answered:Number(state.answered)||0,accuracy:state.answered?Math.round(state.correct/state.answered*100):0,level:rankTitle(Number(state.points)||0),updatedAt:firebase.firestore.FieldValue.serverTimestamp()});
+ // Cloud profile is authoritative; local cache may be older or incomplete.
+ const userSnap=await db.collection('users').doc(uid).get();
+ const cloudProfile=userSnap.exists?((userSnap.data()||{}).profile||{}):{};
+ const profile={...cloudProfile,...(readLocalProfile()||{})};
+ if(!profile.nickname||normalizeNickname(profile.nickname)==='student'){
+  console.warn('Public rank not published: a valid nickname is required.');
+  return;
+ }
+ const isVisible=profile.publicProfile!==false;
+ if(!isVisible){await rankRef.delete();return;}
+ if($('profileVisible'))$('profileVisible').checked=true;
+ const points=Math.max(0,Number(state.points)||0);
+ const completed=Array.isArray(state.done)?state.done.length:0;
+ await rankRef.set({
+  nickname:profile.nickname,avatar:profile.avatar||DEFAULT_AVATAR,
+  points,completed,progressPercent:Math.round(completed/52*100),
+  correct:Math.max(0,Number(state.correct)||0),answered:Math.max(0,Number(state.answered)||0),
+  accuracy:state.answered?Math.round(state.correct/state.answered*100):0,
+  level:rankTitle(points),updatedAt:firebase.firestore.FieldValue.serverTimestamp()
+ },{merge:true});
 }
 let leaderboardUnsubscribe=null;
 let selectedPublicRankProfile=null;
@@ -845,11 +857,16 @@ document.addEventListener('keydown',e=>{if(e.key==='Escape')closePublicRankProfi
 function renderLeaderboardSnapshot(snap){
  const status=$('leaderboardStatus'),list=$('leaderboardList');if(!status||!list)return;
  list.innerHTML='';
- if(snap.empty){status.textContent='Поки що немає учасників у рейтингу. Увійдіть і дозвольте показ профілю, щоб з’явитися тут.';return;}
- status.textContent='Натисни на учасника, щоб переглянути його навчальний профіль';
- let place=0;
+ const docs=(snap&&Array.isArray(snap.docs)?snap.docs:[]);
+ if(!docs.length){status.textContent='Поки що немає учасників у рейтингу. Увійдіть і дозвольте показ профілю, щоб з’явитися тут.';return;}
+ const top=docs.slice(0,10),ownIndex=firebaseUser?docs.findIndex(d=>d.id===firebaseUser.uid):-1;
+ const display=top.slice();
+ // Keep the signed-in student's own row visible even when they have 0 points
+ // and are outside the top ten. The displayed place remains their real rank.
+ if(ownIndex>=10)display.push(docs[ownIndex]);
+ status.textContent=ownIndex>=10?'Топ-10 рейтингу та твій особистий результат нижче':'Натисни на учасника, щоб переглянути його навчальний профіль';
  const seenNicknames=new Set();
- snap.forEach(doc=>{
+ display.forEach(doc=>{
   const d=doc.data()||{};
   const nickname=typeof d.nickname==='string'&&d.nickname.trim()?d.nickname.trim():'Учасник';
   const nicknameKey=nickname.toLocaleLowerCase('uk-UA');
@@ -858,7 +875,7 @@ function renderLeaderboardSnapshot(snap){
   const row=document.createElement('button');
   row.type='button';row.className='rank-row rank-row-button'+(firebaseUser&&doc.id===firebaseUser.uid?' rank-me':'');
   row.setAttribute('aria-label','Відкрити навчальний профіль '+nickname);
-  const placeNumber=++place;
+  const placeNumber=docs.findIndex(item=>item.id===doc.id)+1;
   row.addEventListener('click',()=>openPublicRankProfile({id:doc.id,data:d,place:placeNumber}));
   const placeEl=document.createElement('span');placeEl.className='rank-place';placeEl.textContent='#'+placeNumber;
   const nameEl=document.createElement('span');nameEl.className='rank-name';
@@ -875,13 +892,13 @@ function renderLeaderboardSnapshot(snap){
 async function loadLeaderboard(){
  const status=$('leaderboardStatus');if(!status)return;
  try{
-  const snap=await db.collection('leaderboard').orderBy('points','desc').limit(10).get();
+  const snap=await db.collection('leaderboard').orderBy('points','desc').get();
   renderLeaderboardSnapshot(snap);
  }catch(err){status.textContent='Рейтинг недоступний: перевір правила доступу Firestore для leaderboard.';console.warn('Leaderboard unavailable:',err);}
 }
 function watchLeaderboard(){
  if(leaderboardUnsubscribe)leaderboardUnsubscribe();
- leaderboardUnsubscribe=db.collection('leaderboard').orderBy('points','desc').limit(10).onSnapshot(renderLeaderboardSnapshot,err=>{
+ leaderboardUnsubscribe=db.collection('leaderboard').orderBy('points','desc').onSnapshot(renderLeaderboardSnapshot,err=>{
   $('leaderboardStatus').textContent='Не вдалося оновити рейтинг у реальному часі. Перевір правила доступу Firestore.';
   console.warn('Leaderboard listener failed:',err);
  });
@@ -1893,10 +1910,21 @@ async function setPractice52GroupLeader(groupId,leaderUid){
  }catch(err){console.error(err);setTeacherStatus('Не вдалося змінити старосту. Перевір правила Firestore.',true);}
 }
 function ensurePractice52GroupLeaderWorkspace(){
- let root=document.getElementById('p52GroupLeaderWorkspace');if(root)return root;
- root=document.createElement('section');root.id='p52GroupLeaderWorkspace';root.className='p52-teacher-dashboard hidden';
- root.style.margin='16px auto';root.style.maxWidth='900px';
- const header=document.querySelector('header');if(header)header.insertAdjacentElement('afterend',root);
+ let root=document.getElementById('p52GroupLeaderWorkspace');
+ const header=document.querySelector('header');
+ let tab=document.getElementById('p52MyGroupTab');
+ if(!tab&&header){
+  tab=document.createElement('button');tab.type='button';tab.id='p52MyGroupTab';
+  tab.className='reg-btn secondary';tab.textContent='👥 Моя група';
+  tab.style.cssText='display:none;width:100%;max-width:900px;margin:12px auto;';
+  tab.addEventListener('click',()=>{const panel=document.getElementById('p52GroupLeaderWorkspace');if(panel){panel.classList.remove('hidden');panel.scrollIntoView({behavior:'smooth',block:'start'});}});
+  header.insertAdjacentElement('afterend',tab);
+ }
+ if(!root){
+  root=document.createElement('section');root.id='p52GroupLeaderWorkspace';root.className='p52-teacher-dashboard hidden';
+  root.style.margin='16px auto';root.style.maxWidth='900px';
+  if(tab)tab.insertAdjacentElement('afterend',root);else if(header)header.insertAdjacentElement('afterend',root);
+ }
  return root;
 }
 async function loadPractice52StudentGroups(){
@@ -1928,6 +1956,7 @@ async function loadPractice52StudentGroups(){
   const allGroups=groupDocs.map(d=>({id:d.id,...(d.data()||{})}));
   const groups=allGroups.filter(g=>g.status!=='archived');
   const archivedGroups=allGroups.filter(g=>g.status==='archived');
+  const groupTab=document.getElementById('p52MyGroupTab');if(groupTab)groupTab.style.display=groups.length?'block':'none';
   // Profile and public leaderboard data are supplementary. A leaderboard
   // read failure must never hide a valid group or block the student cabinet.
   const userSnap=await db.collection('users').doc(user.uid).get();
