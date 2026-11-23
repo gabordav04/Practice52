@@ -723,7 +723,16 @@ function writeLocalProfile(profile,user=firebaseUser){localStorage.setItem(profi
    if(Object.prototype.hasOwnProperty.call(data,key))flat[key]=data[key];
   });
   const nested=data.profile&&typeof data.profile==='object'?data.profile:{};
-  return {...flat,...nested};
+  const merged={...flat,...nested};
+  // Legacy root-level values remain authoritative when a newer nested profile
+  // contains empty placeholders. Never let "" erase a real saved field.
+  Object.keys(flat).forEach(key=>{
+   const nestedValue=nested[key];
+   if(nestedValue===undefined||nestedValue===null||(typeof nestedValue==='string'&&!nestedValue.trim())){
+    merged[key]=flat[key];
+   }
+  });
+  return merged;
  }
 
 const DEFAULT_AVATAR='🦊';
@@ -803,13 +812,8 @@ function publicRankDisplayName(profile,user){
 async function syncPublicRank(){
  if(!firebaseUser||!cloudReady)return;
  const uid=firebaseUser.uid,rankRef=db.collection('leaderboard').doc(uid);
- // Until additional student accounts are explicitly approved, only the primary
- // student/admin account may publish a public ranking entry.
- if(uid!=='fjJOrOvLxkdzHH0RzeFTUE1tSPS2'){
-  try{await rankRef.delete();}catch(cleanupError){console.warn('Non-primary leaderboard cleanup failed:',cleanupError);}
-  return;
- }
- // Викладачі та сторонні адміністратори не беруть участі; власник бере участь у студентському режимі.
+ // All student accounts publish under their own Firebase UID. The role check
+ // below excludes teachers and non-student administrators; there is no UID allowlist.
  try{
   let accountRole=practice52CurrentRole;
   if(isPrimaryAdminAccount(firebaseUser)){
@@ -885,26 +889,21 @@ function renderLeaderboardSnapshot(snap){
  const status=$('leaderboardStatus'),list=$('leaderboardList');if(!status||!list)return;
  list.innerHTML='';
  const docs=(snap&&Array.isArray(snap.docs)?snap.docs:[]);
- // The launch allowlist currently contains exactly one student identity:
- // the primary account, which has both admin and student modes.
- // The separate teacher account is intentionally excluded from the student leaderboard.
+ // Every authenticated student UID may participate. Teacher/admin records
+ // remain excluded by syncPublicRank; validate each public record's identity
+ // and status here without a hard-coded student UID allowlist.
  const eligible=docs.filter(doc=>{
   const data=doc.data()||{};
-  return doc.id==='fjJOrOvLxkdzHH0RzeFTUE1tSPS2'
-   &&data.uid===doc.id
+  return data.uid===doc.id
    &&data.accountStatus==='active'
    &&data.role==='student';
  });
  if(!eligible.length){status.textContent='Поки що немає підтверджених студентів у рейтингу. Увійди як студент, щоб оновити свій запис.';return;}
  const display=eligible.slice(0,10);
  status.textContent='Топ-10 підтверджених студентів. У рейтингу враховуються також студенти з 0 балів.';
- const seenNicknames=new Set();
  display.forEach(doc=>{
   const d=doc.data()||{};
   const nickname=typeof d.nickname==='string'&&d.nickname.trim()?d.nickname.trim():'Учасник';
-  const nicknameKey=nickname.toLocaleLowerCase('uk-UA');
-  if(seenNicknames.has(nicknameKey))return;
-  seenNicknames.add(nicknameKey);
   const row=document.createElement('button');
   row.type='button';row.className='rank-row rank-row-button'+(firebaseUser&&doc.id===firebaseUser.uid?' rank-me':'');
   row.setAttribute('aria-label','Відкрити навчальний профіль '+nickname);
@@ -2296,7 +2295,7 @@ auth.onAuthStateChanged(async user=>{
    const ownerRef=db.collection('users').doc(user.uid),ownerSnap=await ownerRef.get();
    if(user!==auth.currentUser)return;
    const ownerData=ownerSnap.exists?(ownerSnap.data()||{}):{};
-   const localProfile=readLocalProfile()||{},cloudProfile=ownerData.profile&&typeof ownerData.profile==='object'?ownerData.profile:{};
+   const localProfile=readLocalProfile()||{},cloudProfile=p52ExtractUserProfile(ownerData);
    const ownerProfile={...localProfile,...cloudProfile};
    if(!ownerProfile.name)ownerProfile.name=user.displayName||'';
    if(!ownerProfile.email)ownerProfile.email=user.email||'';
