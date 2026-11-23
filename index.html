@@ -1900,18 +1900,51 @@ function ensurePractice52GroupLeaderWorkspace(){
  return root;
 }
 async function loadPractice52StudentGroups(){
- if(!firebaseUser||practice52CurrentRole==='teacher'||(isPrimaryAdminAccount(firebaseUser)&&localStorage.getItem('practice52_entry_role_v1')==='admin'))return;
+ const user=firebaseUser||auth.currentUser;
+ if(!user||user!==auth.currentUser||practice52CurrentRole==='teacher'||(isPrimaryAdminAccount(user)&&localStorage.getItem('practice52_entry_role_v1')==='admin'))return;
+ firebaseUser=user;
  const root=ensurePractice52GroupLeaderWorkspace();if(!root)return;
  root.classList.add('hidden');root.innerHTML='';
  try{
-  const snap=await db.collection('groups').where('studentUids','array-contains',firebaseUser.uid).get();
-  const allGroups=snap.docs.map(d=>({id:d.id,...(d.data()||{})}));const groups=allGroups.filter(g=>g.status!=='archived');const archivedGroups=allGroups.filter(g=>g.status==='archived');
-  if(!groups.length)return;
-  const [profileSnap,userSnap]=await Promise.all([db.collection('leaderboard').get(),db.collection('users').doc(firebaseUser.uid).get()]);
-  const profiles=new Map();profileSnap.forEach(d=>{const p=d.data()||{};profiles.set(d.id,{nickname:p.nickname||p.name||'Учасник',avatar:p.avatar||'👤'});});
+  // The membership query is the primary source. If it returns no rows, verify
+  // the exact group from the already-approved request without trusting the
+  // request alone: the UID must still be present in the group's studentUids.
+  const snap=await db.collection('groups').where('studentUids','array-contains',user.uid).get();
+  if(user!==auth.currentUser)return;
+  let groupDocs=snap.docs.slice();
+  if(!groupDocs.length){
+   try{
+    const requestSnap=await db.collection('academicAccessRequests').doc(user.uid).get();
+    const request=requestSnap.exists?(requestSnap.data()||{}):{};
+    if(request.status==='approved'&&request.studentUid===user.uid&&request.groupId){
+     const exactGroup=await db.collection('groups').doc(String(request.groupId)).get();
+     const data=exactGroup.exists?(exactGroup.data()||{}):{};
+     if(exactGroup.exists&&Array.isArray(data.studentUids)&&data.studentUids.includes(user.uid)){
+      groupDocs=[exactGroup];
+     }
+    }
+   }catch(fallbackError){console.warn('Approved group fallback lookup failed:',fallbackError);}
+  }
+  const allGroups=groupDocs.map(d=>({id:d.id,...(d.data()||{})}));
+  const groups=allGroups.filter(g=>g.status!=='archived');
+  const archivedGroups=allGroups.filter(g=>g.status==='archived');
+  // Profile and public leaderboard data are supplementary. A leaderboard
+  // read failure must never hide a valid group or block the student cabinet.
+  const userSnap=await db.collection('users').doc(user.uid).get();
+  if(user!==auth.currentUser)return;
+  let profileSnap=null;
+  try{profileSnap=await db.collection('leaderboard').get();}
+  catch(profileError){console.warn('Student group roster names unavailable:',profileError);}
+  const profiles=new Map();
+  if(profileSnap)profileSnap.forEach(d=>{const p=d.data()||{};profiles.set(d.id,{nickname:p.nickname||p.name||'Учасник',avatar:p.avatar||'👤'});});
   const studentProfile={...(readLocalProfile()||{}),...(userSnap.exists?(userSnap.data().profile||{}):{})};
   root.classList.remove('hidden');
   root.innerHTML='<div class="eyebrow">ТВОЄ НАВЧАННЯ</div><h2>Моя група</h2><p class="teacher-lead">Твоя навчальна група, викладач та одногрупники.</p>';
+  if(!groups.length){
+   const empty=document.createElement('p');empty.className='p52-teacher-muted';
+   empty.textContent=archivedGroups.length?'Твоя попередня група перебуває в архіві. Збережені результати та історія навчання не видаляються.':'Не вдалося знайти групу за твоїм UID. Перевір членство або повтори завантаження.';
+   root.appendChild(empty);return;
+  }
   const routeButton=document.createElement('button');routeButton.type='button';routeButton.className='reg-btn secondary';routeButton.textContent='🗺️ Повернутися до навчального маршруту';
   routeButton.addEventListener('click',()=>{const route=document.getElementById('p52StudentRoute');if(route){route.classList.remove('hidden');route.scrollIntoView({behavior:'smooth',block:'start'});}});
   root.appendChild(routeButton);
@@ -1926,16 +1959,17 @@ async function loadPractice52StudentGroups(){
    const practiceTitle=studentProfile.practiceTitle||'Не обрано';
    [[degreeTitle,'Освітній рівень'],[courseTitle,'Курс'],[semesterTitle,'Семестр'],[practiceTitle,'Практика'],[studentProfile.groupCode||g.groupCode||g.name||'—','Академічна група']].forEach(([v,l])=>{const box=document.createElement('div');const strong=document.createElement('strong');strong.textContent=v;const small=document.createElement('span');small.textContent=l;box.append(strong,small);courseInfo.appendChild(box);});
    card.appendChild(courseInfo);
-   const isLeader=g.groupLeaderUid===firebaseUser.uid;
+   const isLeader=g.groupLeaderUid===user.uid;
    const leader=document.createElement('p');leader.className='p52-teacher-muted';leader.textContent=isLeader?'⭐ Ти — староста цієї групи':(g.groupLeaderUid?'Староста: '+(profiles.get(g.groupLeaderUid)?.nickname||'Призначений студент'):'Старосту ще не призначено');
    const count=document.createElement('p');count.className='p52-teacher-muted';count.textContent='Одногрупників: '+Math.max(0,(g.studentUids||[]).length-1);
    const membersTitle=document.createElement('h4');membersTitle.textContent='Одногрупники';
    const roster=document.createElement('div');roster.className='p52-admin-list p52-student-roster';
-   (g.studentUids||[]).forEach(uid=>{const row=document.createElement('div');row.className='p52-admin-row';const p=profiles.get(uid);const name=document.createElement('span');name.textContent=(uid===firebaseUser.uid?'Ти — ':'')+(p?p.nickname:'Учасник групи');row.appendChild(name);roster.appendChild(row);});
+   (g.studentUids||[]).forEach(uid=>{const row=document.createElement('div');row.className='p52-admin-row';const p=profiles.get(uid);const name=document.createElement('span');name.textContent=(uid===user.uid?'Ти — ':'')+(p?p.nickname:'Учасник групи');row.appendChild(name);roster.appendChild(row);});
    card.append(teacher,leader,count,membersTitle,roster);
    const journalTitle=document.createElement('h4');journalTitle.textContent='Мої практичні оцінки';card.appendChild(journalTitle);
    const journal=document.createElement('div');journal.className='p52-teacher-muted';journal.textContent='Завантажуємо оцінки…';card.appendChild(journal);
-   db.collection('groups').doc(g.id).collection('gradebook').where('studentUid','==',firebaseUser.uid).get().then(snapshot=>{
+   db.collection('groups').doc(g.id).collection('gradebook').where('studentUid','==',user.uid).get().then(snapshot=>{
+    if(user!==auth.currentUser)return;
     const entries=snapshot.docs.map(d=>d.data()||{}).filter(x=>x.practiceId==='practice-52').sort((a,b)=>(Number(a.skillIndex)||0)-(Number(b.skillIndex)||0));
     journal.innerHTML='';
     if(!entries.length){journal.textContent='Практичних оцінок поки немає.';return;}
@@ -1948,7 +1982,7 @@ async function loadPractice52StudentGroups(){
     const placeholder=document.createElement('option');placeholder.value='';placeholder.textContent='Оберіть студента';select.appendChild(placeholder);
     const add=document.createElement('button');add.type='button';add.className='p52-teacher-action';add.textContent='Додати до групи';add.disabled=true;
     db.collection('academicAccessRequests').where('groupId','==',g.id).where('status','==','pending').get().then(requests=>{
-     let available=0;requests.forEach(req=>{const q=req.data()||{};if(!q.studentUid||q.studentUid===firebaseUser.uid||(g.studentUids||[]).includes(q.studentUid))return;const option=document.createElement('option');option.value=q.studentUid;option.textContent=(q.studentName||q.nickname||profiles.get(q.studentUid)?.nickname||'Студент')+' · очікує підтвердження';select.appendChild(option);available++;});
+     let available=0;requests.forEach(req=>{const q=req.data()||{};if(!q.studentUid||q.studentUid===user.uid||(g.studentUids||[]).includes(q.studentUid))return;const option=document.createElement('option');option.value=q.studentUid;option.textContent=(q.studentName||q.nickname||profiles.get(q.studentUid)?.nickname||'Студент')+' · очікує підтвердження';select.appendChild(option);available++;});
      add.disabled=available===0;
      if(!available){const empty=document.createElement('option');empty.value='';empty.textContent='Немає заявок від нових студентів цієї групи';select.appendChild(empty);}
     }).catch(err=>{console.warn('Group leader applications unavailable',err);add.disabled=true;});
@@ -1957,7 +1991,12 @@ async function loadPractice52StudentGroups(){
    }
    root.appendChild(card);
   });
- }catch(err){console.warn('Student group workspace unavailable:',err);root.classList.add('hidden');}
+ }catch(err){
+  console.error('Student group workspace unavailable:',err);
+  root.classList.remove('hidden');root.innerHTML='<div class="eyebrow">ТВОЄ НАВЧАННЯ</div><h2>Моя група</h2>';
+  const message=document.createElement('p');message.className='p52-teacher-muted';message.textContent='Не вдалося завантажити групу: '+(err.message||'помилка доступу до Firestore')+'. Перевір з’єднання та спробуй оновити сторінку.';
+  root.appendChild(message);
+ }
 }
 async function addStudentByGroupLeader(groupId,studentUid,button){
  try{
@@ -3424,6 +3463,7 @@ function showLoginGate(){
      backdrop.classList.add('hidden');
      $('studentIdentity').setAttribute('aria-expanded','false');
      if(selected==='student'&&window.p52LoadStudentRoute)await window.p52LoadStudentRoute();
+     if(selected==='student'&&user===auth.currentUser){firebaseUser=user;await loadPractice52StudentGroups();}
      if(user===auth.currentUser)setAuthStatus('Студентський вхід виконано.');
    }catch(err){
      console.error('Mandatory profile check failed:',err);lockApp();panel.classList.remove('hidden');
