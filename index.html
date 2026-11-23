@@ -834,6 +834,7 @@ async function syncPublicRank(){
  const rawPoints=Number(state.points);const points=Number.isFinite(rawPoints)?Math.max(0,rawPoints):0;
  const completed=Array.isArray(state.done)?state.done.length:0;
  await rankRef.set({
+  uid,accountStatus:'active',role:'student',
   nickname,avatar:profile.avatar||DEFAULT_AVATAR,
   points,completed,progressPercent:Math.round(completed/52*100),
   correct:Math.max(0,Number(state.correct)||0),answered:Math.max(0,Number(state.answered)||0),
@@ -878,11 +879,15 @@ function renderLeaderboardSnapshot(snap){
  const status=$('leaderboardStatus'),list=$('leaderboardList');if(!status||!list)return;
  list.innerHTML='';
  const docs=(snap&&Array.isArray(snap.docs)?snap.docs:[]);
- if(!docs.length){status.textContent='Поки що немає учасників у рейтингу. Увійдіть і дозвольте показ профілю, щоб з’явитися тут.';return;}
- // Показуємо рівно топ-10. Учасники з 0 балів не відсіюються:
- // вони займають своє місце після учасників із більшою кількістю балів.
- const display=docs.slice(0,10);
- status.textContent='Топ-10 учасників. У рейтингу враховуються також студенти з 0 балів.';
+ // Only records explicitly refreshed by an authenticated student are eligible.
+ // Legacy placeholders and stale/test identities remain stored but are not displayed.
+ const eligible=docs.filter(doc=>{
+  const data=doc.data()||{};
+  return data.accountStatus==='active'&&data.role==='student'&&data.uid===doc.id;
+ });
+ if(!eligible.length){status.textContent='Поки що немає підтверджених студентів у рейтингу. Увійди як студент, щоб оновити свій запис.';return;}
+ const display=eligible.slice(0,10);
+ status.textContent='Топ-10 підтверджених студентів. У рейтингу враховуються також студенти з 0 балів.';
  const seenNicknames=new Set();
  display.forEach(doc=>{
   const d=doc.data()||{};
@@ -893,7 +898,7 @@ function renderLeaderboardSnapshot(snap){
   const row=document.createElement('button');
   row.type='button';row.className='rank-row rank-row-button'+(firebaseUser&&doc.id===firebaseUser.uid?' rank-me':'');
   row.setAttribute('aria-label','Відкрити навчальний профіль '+nickname);
-  const placeNumber=docs.findIndex(item=>item.id===doc.id)+1;
+  const placeNumber=display.findIndex(item=>item.id===doc.id)+1;
   row.addEventListener('click',()=>openPublicRankProfile({id:doc.id,data:d,place:placeNumber}));
   const placeEl=document.createElement('span');placeEl.className='rank-place';placeEl.textContent='#'+placeNumber;
   const nameEl=document.createElement('span');nameEl.className='rank-name';
