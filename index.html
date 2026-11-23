@@ -3725,8 +3725,9 @@ function showLoginGate(){
    let cloudProfile={};
    try{if(typeof firebaseUser!=='undefined'&&firebaseUser?.uid){const userSnap=await db.collection('users').doc(firebaseUser.uid).get();if(userSnap.exists)cloudProfile=p52ExtractUserProfile(userSnap.data()||{});}}catch(profileErr){console.warn('Could not load cloud learning route profile:',profileErr);}
    let profile={...localProfile,...cloudProfile};
-   if(typeof p52HydrateStudentLearningProfile==='function'&&typeof firebaseUser!=='undefined'&&firebaseUser?.uid){
-    profile=await p52HydrateStudentLearningProfile(firebaseUser,profile);
+   const activeUser=(typeof firebaseUser!=='undefined'&&firebaseUser)||auth.currentUser;
+   if(typeof p52HydrateStudentLearningProfile==='function'&&activeUser?.uid){
+    profile=await p52HydrateStudentLearningProfile(activeUser,profile);
    }
    const snap=await db.collection('practices').where('status','==','active').get();
    practiceDocs=snap.docs.map(d=>({id:d.id,data:d.data()||{}}));
