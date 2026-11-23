@@ -3110,8 +3110,7 @@ renderStats();renderSkills();renderHeaderIdentity();
  document.querySelectorAll('[data-entry-role]').forEach(b=>b.addEventListener('click',()=>{selected=b.dataset.entryRole;updateRoleUI();}));
  // Google sign-in is available only inside the registration/login panel.
  document.getElementById('p52EntryBack').addEventListener('click',()=>{backdrop.classList.add('hidden');});
- document.getElementById('studentIdentity').addEventListener('contextmenu',e=>{e.preventDefault();openEntry();});
- window.practice52OpenEntry=openEntry;
+
 })();</script>
 
 <script>
