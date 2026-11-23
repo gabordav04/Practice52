@@ -328,6 +328,11 @@ body.p52-teacher-mode #skillCatalog{margin-top:18px}
    <div class="reg-field"><label for="regEmail">Електронна пошта</label><input id="regEmail" name="email" type="email" autocomplete="email" placeholder="name@example.com" required></div>
    <div class="reg-field"><label for="regPassword">Пароль (від 6 символів)</label><input id="regPassword" name="password" type="password" autocomplete="new-password" minlength="6" placeholder="Пароль" required></div>
   </div>
+  <div id="p52ProfileGroupInfo" class="reg-field" hidden style="margin-top:10px;padding:12px 14px;border:1px solid var(--line);border-radius:12px;background:var(--surface)">
+   <strong style="display:block">Навчальна група</strong>
+   <span id="p52ProfileGroupCode">—</span>
+   <small id="p52ProfileGroupStatus">Підтверджене членство</small>
+  </div>
   <section id="p52TeacherInviteGate" class="hidden" style="margin-top:18px;padding:18px;border:2px solid var(--line);border-radius:18px;background:var(--surface)">
    <h3 style="margin:0 0 8px">Підтвердження викладача</h3>
    <p style="margin:0 0 12px">Адміністратор має надіслати тобі персональний одноразовий код. Уведи його нижче, щоб активувати роль викладача. Код діє 7 днів і використовується один раз.</p>
@@ -1422,6 +1427,16 @@ async function p52SubmitAcademicAccess(user,profile){
   await db.collection('users').doc(user.uid).set({profile:hydrated,academicAccessStatus:'approved',updatedAt:firebase.firestore.FieldValue.serverTimestamp()},{merge:true});
   return hydrated;
  }
+ function p52RenderProfileGroup(profile={}){
+  const panel=document.getElementById('p52ProfileGroupInfo');
+  const code=document.getElementById('p52ProfileGroupCode');
+  const status=document.getElementById('p52ProfileGroupStatus');
+  if(!panel||!code||!status)return;
+  const groupCode=String(profile.groupCode||'').trim();
+  const approved=profile.academicAccessStatus==='approved'&&!!profile.groupId&&!!groupCode;
+  panel.hidden=!approved;
+  if(approved){code.textContent=groupCode;status.textContent='Членство підтверджено';}
+ }
 
  const P52_COURSES=[
  {id:'bachelor-1',level:'bachelor',year:1,title:'Бакалаврат · 1 курс'},
@@ -2359,6 +2374,7 @@ auth.onAuthStateChanged(async user=>{
     try{profile=await p52HydratePrimaryStudentMembership(user,profile);}
     catch(membershipError){console.warn('Primary student membership hydration failed:',membershipError);}
    }
+   p52RenderProfileGroup(profile);
    if(!profile.name)profile.name=localProfile.name||user.displayName||'';
    if(!profile.email)profile.email=user.email||'';
    if(!profile.avatar)profile.avatar=localProfile.avatar||DEFAULT_AVATAR;
@@ -3428,7 +3444,9 @@ function showLoginGate(){
           }
         }
         const storedAdminProfile=adminProfileSnap.exists?p52ExtractUserProfile(adminProfileSnap.data()||{}):{};
-        const adminProfile={...(readLocalProfile()||{}),...storedAdminProfile};
+        let adminProfile={...(readLocalProfile()||{}),...storedAdminProfile};
+        try{adminProfile=await p52HydratePrimaryStudentMembership(user,adminProfile);}catch(groupError){console.warn('Owner group profile hydration unavailable:',groupError);}
+        p52RenderProfileGroup(adminProfile);
         if(!adminProfile.name)adminProfile.name=user.displayName||'';
         if(!adminProfile.email)adminProfile.email=user.email||'';
         if(!adminProfile.avatar)adminProfile.avatar=DEFAULT_AVATAR;
