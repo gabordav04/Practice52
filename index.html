@@ -3421,6 +3421,7 @@ function showLoginGate(){
         $('regPassword').value='';$('regPassword').required=false;$('regPassword').closest('.reg-field').classList.add('hidden');
         $('googleLogin').classList.add('hidden');$('emailLogin').classList.add('hidden');
         $('logoutBtn').classList.remove('hidden');$('saveProfileBtn').classList.remove('hidden');$('hideProfileBtn').classList.remove('hidden');
+        $('regTitle').textContent='Обліковий запис адміністратора PRACTICE 52';
         $('regStatus').textContent='Адміністративний акаунт активний. Тут можна переглядати й редагувати свій профіль.';
         $('regStatus').style.color='var(--green)';
        unlockApp();panel.classList.remove('hidden');backdrop.classList.add('hidden');
