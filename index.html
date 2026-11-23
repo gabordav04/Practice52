@@ -811,7 +811,7 @@ async function syncPublicRank(){
  const isVisible=profile.publicProfile!==false;
  if(!isVisible){await rankRef.delete();return;}
  if($('profileVisible'))$('profileVisible').checked=true;
- const points=Math.max(0,Number(state.points)||0);
+ const rawPoints=Number(state.points);const points=Number.isFinite(rawPoints)?Math.max(0,rawPoints):0;
  const completed=Array.isArray(state.done)?state.done.length:0;
  await rankRef.set({
   nickname:profile.nickname,avatar:profile.avatar||DEFAULT_AVATAR,
@@ -859,12 +859,10 @@ function renderLeaderboardSnapshot(snap){
  list.innerHTML='';
  const docs=(snap&&Array.isArray(snap.docs)?snap.docs:[]);
  if(!docs.length){status.textContent='Поки що немає учасників у рейтингу. Увійдіть і дозвольте показ профілю, щоб з’явитися тут.';return;}
- const top=docs.slice(0,10),ownIndex=firebaseUser?docs.findIndex(d=>d.id===firebaseUser.uid):-1;
- const display=top.slice();
- // Keep the signed-in student's own row visible even when they have 0 points
- // and are outside the top ten. The displayed place remains their real rank.
- if(ownIndex>=10)display.push(docs[ownIndex]);
- status.textContent=ownIndex>=10?'Топ-10 рейтингу та твій особистий результат нижче':'Натисни на учасника, щоб переглянути його навчальний профіль';
+ // Показуємо рівно топ-10. Учасники з 0 балів не відсіюються:
+ // вони займають своє місце після учасників із більшою кількістю балів.
+ const display=docs.slice(0,10);
+ status.textContent='Топ-10 учасників. У рейтингу враховуються також студенти з 0 балів.';
  const seenNicknames=new Set();
  display.forEach(doc=>{
   const d=doc.data()||{};
@@ -892,13 +890,13 @@ function renderLeaderboardSnapshot(snap){
 async function loadLeaderboard(){
  const status=$('leaderboardStatus');if(!status)return;
  try{
-  const snap=await db.collection('leaderboard').orderBy('points','desc').get();
+  const snap=await db.collection('leaderboard').orderBy('points','desc').limit(10).get();
   renderLeaderboardSnapshot(snap);
  }catch(err){status.textContent='Рейтинг недоступний: перевір правила доступу Firestore для leaderboard.';console.warn('Leaderboard unavailable:',err);}
 }
 function watchLeaderboard(){
  if(leaderboardUnsubscribe)leaderboardUnsubscribe();
- leaderboardUnsubscribe=db.collection('leaderboard').orderBy('points','desc').onSnapshot(renderLeaderboardSnapshot,err=>{
+ leaderboardUnsubscribe=db.collection('leaderboard').orderBy('points','desc').limit(10).onSnapshot(renderLeaderboardSnapshot,err=>{
   $('leaderboardStatus').textContent='Не вдалося оновити рейтинг у реальному часі. Перевір правила доступу Firestore.';
   console.warn('Leaderboard listener failed:',err);
  });
