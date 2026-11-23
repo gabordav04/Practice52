@@ -779,6 +779,11 @@ function openAvatarCropper(source){
 renderAvatar((readLocalProfile()||{}).avatar||DEFAULT_AVATAR);renderHeaderIdentity();
 function rankTitle(points){return points>=1000?'Експерт':points>=500?'Майстер':points>=200?'Практик':points>=50?'Стажер':'Початківець';}
 function renderMyRank(){const el=$('myRank');if(el)el.textContent='Твій рівень: '+rankTitle(state.points)+' · '+state.points+' балів';}
+function publicRankDisplayName(profile,user){
+ const candidates=[profile&&profile.nickname,profile&&profile.name,user&&user.displayName,user&&user.email?String(user.email).split('@')[0]:'','Студент'];
+ const value=candidates.find(item=>typeof item==='string'&&item.trim()&&normalizeNickname(item)!=='student');
+ return String(value||'Студент').trim().slice(0,40);
+}
 async function syncPublicRank(){
  if(!firebaseUser||!cloudReady)return;
  const uid=firebaseUser.uid,rankRef=db.collection('leaderboard').doc(uid);
@@ -800,21 +805,20 @@ async function syncPublicRank(){
   console.warn('Role verification failed; public ranking is disabled for safety:',roleError);
   return;
  }
- // Cloud profile is authoritative; local cache may be older or incomplete.
+ // Incomplete cloud profile fields must not suppress an otherwise eligible student.
  const userSnap=await db.collection('users').doc(uid).get();
  const cloudProfile=userSnap.exists?((userSnap.data()||{}).profile||{}):{};
- const profile={...(readLocalProfile()||{}),...cloudProfile};
- if(!profile.nickname||normalizeNickname(profile.nickname)==='student'){
-  console.warn('Public rank not published: a valid nickname is required.');
-  return;
- }
+ const localProfile=readLocalProfile()||{};
+ const profile={...localProfile,...cloudProfile};
+ ['nickname','name','phone','avatar'].forEach(key=>{if(!profile[key]&&localProfile[key])profile[key]=localProfile[key];});
+ const nickname=publicRankDisplayName(profile,firebaseUser);
  const isVisible=profile.publicProfile!==false;
  if(!isVisible){await rankRef.delete();return;}
  if($('profileVisible'))$('profileVisible').checked=true;
  const rawPoints=Number(state.points);const points=Number.isFinite(rawPoints)?Math.max(0,rawPoints):0;
  const completed=Array.isArray(state.done)?state.done.length:0;
  await rankRef.set({
-  nickname:profile.nickname,avatar:profile.avatar||DEFAULT_AVATAR,
+  nickname,avatar:profile.avatar||DEFAULT_AVATAR,
   points,completed,progressPercent:Math.round(completed/52*100),
   correct:Math.max(0,Number(state.correct)||0),answered:Math.max(0,Number(state.answered)||0),
   accuracy:state.answered?Math.round(state.correct/state.answered*100):0,
@@ -2294,17 +2298,19 @@ auth.onAuthStateChanged(async user=>{
   if(user!==auth.currentUser)return;
   if(snap.exists){
    const data=snap.data()||{};
-   if(data.profile){writeLocalProfile(data.profile);$('regName').value=data.profile.name||'';$('regPhone').value=data.profile.phone||'';$('regNickname').value=data.profile.nickname||'';$('regNickname').disabled=false;renderAvatar(data.profile.avatar||DEFAULT_AVATAR);$('profileVisible').checked=data.profile.publicProfile!==false;}
-   if(data.progress&&typeof data.progress==='object'){
-    const localState={...state};state={...data.progress,...localState};
-    if(!Array.isArray(state.mistakes))state.mistakes=Array.isArray(data.progress.mistakes)?data.progress.mistakes:[];
-    if(!state.ratings||typeof state.ratings!=='object')state.ratings=data.progress.ratings||{};
-    if(!state.skillStatusUpdatedAt||typeof state.skillStatusUpdatedAt!=='object')state.skillStatusUpdatedAt={};
-    state.lessonTestsCompleted={...(data.progress.lessonTestsCompleted||{}),...(localState.lessonTestsCompleted||{})};
-    state.learningProgress={...(data.progress.learningProgress||{}),...(localState.learningProgress||{})};
-    mergeCloudSkillStatuses(data.progress);if(window.practice52ReconcileLearningCompletion)window.practice52ReconcileLearningCompletion();
-    state.points=Math.max(Number(localState.points)||0,Number(data.progress.points)||0);state.correct=Math.max(Number(localState.correct)||0,Number(data.progress.correct)||0);state.answered=Math.max(Number(localState.answered)||0,Number(data.progress.answered)||0);
-    localStorage.setItem(KEY,JSON.stringify(state));
+   // A progress-only user document must not leave the profile form blank.
+   const localProfile=readLocalProfile()||{},cloudProfile=data.profile&&typeof data.profile==='object'?data.profile:{};
+   const profile={...localProfile,...cloudProfile};
+   if(!profile.name)profile.name=localProfile.name||user.displayName||'';
+   if(!profile.email)profile.email=user.email||'';
+   if(!profile.avatar)profile.avatar=localProfile.avatar||DEFAULT_AVATAR;
+   if(!profile.nickname&&localProfile.nickname)profile.nickname=localProfile.nickname;
+   if(profile.publicProfile===undefined)profile.publicProfile=localProfile.publicProfile!==false;
+   writeLocalProfile(profile,user);
+   $('regName').value=profile.name||'';$('regPhone').value=profile.phone||'';$('regNickname').value=profile.nickname||'';$('regNickname').disabled=false;
+   renderAvatar(profile.avatar||DEFAULT_AVATAR);$('profileVisible').checked=profile.publicProfile!==false;
+   if(!data.profile||Object.keys(profile).some(key=>profile[key]!==cloudProfile[key])){
+    await ref.set({profile,updatedAt:firebase.firestore.FieldValue.serverTimestamp()},{merge:true});
    }
   }else{
    const profile=readLocalProfile()||{name:user.displayName||'',phone:'',avatar:DEFAULT_AVATAR};
@@ -2339,7 +2345,7 @@ auth.onAuthStateChanged(async user=>{
   const signedProfile=readLocalProfile()||{};
   if(!signedProfile.nickname||normalizeNickname(signedProfile.nickname)==='student'){
    $('regNickname').disabled=false;
-   setAuthStatus('Обов’язково створи унікальний нікнейм (3–20 символів), а потім натисни «Зберегти зміни». До цього профіль не з’явиться в рейтингу.');
+   setAuthStatus('Можеш додати унікальний нікнейм у профілі. До його заповнення в рейтингу відображатиметься ім’я з Google-акаунта.');
    $('accountPanel').classList.remove('hidden');
   }
   renderStats();renderSkills();
