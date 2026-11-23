@@ -2665,9 +2665,9 @@ function renderMatchingRound(){
    renderMatchingRound();
    if(session.matched.length===5&&!session.rewarded){
     const firstTryCount=session.firstTryPairs.length;
-    const earned=firstTryCount>=4?10:firstTryCount===3?5:0;
+    const earned=firstTryCount===5?10:firstTryCount===4?8:firstTryCount===3?2:0;
     session.rewarded=true;session.earned=earned;state.points+=earned;save();
-    $('matchingFeedback').textContent='Усі 5 пар зібрано! З першої спроби: '+firstTryCount+'/5. Нараховано +'+earned+' балів. '+(earned===10?'Чудовий результат! 🏆':earned===5?'Гарна робота! 💚':'Спробуй ще раз і покращ результат!');
+    $('matchingFeedback').textContent='Усі 5 пар зібрано! З першої спроби: '+firstTryCount+'/5. Нараховано +'+earned+' балів. '+(earned===10?'Чудовий результат! 🏆':earned===8?'Гарна робота! 💚':earned===2?'Є прогрес!':'Спробуй ще раз і покращ результат!');
     $('matchingActions').innerHTML='<button type="button" class="btn primary" id="matchingAgain">Наступні 5 пар →</button>';$('matchingAgain').onclick=()=>{matchingSession=null;renderMatchingRound();};
    }
   }else{
@@ -3565,6 +3565,7 @@ function showLoginGate(){
          return;
        }
      }
+     if(selected==='student')p52RenderProfileGroup(readLocalProfile()||profile);
      setAuthStatus('Доступ підтверджено. Відкриваю студентський кабінет…');
      unlockApp();
      // A successful sign-in must dismiss the mandatory account panel.
@@ -3574,7 +3575,11 @@ function showLoginGate(){
      $('studentIdentity').setAttribute('aria-expanded','false');
      if(selected==='student'&&window.p52LoadStudentRoute)await window.p52LoadStudentRoute();
      if(selected==='student'&&user===auth.currentUser){firebaseUser=user;await loadPractice52StudentGroups();}
-     if(user===auth.currentUser)setAuthStatus('Студентський вхід виконано.');
+     if(user===auth.currentUser){
+      setAuthStatus('Студентський вхід виконано.');
+      if(cloudReady){try{await syncPublicRank();}catch(rankError){console.warn('Student rank refresh failed:',rankError);}}
+      await loadLeaderboard();watchLeaderboard();
+     }
    }catch(err){
      console.error('Mandatory profile check failed:',err);lockApp();panel.classList.remove('hidden');
      $('regTitle').textContent='Не вдалося завершити вхід';
