@@ -1399,7 +1399,20 @@ async function p52SubmitAcademicAccess(user,profile){
  return 'pending';
 }
 
-const P52_COURSES=[
+// Restore the primary owner's verified student group from authoritative membership.
+ async function p52HydratePrimaryStudentMembership(user,profile={}){
+  if(!user||!isPrimaryAdminAccount(user))return profile;
+  const memberships=await db.collection('groups').where('studentUids','array-contains',user.uid).get();
+  const active=memberships.docs.filter(doc=>(doc.data()||{}).status!=='archived');
+  if(active.length!==1)return profile;
+  const member=active[0],data=member.data()||{};
+  const hydrated={...profile,name:profile.name||user.displayName||'',email:profile.email||user.email||'',avatar:profile.avatar||DEFAULT_AVATAR,publicProfile:profile.publicProfile===undefined?true:profile.publicProfile,groupId:member.id,groupCode:String(data.groupCode||data.name||profile.groupCode||'').trim(),academicAccessStatus:'approved'};
+  writeLocalProfile(hydrated,user);
+  await db.collection('users').doc(user.uid).set({profile:hydrated,academicAccessStatus:'approved',updatedAt:firebase.firestore.FieldValue.serverTimestamp()},{merge:true});
+  return hydrated;
+ }
+
+ const P52_COURSES=[
  {id:'bachelor-1',level:'bachelor',year:1,title:'Бакалаврат · 1 курс'},
  {id:'bachelor-2',level:'bachelor',year:2,title:'Бакалаврат · 2 курс'},
  {id:'bachelor-3',level:'bachelor',year:3,title:'Бакалаврат · 3 курс'},
@@ -2330,7 +2343,11 @@ auth.onAuthStateChanged(async user=>{
    const data=snap.data()||{};
    // A progress-only user document must not leave the profile form blank.
    const localProfile=readLocalProfile()||{},cloudProfile=data.profile&&typeof data.profile==='object'?data.profile:{};
-   const profile={...localProfile,...cloudProfile};
+   let profile={...localProfile,...cloudProfile};
+   if(isPrimaryAdminAccount(user)){
+    try{profile=await p52HydratePrimaryStudentMembership(user,profile);}
+    catch(membershipError){console.warn('Primary student membership hydration failed:',membershipError);}
+   }
    if(!profile.name)profile.name=localProfile.name||user.displayName||'';
    if(!profile.email)profile.email=user.email||'';
    if(!profile.avatar)profile.avatar=localProfile.avatar||DEFAULT_AVATAR;
@@ -3314,7 +3331,7 @@ function showLoginGate(){
  auth.onAuthStateChanged(async user=>{
    try{await window.practice52AuthPersistenceReady;}catch(err){console.error('Auth persistence initialization failed:',err);}
    if(profileGateBusy){console.warn('Student auth routing paused: profile form submission is active.');return;}
-   if(user){setAuthStatus('Google підтверджено. Перевіряю роль і профіль…');}
+   if(user){setAuthStatus('Google підтверджено. Перевіряю роль і профіль…');document.getElementById('rankingJoinPrompt')?.classList.add('hidden');}
    if(!user){document.getElementById('p52StudentRoute')?.classList.add('hidden');document.body.classList.remove('p52-route-unavailable');if(localStorage.getItem(roleKey))showLoginGate();else showRoleGate();return;}
    try{
      let selected=localStorage.getItem(roleKey)||'';
