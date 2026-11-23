@@ -311,7 +311,7 @@ body.p52-teacher-mode #skillCatalog{margin-top:18px}
 
 </section>
 <section class="registration hidden" id="accountPanel" aria-labelledby="regTitle">
- <h3 id="regTitle">Обліковий запис студента PRACTICE 52</h3>
+ <h3 id="regTitle">Обліковий запис PRACTICE 52</h3>
  <p>Створи акаунт або увійди, щоб синхронізувати профіль і навчальний прогрес між пристроями.</p>
  <div class="avatar-area"><div class="avatar-preview" id="avatarPreview">🦊</div><div class="avatar-tools"><b>Твій аватар</b><div class="avatar-options" id="avatarOptions"><button type="button" class="avatar-choice" data-avatar="🦊">🦊</button><button type="button" class="avatar-choice" data-avatar="🐼">🐼</button><button type="button" class="avatar-choice" data-avatar="🦁">🦁</button><button type="button" class="avatar-choice" data-avatar="🐺">🐺</button><button type="button" class="avatar-choice" data-avatar="🐉">🐉</button><button type="button" class="avatar-choice" data-avatar="🦸">🦸</button><button type="button" class="avatar-choice" data-avatar="🦹">🦹</button><button type="button" class="avatar-choice" data-avatar="🧙">🧙</button><button type="button" class="avatar-choice" data-avatar="🤖">🤖</button><button type="button" class="avatar-choice" data-avatar="👨‍⚕️">👨‍⚕️</button><button type="button" class="avatar-choice" data-avatar="⭐">⭐</button><button type="button" class="avatar-choice" data-avatar="🌌">🌌</button></div><label class="avatar-upload">＋ Завантажити своє фото<input id="avatarFile" type="file" accept="image/*"></label></div></div>
  <form id="registrationForm">
@@ -3480,6 +3480,7 @@ function showLoginGate(){
      }
      applyRoleSpecificFields(selected);
      if(selected==='teacher'&&practice52CurrentRole==='teacher'){
+       $('regTitle').textContent='Обліковий запис викладача PRACTICE 52';
        applyPractice52TeacherLayout(true);
        const teacherSnap=await db.collection('users').doc(user.uid).get();
        const teacherProfile=(teacherSnap.exists&&teacherSnap.data().profile)||readLocalProfile()||{};
