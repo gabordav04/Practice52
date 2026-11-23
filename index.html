@@ -289,7 +289,7 @@ body.p52-teacher-mode #skillCatalog{margin-top:18px}
 
 <header>
  <div class="brand"><div class="logo">＋</div><div><h1>PRACTICE 52</h1><p>Навчальний тренажер практичних навичок</p></div></div>
- <div class="header-right"><button type="button" class="student-identity" id="studentIdentity" aria-controls="accountPanel" aria-expanded="false" title="Відкрити профіль"><span class="student-avatar" id="headerAvatar">🦊</span><span class="student-nickname" id="headerNickname">Гість</span><span class="sync-check" id="savedLabel" role="status" aria-label="Синхронізовано" title="Синхронізовано">✓</span></button></div>
+ <div class="header-right"><button type="button" class="student-identity" id="studentIdentity" aria-controls="accountPanel" aria-expanded="false" title="Відкрити профіль"><span class="student-avatar" id="headerAvatar">🦊</span><span class="student-nickname" id="headerNickname">Гість</span><span class="sync-check" id="savedLabel" role="status" aria-label="Синхронізовано" title="Синхронізовано">✓</span></button><button type="button" class="btn" id="p52RoleSwitcher" aria-label="Змінити роль користувача">⇄ Змінити роль</button></div>
 </header>
 
 <section id="p52TeacherDashboard" class="p52-teacher-dashboard hidden" aria-label="Кабінет викладача">
@@ -1186,7 +1186,7 @@ $('googleLogin').addEventListener('click',()=>{
    setAuthStatus('Помилка завершення попереднього входу Google ('+(err.code||'невідома')+'): '+(err.message||''),true);
   }
  })();
-$('logoutBtn').addEventListener('click',async()=>{try{localStorage.removeItem('practice52_entry_role_v1');localStorage.removeItem('practice52_entry_done_v1');await auth.signOut();}catch(err){setAuthStatus(err.message,true);}});
+$('logoutBtn').addEventListener('click',async()=>{try{await auth.signOut();}catch(err){setAuthStatus(err.message,true);}});
 
 
 let practice52CurrentRole = null;
@@ -1247,6 +1247,27 @@ function renderAdminUserSearch(query,targetId,onChoose,emptyText){
 function ensureAdminPanel(){
  if(practice52AdminPanelReady)return;
  const header=document.querySelector('header');if(!header)return;
+ const toggle=adminNode('button','p52-admin-toggle hidden','⚙ Адміністрування');
+ toggle.type='button';toggle.id='p52AdminToggle';toggle.setAttribute('aria-expanded','false');
+ toggle.addEventListener('click',()=>{
+  const panel=document.getElementById('p52AdminPanel'),opening=panel.classList.contains('hidden');
+  panel.classList.toggle('hidden',!opening);
+  document.body.classList.toggle('p52-admin-mode',opening);
+  if(isPrimaryAdminAccount(firebaseUser)){
+   const nextMode=opening?'admin':'student';
+   localStorage.setItem('practice52_entry_role_v1',nextMode);
+   practice52CurrentRole=nextMode;
+   // Rebuild the full student interface from the same authenticated owner session.
+   // Do not sign out or reopen Google account selection: that could restore the
+   // previously used teacher account on devices with multiple Google sessions.
+   if(!opening){location.reload();return;}
+  }
+  toggle.setAttribute('aria-expanded',String(opening));
+  toggle.textContent=opening?'⚙ Повернутися до навчання':'⚙ Адміністрування';
+  if(opening){panel.scrollIntoView({behavior:'smooth',block:'start'});loadAdminDashboard();}
+  else{document.querySelector('header')?.scrollIntoView({behavior:'smooth',block:'start'});ensurePractice52GroupLeaderWorkspace();loadPractice52StudentGroups();}
+ });
+ document.querySelector('.header-right')?.appendChild(toggle);
  const panel=adminNode('section','p52-admin-panel hidden');panel.id='p52AdminPanel';
  panel.innerHTML='<div class="p52-admin-heading"><div><div class="eyebrow">ПАНЕЛЬ КЕРУВАННЯ</div><h2>Адміністратор</h2><p>Керуйте доступом викладачів і складом навчальних груп.</p></div></div><div class="p52-admin-tabs"><button type="button" class="p52-admin-tab active" data-admin-tab="teachers">Викладачі та доступ</button><button type="button" class="p52-admin-tab" data-admin-tab="groups">Навчальні групи</button><button type="button" class="p52-admin-tab" data-admin-tab="applications">Заявки студентів</button><button type="button" class="p52-admin-tab" data-admin-tab="university">Університет і курси</button></div><div class="p52-admin-status" id="p52AdminStatus" role="status"></div><section data-admin-section="teachers"><h3 class="p52-admin-subhead">Запросити викладача</h3><form class="p52-admin-form" id="p52InviteForm"><button class="btn primary" type="submit">＋ Створити код запрошення</button></form><div class="p52-admin-list" id="p52InviteList">Завантаження…</div><h3>Призначити викладача</h3><input class="p52-admin-search" id="p52TeacherSearch" placeholder="Пошук за нікнеймом або UID"><div class="p52-admin-list" id="p52TeacherSearchResults"></div><h3>Керування викладачами</h3><div class="p52-admin-list" id="p52AdminRoleList">Завантаження…</div></section><section data-admin-section="university" class="hidden"><div class="p52-admin-heading"><div><h3>Структура університету</h3><p>Єдиний університет · Фізична терапія та реабілітація · 6 курсів</p></div><button type="button" class="btn primary" id="p52UniversitySeed">Створити / оновити структуру</button></div><div class="p52-admin-status" id="p52UniversityStatus">Поки не завантажено.</div><div id="p52UniversityCourses"></div><h3>Додати практику</h3><form id="p52UniversityPracticeForm" class="p52-university-form"><select id="p52UniversityCourse" required><option value="">Оберіть курс</option></select><input id="p52UniversityPracticeTitle" class="p52-university-wide" maxlength="220" placeholder="Назва практики" required><textarea id="p52UniversityPracticeDescription" class="p52-university-wide" placeholder="Короткий опис (необов’язково)"></textarea><button class="btn primary" type="submit">＋ Створити практику</button></form><div id="p52UniversityPracticeList"></div><p class="note">На цьому етапі каталог доступний адміністратору. Підключення студентів, викладачів і груп буде наступним етапом після перевірки правил доступу.</p></section><section data-admin-section="groups" class="hidden"><h3>Створити навчальну групу</h3><form class="p52-admin-form" id="p52GroupForm"><input id="p52GroupName" maxlength="80" placeholder="Код групи (наприклад 15711fr)" maxlength="7" pattern="[0-9]{5}fr" title="5 цифр + маленькі латинські fr" required><select id="p52GroupTeacher" required><option value="">Оберіть викладача</option></select><button class="btn primary" type="submit">Створити групу</button></form><h3>Керування групами та студентами</h3><div class="p52-admin-list" id="p52GroupList">Завантаження…</div></section><section data-admin-section="applications" class="hidden"><h3>Заявки на вступ до навчальних груп</h3><p>Підтверджуй заявки студентів. Після схвалення студент автоматично отримає доступ до навчального кабінету.</p><div class="p52-admin-list" id="p52ApplicationList">Завантаження заявок…</div></section>';
  header.insertAdjacentElement('afterend',panel);
@@ -3110,7 +3131,9 @@ renderStats();renderSkills();renderHeaderIdentity();
  document.querySelectorAll('[data-entry-role]').forEach(b=>b.addEventListener('click',()=>{selected=b.dataset.entryRole;updateRoleUI();}));
  // Google sign-in is available only inside the registration/login panel.
  document.getElementById('p52EntryBack').addEventListener('click',()=>{backdrop.classList.add('hidden');});
-
+ document.getElementById('studentIdentity').addEventListener('contextmenu',e=>{e.preventDefault();openEntry();});
+ window.practice52OpenEntry=openEntry;
+ const roleButton=document.getElementById('p52RoleSwitcher');if(roleButton)roleButton.addEventListener('click',openEntry);
 })();</script>
 
 <script>
@@ -3398,8 +3421,6 @@ function showLoginGate(){
         $('regPassword').value='';$('regPassword').required=false;$('regPassword').closest('.reg-field').classList.add('hidden');
         $('googleLogin').classList.add('hidden');$('emailLogin').classList.add('hidden');
         $('logoutBtn').classList.remove('hidden');$('saveProfileBtn').classList.remove('hidden');$('hideProfileBtn').classList.remove('hidden');
-        $('regTitle').textContent='Профіль адміністратора PRACTICE 52';
-        const createAccountButton=form.querySelector('button[type="submit"]');if(createAccountButton)createAccountButton.classList.add('hidden');
         $('regStatus').textContent='Адміністративний акаунт активний. Тут можна переглядати й редагувати свій профіль.';
         $('regStatus').style.color='var(--green)';
        unlockApp();panel.classList.remove('hidden');backdrop.classList.add('hidden');
@@ -3599,7 +3620,8 @@ body.p52-route-unavailable .app>:not(header):not(#accountPanel):not(#p52StudentR
 
 <style id="p52-role-switcher-visible">
 #p52EntryConfirm{display:block!important;position:relative;z-index:10001;min-height:48px;pointer-events:auto;touch-action:manipulation;cursor:pointer}#p52EntryConfirm:disabled{opacity:.65;cursor:wait}
-@media(max-width:760px){.header-right{display:flex!important;flex-direction:column!important;align-items:stretch!important;gap:9px!important}.student-identity{order:1}}
+#p52RoleSwitcher{display:flex!important;align-items:center;justify-content:center;min-height:44px;padding:10px 16px;border:1px solid #b8d4e2;border-radius:14px;background:#edf6fa;color:#245f80;font-weight:750;font-size:14px;white-space:nowrap;cursor:pointer;position:relative;z-index:5}
+@media(max-width:760px){.header-right{display:flex!important;flex-direction:column!important;align-items:stretch!important;gap:9px!important}#p52RoleSwitcher{width:100%;box-sizing:border-box;order:2}.student-identity{order:1}}
 </style>
 
 
